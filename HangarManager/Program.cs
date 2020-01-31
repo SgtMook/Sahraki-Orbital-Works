@@ -17,49 +17,12 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
+using SharedProjects;
+
 namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
-        #region Waypoint
-        public struct Waypoint
-        {
-            public Vector3 Position;
-            public Vector3 Direction;
-            public float MaxSpeed;
-            public string Name;
-            public string ReferenceMode;
-        }
-
-        static string SerializeWaypoint(Waypoint w)
-        {
-            return $"{w.Position.ToString()}|{w.Direction.ToString()}|{w.MaxSpeed.ToString()}|{w.Name}|{w.ReferenceMode}";
-        }
-
-        Waypoint DeserializeWaypoint(string s)
-        {
-            string[] split = s.Split('|');
-            Waypoint w = new Waypoint();
-            w.Position = StringToVector3(split[0]);
-            w.Direction = StringToVector3(split[1]);
-            w.MaxSpeed = float.Parse(split[2]);
-            w.Name = split[3];
-            w.ReferenceMode = split[4];
-            return w;
-        }
-
-        public static Vector3 StringToVector3(string sVector)
-        {
-            sVector = sVector.Substring(1, sVector.Length - 2);
-            string[] sArray = sVector.Split(' ');
-            Vector3 result = new Vector3(
-                float.Parse(sArray[0].Substring(2)),
-                float.Parse(sArray[1].Substring(2)),
-                float.Parse(sArray[2].Substring(2)));
-            return result;
-        }
-        #endregion
-
         #region HangarManager
         class Hangar
         {
@@ -357,8 +320,8 @@ namespace IngameScript
                 var wb = GetDockingWaypointB();
 
                 StringBuilder b = new StringBuilder();
-                b.AppendLine(SerializeWaypoint(w));
-                b.AppendLine(SerializeWaypoint(wb));
+                b.AppendLine(Waypoint.SerializeWaypoint(w));
+                b.AppendLine(Waypoint.SerializeWaypoint(wb));
                 rotor.CustomData = b.ToString();
             }
 

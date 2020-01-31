@@ -8,3 +8,4 @@
 
 # ...even if they are in subdirectories
 !*/
+!SharedProjects/*.cs
