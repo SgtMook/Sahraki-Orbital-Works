@@ -51,6 +51,9 @@ namespace IngameScript
             Enum.TryParse(NextStorageLine(), out currentState);
 
             tag = NextStorageLine();
+
+            if (currentState != ScriptState.Uninitialized)
+                GetParts();
         }
 
         void MyProgram()
