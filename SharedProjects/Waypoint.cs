@@ -22,14 +22,18 @@ namespace SharedProjects
         {
             string[] split = s.Split('|');
             Waypoint w = new Waypoint();
-            w.Position = StringToVector3(split[0]);
-            w.Direction = StringToVector3(split[1]);
+            w.Position = VectorUtilities.StringToVector3(split[0]);
+            w.Direction = VectorUtilities.StringToVector3(split[1]);
             w.MaxSpeed = float.Parse(split[2]);
             w.Name = split[3];
             w.ReferenceMode = split[4];
             return w;
         }
+    }
+    #endregion
 
+    public class VectorUtilities
+    {
         public static Vector3 StringToVector3(string sVector)
         {
             sVector = sVector.Substring(1, sVector.Length - 2);
@@ -41,5 +45,4 @@ namespace SharedProjects
             return result;
         }
     }
-    #endregion
 }
