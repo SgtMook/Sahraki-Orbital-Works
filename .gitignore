@@ -9,3 +9,4 @@
 # ...even if they are in subdirectories
 !*/
 !SharedProjects/*.cs
+!SharedProjects/*/*.cs
