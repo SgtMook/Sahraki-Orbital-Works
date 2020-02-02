@@ -30,14 +30,12 @@ namespace IngameScript
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             // Add subsystems
-            subsystemManager.AddSubsystem("autopilot", new AutopilotSubsystem());
-            subsystemManager.AddSubsystem("docking", new DockingSubsystem());
+            subsystemManager.AddSubsystem("sensor", new SensorSubsystem());
 
             subsystemManager.DeserializeManager(Storage);
         }
 
         MyCommandLine commandLine = new MyCommandLine();
-        Dictionary<string, Action> commands = new Dictionary<string, Action>(StringComparer.OrdinalIgnoreCase);
 
         SubsystemManager subsystemManager;
 

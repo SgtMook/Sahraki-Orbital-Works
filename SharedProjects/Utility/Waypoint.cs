@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using VRageMath;
 
-namespace SharedProjects
+namespace SharedProjects.Utility
 {
     #region Waypoint
     public class Waypoint

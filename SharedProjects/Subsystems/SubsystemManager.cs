@@ -17,7 +17,9 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
-namespace SharedProjects
+using SharedProjects.Utility;
+
+namespace SharedProjects.Subsystems
 {
     public class SubsystemManager
     {
@@ -40,7 +42,7 @@ namespace SharedProjects
             if (!Subsystems.ContainsKey(name))
             {
                 Subsystems[name] = subsystem;
-                subsystem.Setup(Program);
+                subsystem.Setup(Program, this);
                 return "AOK";
             }
             else

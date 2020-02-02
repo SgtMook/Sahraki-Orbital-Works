@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace SharedProjects
+namespace SharedProjects.Utility
 {
     public class MyStringReader
     {

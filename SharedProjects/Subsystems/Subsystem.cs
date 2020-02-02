@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Text;
 using Sandbox.ModAPI.Ingame;
 
-namespace SharedProjects
+namespace SharedProjects.Subsystems
 {
     public interface ISubsystem
     {
-        void Setup(MyGridProgram program);
+        void Setup(MyGridProgram program, SubsystemManager manager);
         void Update();
         void Command(string command, object argument);
         string GetStatus();

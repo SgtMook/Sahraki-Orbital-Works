@@ -17,7 +17,9 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
-namespace SharedProjects
+using SharedProjects.Utility;
+
+namespace SharedProjects.Subsystems
 {
     public class AutopilotSubsystem : ISubsystem
     {
@@ -30,9 +32,10 @@ namespace SharedProjects
         {
             if (command == "move") targetPosition = ParseGPS((string)argument);
             if (command == "turn") targetDirection = ParseGPS((string)argument) - reference.WorldMatrix.Translation;
+            if (command == "setwaypoint") SetWaypoint((Waypoint)argument);
         }
 
-        public void Setup(MyGridProgram program)
+        public void Setup(MyGridProgram program, SubsystemManager manager)
         {
             Program = program;
 
@@ -134,6 +137,21 @@ namespace SharedProjects
 
         // Helpers
 
+        void SetWaypoint(Waypoint w)
+        {
+            if (w.Position != Vector3.One)
+                targetPosition = w.Position;
+            if (w.Direction != Vector3.One)
+                targetDirection = w.Direction;
+            if (w.MaxSpeed != -1f)
+                maxSpeed = w.MaxSpeed;
+
+            if (w.ReferenceMode == "Dock")
+                reference = connector;
+            else
+                reference = controller;
+        }
+
         void GetParts()
         {
             controller = null;
@@ -169,10 +187,18 @@ namespace SharedProjects
                 connector = (IMyShipConnector)block;
 
             if (block is IMyThrust)
-                thrustersList.Add((IMyThrust)block);
+            {
+                IMyThrust thruster = (IMyThrust)block;
+                thrustersList.Add(thruster);
+                thruster.ThrustOverride = 0;
+            }
 
             if (block is IMyGyro)
-                gyros.Add((IMyGyro)block);
+            {
+                IMyGyro gyro = (IMyGyro)block;
+                gyros.Add(gyro);
+                gyro.GyroOverride = false;
+            }
 
             return false;
         }
@@ -182,6 +208,15 @@ namespace SharedProjects
             Vector3 AutopilotMoveIndicator;
 
             GetMovementVectors(targetPosition, controller, reference, thrusts[0], maxSpeed, out AutopilotMoveIndicator, ref D, ref I);
+
+            if (AutopilotMoveIndicator == Vector3.Zero)
+            {
+                controller.DampenersOverride = true;
+            }
+            else
+            {
+                controller.DampenersOverride = false;
+            }
 
             var gridDirIndicator = Vector3.TransformNormal(AutopilotMoveIndicator, MatrixD.Transpose(
                 Program.Me.CubeGrid.WorldMatrix));
@@ -200,15 +235,16 @@ namespace SharedProjects
 
             double yawAngle, pitchAngle;
             GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
+            ApplyGyroOverride(pitchAngle * 2, yawAngle * 2, 0, gyros, reference);
 
             if (yawAngle < 0.01f && pitchAngle < 0.01f)
             {
                 targetDirection = Vector3.Zero;
-                pitchAngle = 0;
-                yawAngle = 0;
+                foreach (var gyro in gyros)
+                {
+                    gyro.GyroOverride = false;
+                }
             }
-
-            ApplyGyroOverride(pitchAngle * 2, yawAngle * 2, 0, gyros, reference);
         }
 
         Vector3 ParseGPS(string s)
