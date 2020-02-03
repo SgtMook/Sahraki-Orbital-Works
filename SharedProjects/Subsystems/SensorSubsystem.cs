@@ -21,18 +21,9 @@ namespace SharedProjects.Subsystems
 {
     public class SensorSubsystem : ISubsystem
     {
+
+        #region ISubsystem
         public int UpdateFrequency { get; private set; }
-
-        IMyShipController controller;
-
-        IMyMotorStator yaw;
-        IMyMotorStator pitch;
-
-        MyGridProgram Program;
-
-        IMyTextPanel panelLeft;
-        IMyTextPanel panelRight;
-        IMyTextPanel panelMiddle;
 
         public void Command(string command, object argument)
         {
@@ -44,7 +35,39 @@ namespace SharedProjects.Subsystems
 
         public string GetStatus()
         {
-            return (yaw != null && pitch != null && controller != null) ? "AOK" : "ERR";
+            updateBuilder.Clear();
+
+            foreach (IMyCameraBlock camera in secondaryCameras)
+            {
+                updateBuilder.AppendLine($"{((int)(camera.AvailableScanRange/1000)).ToString()} km");
+            }
+
+            updateBuilder.AppendLine(cameraIndex.ToString());
+            updateBuilder.AppendLine();
+            updateBuilder.AppendLine("Last detected: ");
+            if (lastDetectedInfo.IsEmpty())
+            {
+                updateBuilder.AppendLine("None");
+            }
+            else
+            {
+                var distance = ((Vector3D)lastDetectedInfo.HitPosition - controller.WorldMatrix.Translation).Length();
+                updateBuilder.AppendLine($"{lastDetectedInfo.Name}");
+                updateBuilder.AppendLine($"Range: {(int)distance} m");
+                updateBuilder.AppendLine();
+
+                // Get direction
+                var worldDirection = lastDetectedInfo.Position - primaryCamera.WorldMatrix.Translation;
+                var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
+                updateBuilder.AppendLine($"{(int)bodyPosition.X} {(int)bodyPosition.Y} {(int)bodyPosition.Z}");
+                updateBuilder.AppendLine($"{Vector3D.Forward}");
+            }
+
+            updateBuilder.AppendLine();
+            updateBuilder.AppendLine(panelMiddle.TextureSize.ToString());
+
+
+            return updateBuilder.ToString();
         }
 
         public string SerializeSubsystem()
@@ -59,8 +82,67 @@ namespace SharedProjects.Subsystems
             UpdateFrequency = 1;
         }
 
+        private const int kScanDistance = 5000000;
+
+        public void Update(TimeSpan timestamp)
+        {
+            Timestamp = timestamp;
+            if (primaryCamera.IsActive)
+            {
+                // Move swivel
+                pitch.TargetVelocityRPM = controller.RotationIndicator[0]*0.3f;
+                yaw.TargetVelocityRPM = controller.RotationIndicator[1]*0.3f;
+
+                // Take inputs
+                TriggerInputs();
+
+                // Draw HUD
+                using (var frame = panelMiddle.DrawFrame())
+                {
+                    var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.1f));
+                    crosshairs.Position = new Vector2(0, -2) + panelMiddle.TextureSize/2f;
+                    panelMiddle.ScriptBackgroundColor = new Color(1, 0, 0, 0);
+                    frame.Add(crosshairs);
+
+                    if (!lastDetectedInfo.IsEmpty())
+                    {
+                        frame.Add(DetectedInfoToSprite(lastDetectedInfo, Timestamp - lastDetectedTimestamp));
+                    }
+                }
+
+                panelLeft.Alignment = TextAlignment.RIGHT;
+
+                foreach (IMyCameraBlock camera in secondaryCameras)
+                {
+                    camera.EnableRaycast = camera.AvailableScanRange < kScanDistance;
+                }
+
+                panelLeft.WriteText(GetStatus());
+            }
+        }
+
+        #endregion
+
+        IMyShipController controller;
+
+        IMyMotorStator yaw;
+        IMyMotorStator pitch;
+
+        MyGridProgram Program;
+
+        IMyTextPanel panelLeft;
+        IMyTextPanel panelRight;
+        IMyTextPanel panelMiddle;
+
+        List<IMyCameraBlock> secondaryCameras = new List<IMyCameraBlock>();
+        IMyCameraBlock primaryCamera;
+
+        StringBuilder updateBuilder = new StringBuilder();
+
+        TimeSpan Timestamp;
         void GetParts()
         {
+            secondaryCameras.Clear();
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
@@ -74,32 +156,143 @@ namespace SharedProjects.Subsystems
             if (block is IMyMotorStator)
             {
                 var rotor = (IMyMotorStator)block;
-                if (rotor.CustomName.StartsWith("[S-Y]"))
+                if (rotor.CustomName.StartsWith("[SN-Y]"))
                     yaw = rotor;
-                else if (rotor.CustomName.StartsWith("[S-P]"))
+                else if (rotor.CustomName.StartsWith("[SN-P]"))
                     pitch = rotor;
             }
 
-            if (block is IMyTextPanel && block.CustomName.StartsWith("[S-SM]"))
+            if (block is IMyTextPanel)
             {
-                panelMiddle = (IMyTextPanel)block;
+                if (block.CustomName.StartsWith("[SN-SM]"))
+                    panelMiddle = (IMyTextPanel)block;
+                if (block.CustomName.StartsWith("[SN-SL]"))
+                    panelLeft = (IMyTextPanel)block;
+                if (block.CustomName.StartsWith("[SN-SR]"))
+                    panelRight = (IMyTextPanel)block;
+            }
+
+            if (block is IMyCameraBlock)
+            {
+                if (block.CustomName.StartsWith("[SN-C-S]"))
+                    secondaryCameras.Add((IMyCameraBlock)block);
+                else if (block.CustomName.StartsWith("[SN-C-P]"))
+                    primaryCamera = (IMyCameraBlock)block;
             }
 
             return false;
         }
 
-        public void Update()
-        {
-            pitch.TargetVelocityRPM = controller.RotationIndicator[0]*0.3f;
-            yaw.TargetVelocityRPM = controller.RotationIndicator[1]*0.3f;
+        #region Inputs
+        bool lastADown = false;
+        bool lastSDown = false;
+        bool lastDDown = false;
+        bool lastWDown = false;
+        bool lastQDown = false;
+        bool lastEDown = false;
+        bool lastCDown = false;
+        bool lastSpaceDown = false;
 
-            using (var frame = panelMiddle.DrawFrame())
-            {
-                var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(20f, 20f), color: new Color(1,1,1,0.1f));
-                //crosshairs.Position = panelMiddle.TextureSize / 2f + (new Vector2(50f) / 2f);
-                panelMiddle.ScriptBackgroundColor = new Color(1, 0, 0, 0);
-                frame.Add(crosshairs);
-            }
+        private void TriggerInputs()
+        {
+            if (controller == null) return;
+            var inputVecs = controller.MoveIndicator;
+            var inputRoll = controller.RollIndicator;
+            if (!lastADown && inputVecs.X < 0) DoA();
+            lastADown = inputVecs.X < 0;
+            if (!lastSDown && inputVecs.Z > 0) DoS();
+            lastSDown = inputVecs.Z > 0;
+            if (!lastDDown && inputVecs.X > 0) DoD();
+            lastDDown = inputVecs.X > 0;
+            if (!lastWDown && inputVecs.Z < 0) DoW();
+            lastWDown = inputVecs.Z < 0;
+            if (!lastCDown && inputVecs.Y < 0) DoC();
+            lastCDown = inputVecs.Y < 0;
+            if (!lastSpaceDown && inputVecs.Y > 0) DoSpace();
+            lastSpaceDown = inputVecs.Y > 0;
+            if (!lastQDown && inputRoll < 0) DoQ();
+            lastQDown = inputRoll < 0;
+            if (!lastEDown && inputRoll > 0) DoE();
+            lastEDown = inputRoll > 0;
         }
+
+        void DoA()
+        {
+
+        }
+
+        void DoS()
+        {
+
+        }
+
+        void DoD()
+        {
+
+        }
+
+        void DoW()
+        {
+
+        }
+
+        void DoQ()
+        {
+
+        }
+
+        void DoE()
+        {
+
+        }
+
+        void DoC()
+        {
+
+        }
+
+        void DoSpace()
+        {
+            DoScan();
+        }
+        #endregion
+
+        #region Raycast
+        int cameraIndex = 0;
+        MyDetectedEntityInfo lastDetectedInfo;
+        TimeSpan lastDetectedTimestamp;
+        void DoScan()
+        {
+            IMyCameraBlock usingCamera = secondaryCameras[cameraIndex];
+            cameraIndex += 1;
+            if (cameraIndex == secondaryCameras.Count) cameraIndex = 0;
+            lastDetectedInfo = usingCamera.Raycast(usingCamera.AvailableScanRange);
+            lastDetectedTimestamp = Timestamp;
+        }
+        #endregion
+
+        #region Display
+
+        const float kCameraToScreen = 1.06f;
+        const int kScreenSize = 512;
+
+        MySprite DetectedInfoToSprite(MyDetectedEntityInfo info, TimeSpan deltaTime)
+        {
+            var worldDirection = info.Position + (info.Velocity * (float)deltaTime.TotalSeconds) - primaryCamera.WorldMatrix.Translation;
+            var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
+            var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y/bodyPosition.Z));
+
+            //var sprite = new MySprite(SpriteType.TEXTURE, "Danger", size: new Vector2(50f, 50f), color: new Color(1, 1, 1, 0.1f));
+            var sprite = MySprite.CreateText("x", "Debug", new Color(1, 1, 1, 0.1f), 1, TextAlignment.CENTER);
+            var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
+
+            v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
+            v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
+            v.Y -= 20;
+
+            sprite.Position = v;
+            return sprite;
+        }
+        #endregion
     }
 }

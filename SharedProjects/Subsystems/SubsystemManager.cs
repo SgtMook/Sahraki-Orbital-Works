@@ -32,6 +32,8 @@ namespace SharedProjects.Subsystems
         StringBuilder StatusBuilder = new StringBuilder();
         StringBuilder DebugBuilder = new StringBuilder();
 
+        TimeSpan Timestamp = new TimeSpan();
+
         public SubsystemManager(MyGridProgram program)
         {
             Program = program;
@@ -74,8 +76,6 @@ namespace SharedProjects.Subsystems
 
             return saveBuilder.ToString();
         }
-
-
 
         public void DeserializeManager(string serialized)
         {
@@ -121,11 +121,12 @@ namespace SharedProjects.Subsystems
         public void Update()
         {
             UpdateCounter++;
+            Timestamp += Program.Runtime.TimeSinceLastRun;
             foreach (ISubsystem subsystem in Subsystems.Values)
             {
                 if (UpdateCounter % subsystem.UpdateFrequency == 0)
                 {
-                    subsystem.Update();
+                    subsystem.Update(Timestamp);
                 }
             }
         }

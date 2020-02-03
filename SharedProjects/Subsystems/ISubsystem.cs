@@ -8,7 +8,7 @@ namespace SharedProjects.Subsystems
     public interface ISubsystem
     {
         void Setup(MyGridProgram program, SubsystemManager manager);
-        void Update();
+        void Update(TimeSpan timestamp);
         void Command(string command, object argument);
         string GetStatus();
 

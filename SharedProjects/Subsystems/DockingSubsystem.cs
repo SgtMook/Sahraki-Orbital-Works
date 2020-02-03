@@ -58,7 +58,7 @@ namespace SharedProjects.Subsystems
             Connector = (IMyShipConnector)getBlocksScratchPad[0];
         }
 
-        public void Update()
+        public void Update(TimeSpan timestamp)
         {
         }
         #endregion

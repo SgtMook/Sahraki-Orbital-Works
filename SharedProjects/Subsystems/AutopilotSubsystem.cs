@@ -42,7 +42,7 @@ namespace SharedProjects.Subsystems
             GetParts();
         }
 
-        public void Update()
+        public void Update(TimeSpan timestamp)
         {
             if (targetPosition != Vector3.Zero) SetThrusterPowers();
             if (targetDirection != Vector3.Zero) SetGyroPowers();
