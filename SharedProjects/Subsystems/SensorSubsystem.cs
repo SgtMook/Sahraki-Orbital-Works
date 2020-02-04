@@ -17,6 +17,8 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
+using SharedProjects.Utility;
+
 namespace SharedProjects.Subsystems
 {
     public class SensorSubsystem : ISubsystem
@@ -37,36 +39,6 @@ namespace SharedProjects.Subsystems
         {
             updateBuilder.Clear();
 
-            foreach (IMyCameraBlock camera in secondaryCameras)
-            {
-                updateBuilder.AppendLine($"{((int)(camera.AvailableScanRange/1000)).ToString()} km");
-            }
-
-            updateBuilder.AppendLine(cameraIndex.ToString());
-            updateBuilder.AppendLine();
-            updateBuilder.AppendLine("Last detected: ");
-            if (lastDetectedInfo.IsEmpty())
-            {
-                updateBuilder.AppendLine("None");
-            }
-            else
-            {
-                var distance = ((Vector3D)lastDetectedInfo.HitPosition - controller.WorldMatrix.Translation).Length();
-                updateBuilder.AppendLine($"{lastDetectedInfo.Name}");
-                updateBuilder.AppendLine($"Range: {(int)distance} m");
-                updateBuilder.AppendLine();
-
-                // Get direction
-                var worldDirection = lastDetectedInfo.Position - primaryCamera.WorldMatrix.Translation;
-                var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
-                updateBuilder.AppendLine($"{(int)bodyPosition.X} {(int)bodyPosition.Y} {(int)bodyPosition.Z}");
-                updateBuilder.AppendLine($"{Vector3D.Forward}");
-            }
-
-            updateBuilder.AppendLine();
-            updateBuilder.AppendLine(panelMiddle.TextureSize.ToString());
-
-
             return updateBuilder.ToString();
         }
 
@@ -78,6 +50,7 @@ namespace SharedProjects.Subsystems
         public void Setup(MyGridProgram program, SubsystemManager manager)
         {
             Program = program;
+            Manager = manager;
             GetParts();
             UpdateFrequency = 1;
         }
@@ -104,9 +77,9 @@ namespace SharedProjects.Subsystems
                     panelMiddle.ScriptBackgroundColor = new Color(1, 0, 0, 0);
                     frame.Add(crosshairs);
 
-                    if (!lastDetectedInfo.IsEmpty())
+                    foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
                     {
-                        frame.Add(DetectedInfoToSprite(lastDetectedInfo, Timestamp - lastDetectedTimestamp));
+                        frame.Add(FleetIntelItemToSprite(intel, timestamp));
                     }
                 }
 
@@ -117,6 +90,7 @@ namespace SharedProjects.Subsystems
                     camera.EnableRaycast = camera.AvailableScanRange < kScanDistance;
                 }
 
+                // Write debug status for now
                 panelLeft.WriteText(GetStatus());
             }
         }
@@ -129,6 +103,7 @@ namespace SharedProjects.Subsystems
         IMyMotorStator pitch;
 
         MyGridProgram Program;
+        SubsystemManager Manager;
 
         IMyTextPanel panelLeft;
         IMyTextPanel panelRight;
@@ -140,6 +115,14 @@ namespace SharedProjects.Subsystems
         StringBuilder updateBuilder = new StringBuilder();
 
         TimeSpan Timestamp;
+
+        IIntelProvider IntelProvider;
+
+        public SensorSubsystem(IIntelProvider intelProvider)
+        {
+            IntelProvider = intelProvider;
+        }
+
         void GetParts()
         {
             secondaryCameras.Clear();
@@ -253,7 +236,9 @@ namespace SharedProjects.Subsystems
 
         void DoSpace()
         {
-            DoScan();
+            Waypoint w = GetWaypoint();
+            Program.IGC.SendBroadcastMessage(FleetIntelligenceConfig.IntelReportChannelTag, Waypoint.IGCPackGeneric(w));
+            Manager.Command("intel", "additem", w);
         }
         #endregion
 
@@ -268,6 +253,19 @@ namespace SharedProjects.Subsystems
             if (cameraIndex == secondaryCameras.Count) cameraIndex = 0;
             lastDetectedInfo = usingCamera.Raycast(usingCamera.AvailableScanRange);
             lastDetectedTimestamp = Timestamp;
+        }
+        #endregion
+
+        #region Waypoint Designation
+        // TODO: Hook this up to controls
+        int distMeters = 1000;
+        Waypoint GetWaypoint()
+        {
+            var w = new Waypoint();
+
+            w.Position = Vector3D.Transform(Vector3D.Forward * distMeters, primaryCamera.WorldMatrix);
+
+            return w;
         }
         #endregion
 
@@ -289,9 +287,67 @@ namespace SharedProjects.Subsystems
             v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
             v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
             v.Y -= 20;
-
             sprite.Position = v;
             return sprite;
+        }
+
+        MySprite FleetIntelItemToSprite(IFleetIntelligence intel, TimeSpan timestamp)
+        {
+            var worldDirection = intel.GetPosition(timestamp) - primaryCamera.WorldMatrix.Translation;
+            var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
+            var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y / bodyPosition.Z));
+
+            // TODO: Different sprites for different types
+            // TODO: Scale sprites based on size/distance
+            var sprite = MySprite.CreateText("x", "Debug", new Color(1, 1, 1, 0.1f), 1, TextAlignment.CENTER);
+            var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
+
+            v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
+            v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
+            v.Y -= 20;
+            sprite.Position = v;
+            return sprite;
+        }
+        #endregion
+
+        #region Intel
+        void ReportWaypoint(Waypoint w)
+        {
+            Program.IGC.SendBroadcastMessage(FleetIntelligenceConfig.IntelReportChannelTag, w);
+        }
+        #endregion
+
+        #region Debug
+        void GetRaycastDebug()
+        {
+            foreach (IMyCameraBlock camera in secondaryCameras)
+            {
+                updateBuilder.AppendLine($"{((int)(camera.AvailableScanRange / 1000)).ToString()} km");
+            }
+
+            updateBuilder.AppendLine(cameraIndex.ToString());
+            updateBuilder.AppendLine();
+            updateBuilder.AppendLine("Last detected: ");
+            if (lastDetectedInfo.IsEmpty())
+            {
+                updateBuilder.AppendLine("None");
+            }
+            else
+            {
+                var distance = ((Vector3D)lastDetectedInfo.HitPosition - controller.WorldMatrix.Translation).Length();
+                updateBuilder.AppendLine($"{lastDetectedInfo.Name}");
+                updateBuilder.AppendLine($"Range: {(int)distance} m");
+                updateBuilder.AppendLine();
+
+                // Get direction
+                var worldDirection = lastDetectedInfo.Position - primaryCamera.WorldMatrix.Translation;
+                var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
+                updateBuilder.AppendLine($"{(int)bodyPosition.X} {(int)bodyPosition.Y} {(int)bodyPosition.Z}");
+                updateBuilder.AppendLine($"{Vector3D.Forward}");
+            }
+
+            updateBuilder.AppendLine();
+            updateBuilder.AppendLine(panelMiddle.TextureSize.ToString());
         }
         #endregion
     }

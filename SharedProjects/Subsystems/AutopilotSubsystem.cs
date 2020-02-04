@@ -146,7 +146,7 @@ namespace SharedProjects.Subsystems
             if (w.MaxSpeed != -1f)
                 maxSpeed = w.MaxSpeed;
 
-            if (w.ReferenceMode == "Dock")
+            if (w.ReferenceMode == WaypointReferenceMode.Dock)
                 reference = connector;
             else
                 reference = controller;

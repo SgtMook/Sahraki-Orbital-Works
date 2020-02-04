@@ -116,15 +116,13 @@ namespace SharedProjects.Subsystems
             }
         }
 
-
-
         public void Update()
         {
             UpdateCounter++;
             Timestamp += Program.Runtime.TimeSinceLastRun;
             foreach (ISubsystem subsystem in Subsystems.Values)
             {
-                if (UpdateCounter % subsystem.UpdateFrequency == 0)
+                if (subsystem.UpdateFrequency > 0 && UpdateCounter % subsystem.UpdateFrequency == 0)
                 {
                     subsystem.Update(Timestamp);
                 }

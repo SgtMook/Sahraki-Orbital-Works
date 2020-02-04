@@ -30,7 +30,9 @@ namespace IngameScript
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             // Add subsystems
-            subsystemManager.AddSubsystem("sensor", new SensorSubsystem());
+            IntelMasterSubsystem intelSubsystem = new IntelMasterSubsystem();
+            subsystemManager.AddSubsystem("intel", intelSubsystem);
+            subsystemManager.AddSubsystem("sensor", new SensorSubsystem(intelSubsystem));
 
             subsystemManager.DeserializeManager(Storage);
         }

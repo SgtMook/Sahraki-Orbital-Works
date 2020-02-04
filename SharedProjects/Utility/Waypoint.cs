@@ -1,34 +1,113 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using VRage;
 using VRageMath;
 
 namespace SharedProjects.Utility
 {
-    #region Waypoint
-    public class Waypoint
+    public enum WaypointReferenceMode
     {
-        public Vector3 Position;
-        public Vector3 Direction;
+        Default,
+        Dock,
+        Winch
+    }
+
+    #region Waypoint
+    public class Waypoint : IFleetIntelligence
+    {
+        public Vector3 Position; // Position of Zero means to stop moving, One means to keep original
+        public Vector3 Direction; // Direction of Zero means to stop turning, One means to keep original
         public float MaxSpeed;
         public string Name;
-        public string ReferenceMode;
+        public WaypointReferenceMode ReferenceMode;
+
         public static string SerializeWaypoint(Waypoint w)
         {
-            return $"{w.Position.ToString()}|{w.Direction.ToString()}|{w.MaxSpeed.ToString()}|{w.Name}|{w.ReferenceMode}";
+            return $"{w.Position.ToString()}|{w.Direction.ToString()}|{w.MaxSpeed.ToString()}|{w.Name}|{(int)w.ReferenceMode}";
         }
 
         public static Waypoint DeserializeWaypoint(string s)
         {
-            string[] split = s.Split('|');
             Waypoint w = new Waypoint();
-            w.Position = VectorUtilities.StringToVector3(split[0]);
-            w.Direction = VectorUtilities.StringToVector3(split[1]);
-            w.MaxSpeed = float.Parse(split[2]);
-            w.Name = split[3];
-            w.ReferenceMode = split[4];
+            w.Deserialize(s);
             return w;
         }
+
+
+        #region IFleetIntelligence
+
+        public Waypoint()
+        {
+            Position = Vector3.One;
+            Direction = Vector3.One;
+            MaxSpeed = -1;
+            Name = "Waypoint";
+            ReferenceMode = WaypointReferenceMode.Default;
+        }
+
+        public float Size => 50f;
+        public string DisplayName => Name;
+        public long ID => Position.ToString().GetHashCode();
+        public IntelItemType IntelItemType => IntelItemType.Waypoint;
+        public Vector3 GetPosition(TimeSpan time)
+        {
+            return Position;
+        }
+
+        public Vector3 GetVelocity()
+        {
+            return Vector3.Zero;
+        }
+
+        public string Serialize()
+        {
+            return SerializeWaypoint(this);
+        }
+
+        public void Deserialize(string s)
+        {
+            string[] split = s.Split('|');
+            Position = VectorUtilities.StringToVector3(split[0]);
+            Direction = VectorUtilities.StringToVector3(split[1]);
+            MaxSpeed = float.Parse(split[2]);
+            Name = split[3];
+            ReferenceMode = (WaypointReferenceMode)int.Parse(split[4]);
+        }
+
+        static public MyTuple<Vector3, Vector3, float, string, int> IGCPack(Waypoint w)
+        {
+            return MyTuple.Create
+            (
+                w.Position,
+                w.Direction,
+                w.MaxSpeed,
+                w.Name,
+                (int)w.ReferenceMode
+            );
+        }
+
+        static public MyTuple<int, MyTuple<Vector3, Vector3, float, string, int>> IGCPackGeneric(Waypoint w)
+        {
+            return MyTuple.Create
+            (
+                (int)IntelItemType.Waypoint,
+                IGCPack(w)
+            );
+        }
+
+        static public Waypoint IGCUnpack(object data)
+        {
+            var unpacked = (MyTuple< Vector3, Vector3, float, string, int>)data;
+            var w = new Waypoint();
+            w.Position = unpacked.Item1;
+            w.Direction = unpacked.Item2;
+            w.MaxSpeed = unpacked.Item3;
+            w.Name = unpacked.Item4;
+            w.ReferenceMode = (WaypointReferenceMode)unpacked.Item5;
+            return w;
+        }
+        #endregion
     }
     #endregion
 
