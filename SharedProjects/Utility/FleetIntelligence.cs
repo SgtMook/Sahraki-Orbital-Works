@@ -37,10 +37,13 @@ namespace SharedProjects.Utility
 
         public static IFleetIntelligence IGCUnpackGeneric(object data)
         {
-            var unpacked = (MyTuple<int, MyTuple>)data;
-            var type = (IntelItemType)unpacked.Item1;
-            if (type == IntelItemType.Waypoint)
-                return Waypoint.IGCUnpack(unpacked.Item2);
+            if (data is MyTuple<int, MyTuple<Vector3, Vector3, float, string, int>>)
+            {
+                // Waypoint
+                var unpacked = (MyTuple<int, MyTuple<Vector3, Vector3, float, string, int>>)data;
+                if ((IntelItemType)unpacked.Item1 == IntelItemType.Waypoint)
+                    return Waypoint.IGCUnpack(unpacked.Item2);
+            }
 
             return null;
         }
@@ -52,7 +55,7 @@ namespace SharedProjects.Utility
         Vector3 GetPosition(TimeSpan time);
         Vector3 GetVelocity();
 
-        float Size { get; }
+        float Radius { get; }
 
         long ID { get; }
 

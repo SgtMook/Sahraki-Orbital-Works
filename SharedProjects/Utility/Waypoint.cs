@@ -46,7 +46,7 @@ namespace SharedProjects.Utility
             ReferenceMode = WaypointReferenceMode.Default;
         }
 
-        public float Size => 50f;
+        public float Radius => 50f;
         public string DisplayName => Name;
         public long ID => Position.ToString().GetHashCode();
         public IntelItemType IntelItemType => IntelItemType.Waypoint;
@@ -86,7 +86,7 @@ namespace SharedProjects.Utility
                 (int)w.ReferenceMode
             );
         }
-
+        
         static public MyTuple<int, MyTuple<Vector3, Vector3, float, string, int>> IGCPackGeneric(Waypoint w)
         {
             return MyTuple.Create
@@ -95,7 +95,6 @@ namespace SharedProjects.Utility
                 IGCPack(w)
             );
         }
-
         static public Waypoint IGCUnpack(object data)
         {
             var unpacked = (MyTuple< Vector3, Vector3, float, string, int>)data;
@@ -107,6 +106,23 @@ namespace SharedProjects.Utility
             w.ReferenceMode = (WaypointReferenceMode)unpacked.Item5;
             return w;
         }
+
+        //static public MyTuple<int, string> IGCPackGeneric(Waypoint w)
+        //{
+        //     return MyTuple.Create
+        //     (
+        //         (int)IntelItemType.Waypoint,
+        //         w.Serialize()
+        //     );
+        //}
+        //
+        //static public Waypoint IGCUnpack(object data)
+        //{
+        //    Waypoint w = new Waypoint();
+        //    w.Deserialize((string)data);
+        //    return w;
+        //}
+
         #endregion
     }
     #endregion

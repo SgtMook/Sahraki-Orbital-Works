@@ -39,6 +39,8 @@ namespace SharedProjects.Subsystems
         {
             updateBuilder.Clear();
 
+            updateBuilder.AppendLine($"{distMeters.ToString()} m");
+
             return updateBuilder.ToString();
         }
 
@@ -54,8 +56,6 @@ namespace SharedProjects.Subsystems
             GetParts();
             UpdateFrequency = 1;
         }
-
-        private const int kScanDistance = 5000000;
 
         public void Update(TimeSpan timestamp)
         {
@@ -90,6 +90,7 @@ namespace SharedProjects.Subsystems
                     camera.EnableRaycast = camera.AvailableScanRange < kScanDistance;
                 }
 
+                // TODO: Remove
                 // Write debug status for now
                 panelLeft.WriteText(GetStatus());
             }
@@ -206,7 +207,7 @@ namespace SharedProjects.Subsystems
 
         void DoS()
         {
-
+            distMeters -= 500;
         }
 
         void DoD()
@@ -216,7 +217,7 @@ namespace SharedProjects.Subsystems
 
         void DoW()
         {
-
+            distMeters += 500;
         }
 
         void DoQ()
@@ -274,22 +275,13 @@ namespace SharedProjects.Subsystems
         const float kCameraToScreen = 1.06f;
         const int kScreenSize = 512;
 
-        MySprite DetectedInfoToSprite(MyDetectedEntityInfo info, TimeSpan deltaTime)
-        {
-            var worldDirection = info.Position + (info.Velocity * (float)deltaTime.TotalSeconds) - primaryCamera.WorldMatrix.Translation;
-            var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
-            var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y/bodyPosition.Z));
+        Vector2 kMonospaceConstant = new Vector2(18.68108f, 28.8f);
 
-            //var sprite = new MySprite(SpriteType.TEXTURE, "Danger", size: new Vector2(50f, 50f), color: new Color(1, 1, 1, 0.1f));
-            var sprite = MySprite.CreateText("x", "Debug", new Color(1, 1, 1, 0.1f), 1, TextAlignment.CENTER);
-            var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
+        const float kMinScale = 0.5f;
+        const float kMaxScale = 1.5f;
 
-            v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
-            v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
-            v.Y -= 20;
-            sprite.Position = v;
-            return sprite;
-        }
+        const float kMinDist = 1000;
+        const float kMaxDist = 10000;
 
         MySprite FleetIntelItemToSprite(IFleetIntelligence intel, TimeSpan timestamp)
         {
@@ -297,14 +289,23 @@ namespace SharedProjects.Subsystems
             var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
             var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y / bodyPosition.Z));
 
+            float dist = (float)Math.Abs(bodyPosition.Z);
+            float scale = kMaxScale;
+
+            if (dist > kMaxDist) scale = kMinScale;
+            else if (dist > kMinDist)
+            {
+                scale = kMinScale + (kMaxScale - kMinScale) * (kMaxDist - dist) / (kMaxDist - kMinDist);
+            }
+
             // TODO: Different sprites for different types
-            // TODO: Scale sprites based on size/distance
-            var sprite = MySprite.CreateText("x", "Debug", new Color(1, 1, 1, 0.1f), 1, TextAlignment.CENTER);
+
+            var sprite = MySprite.CreateText("x", "Monospace", new Color(scale, scale, scale, 0.5f), scale, TextAlignment.CENTER);
             var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
 
             v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
             v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
-            v.Y -= 20;
+            v.Y -= 5 + scale * kMonospaceConstant.Y / 2;
             sprite.Position = v;
             return sprite;
         }
@@ -318,6 +319,7 @@ namespace SharedProjects.Subsystems
         #endregion
 
         #region Debug
+        private const int kScanDistance = 5000000;
         void GetRaycastDebug()
         {
             foreach (IMyCameraBlock camera in secondaryCameras)
