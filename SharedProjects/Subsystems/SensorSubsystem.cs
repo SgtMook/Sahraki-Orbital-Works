@@ -21,14 +21,26 @@ using SharedProjects.Utility;
 
 namespace SharedProjects.Subsystems
 {
-    public class SensorSubsystem : ISubsystem
+    public class SensorSubsystem : ISubsystem, IControlIntercepter
     {
+        #region IControlIntercepter
+        public bool InterceptControls { get; set; }
+
+        public IMyShipController Controller
+        {
+            get
+            {
+                return controller;
+            }
+        }
+        #endregion
 
         #region ISubsystem
         public int UpdateFrequency { get; private set; }
 
         public void Command(string command, object argument)
         {
+            if (command == "togglecontrol") InterceptControls = !InterceptControls;
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -38,8 +50,6 @@ namespace SharedProjects.Subsystems
         public string GetStatus()
         {
             updateBuilder.Clear();
-
-            updateBuilder.AppendLine($"{distMeters.ToString()} m");
 
             return updateBuilder.ToString();
         }
@@ -59,49 +69,18 @@ namespace SharedProjects.Subsystems
 
         public void Update(TimeSpan timestamp)
         {
-            Timestamp = timestamp;
-            if (primaryCamera.IsActive)
-            {
-                // Move swivel
-                pitch.TargetVelocityRPM = controller.RotationIndicator[0]*0.3f;
-                yaw.TargetVelocityRPM = controller.RotationIndicator[1]*0.3f;
+            executionCounter++;
 
-                // Take inputs
-                TriggerInputs();
+            UpdateInputs(timestamp);
 
-                // Draw HUD
-                using (var frame = panelMiddle.DrawFrame())
-                {
-                    var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.1f));
-                    crosshairs.Position = new Vector2(0, -2) + panelMiddle.TextureSize/2f;
-                    panelMiddle.ScriptBackgroundColor = new Color(1, 0, 0, 0);
-                    frame.Add(crosshairs);
+            DrawHUD(timestamp);
 
-                    foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
-                    {
-                        frame.Add(FleetIntelItemToSprite(intel, timestamp));
-                    }
-                }
-
-                panelLeft.Alignment = TextAlignment.RIGHT;
-
-                foreach (IMyCameraBlock camera in secondaryCameras)
-                {
-                    camera.EnableRaycast = camera.AvailableScanRange < kScanDistance;
-                }
-
-                // TODO: Remove
-                // Write debug status for now
-                panelLeft.WriteText(GetStatus());
-            }
+            UpdateRaytracing();
         }
 
         #endregion
 
         IMyShipController controller;
-
-        IMyMotorStator yaw;
-        IMyMotorStator pitch;
 
         MyGridProgram Program;
         SubsystemManager Manager;
@@ -114,10 +93,11 @@ namespace SharedProjects.Subsystems
         IMyCameraBlock primaryCamera;
 
         StringBuilder updateBuilder = new StringBuilder();
-
-        TimeSpan Timestamp;
+        StringBuilder LeftHUDBuilder = new StringBuilder();
 
         IIntelProvider IntelProvider;
+
+        long executionCounter = 0;
 
         public SensorSubsystem(IIntelProvider intelProvider)
         {
@@ -136,15 +116,6 @@ namespace SharedProjects.Subsystems
 
             if (block is IMyShipController)
                 controller = (IMyShipController)block;
-
-            if (block is IMyMotorStator)
-            {
-                var rotor = (IMyMotorStator)block;
-                if (rotor.CustomName.StartsWith("[SN-Y]"))
-                    yaw = rotor;
-                else if (rotor.CustomName.StartsWith("[SN-P]"))
-                    pitch = rotor;
-            }
 
             if (block is IMyTextPanel)
             {
@@ -177,69 +148,86 @@ namespace SharedProjects.Subsystems
         bool lastCDown = false;
         bool lastSpaceDown = false;
 
-        private void TriggerInputs()
+        private void UpdateInputs(TimeSpan timestamp)
+        {
+            if (InterceptControls)
+            {
+                if (!primaryCamera.IsActive) InterceptControls = false;
+
+                controller.ControlThrusters = false;
+                TerminalPropertiesHelper.SetValue(controller, "ControlGyros", false);
+                // Take inputs
+                TriggerInputs(timestamp);
+            }
+            else
+            {
+                controller.ControlThrusters = true;
+                TerminalPropertiesHelper.SetValue(controller, "ControlGyros", true);
+            }
+        }
+
+        private void TriggerInputs(TimeSpan timestamp)
         {
             if (controller == null) return;
             var inputVecs = controller.MoveIndicator;
             var inputRoll = controller.RollIndicator;
-            if (!lastADown && inputVecs.X < 0) DoA();
+            if (!lastADown && inputVecs.X < 0) DoA(timestamp);
             lastADown = inputVecs.X < 0;
-            if (!lastSDown && inputVecs.Z > 0) DoS();
+            if (!lastSDown && inputVecs.Z > 0) DoS(timestamp);
             lastSDown = inputVecs.Z > 0;
-            if (!lastDDown && inputVecs.X > 0) DoD();
+            if (!lastDDown && inputVecs.X > 0) DoD(timestamp);
             lastDDown = inputVecs.X > 0;
-            if (!lastWDown && inputVecs.Z < 0) DoW();
+            if (!lastWDown && inputVecs.Z < 0) DoW(timestamp);
             lastWDown = inputVecs.Z < 0;
-            if (!lastCDown && inputVecs.Y < 0) DoC();
+            if (!lastCDown && inputVecs.Y < 0) DoC(timestamp);
             lastCDown = inputVecs.Y < 0;
-            if (!lastSpaceDown && inputVecs.Y > 0) DoSpace();
+            if (!lastSpaceDown && inputVecs.Y > 0) DoSpace(timestamp);
             lastSpaceDown = inputVecs.Y > 0;
-            if (!lastQDown && inputRoll < 0) DoQ();
+            if (!lastQDown && inputRoll < 0) DoQ(timestamp);
             lastQDown = inputRoll < 0;
-            if (!lastEDown && inputRoll > 0) DoE();
+            if (!lastEDown && inputRoll > 0) DoE(timestamp);
             lastEDown = inputRoll > 0;
         }
 
-        void DoA()
+        void DoA(TimeSpan timestamp)
         {
 
         }
 
-        void DoS()
+        void DoS(TimeSpan timestamp)
         {
             distMeters -= 500;
         }
 
-        void DoD()
+        void DoD(TimeSpan timestamp)
         {
 
         }
 
-        void DoW()
+        void DoW(TimeSpan timestamp)
         {
             distMeters += 500;
         }
 
-        void DoQ()
+        void DoQ(TimeSpan timestamp)
         {
 
         }
 
-        void DoE()
+        void DoE(TimeSpan timestamp)
         {
 
         }
 
-        void DoC()
+        void DoC(TimeSpan timestamp)
         {
 
         }
 
-        void DoSpace()
+        void DoSpace(TimeSpan timestamp)
         {
             Waypoint w = GetWaypoint();
-            Program.IGC.SendBroadcastMessage(FleetIntelligenceConfig.IntelReportChannelTag, Waypoint.IGCPackGeneric(w));
-            Manager.Command("intel", "additem", w);
+            ReportWaypoint(w, timestamp);
         }
         #endregion
 
@@ -247,18 +235,25 @@ namespace SharedProjects.Subsystems
         int cameraIndex = 0;
         MyDetectedEntityInfo lastDetectedInfo;
         TimeSpan lastDetectedTimestamp;
-        void DoScan()
+        void DoScan(TimeSpan timestamp)
         {
             IMyCameraBlock usingCamera = secondaryCameras[cameraIndex];
             cameraIndex += 1;
             if (cameraIndex == secondaryCameras.Count) cameraIndex = 0;
             lastDetectedInfo = usingCamera.Raycast(usingCamera.AvailableScanRange);
-            lastDetectedTimestamp = Timestamp;
+            lastDetectedTimestamp = timestamp;
+        }
+
+        private void UpdateRaytracing()
+        {
+            foreach (IMyCameraBlock camera in secondaryCameras)
+            {
+                camera.EnableRaycast = camera.AvailableScanRange < kScanDistance;
+            }
         }
         #endregion
 
         #region Waypoint Designation
-        // TODO: Hook this up to controls
         int distMeters = 1000;
         Waypoint GetWaypoint()
         {
@@ -283,13 +278,17 @@ namespace SharedProjects.Subsystems
         const float kMinDist = 1000;
         const float kMaxDist = 10000;
 
-        MySprite FleetIntelItemToSprite(IFleetIntelligence intel, TimeSpan timestamp)
+        List<MySprite> SpriteScratchpad = new List<MySprite>();
+
+        void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan timestamp, ref List<MySprite> scratchpad)
         {
             var worldDirection = intel.GetPosition(timestamp) - primaryCamera.WorldMatrix.Translation;
             var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
             var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y / bodyPosition.Z));
 
-            float dist = (float)Math.Abs(bodyPosition.Z);
+            if (bodyPosition.Dot(Vector3D.Forward) < 0) return;
+
+            float dist = (float)bodyPosition.Length();
             float scale = kMaxScale;
 
             if (dist > kMaxDist) scale = kMinScale;
@@ -298,23 +297,83 @@ namespace SharedProjects.Subsystems
                 scale = kMinScale + (kMaxScale - kMinScale) * (kMaxDist - dist) / (kMaxDist - kMinDist);
             }
 
-            // TODO: Different sprites for different types
-
-            var sprite = MySprite.CreateText("x", "Monospace", new Color(scale, scale, scale, 0.5f), scale, TextAlignment.CENTER);
+            var indicator = MySprite.CreateText("x", "Monospace", new Color(scale, scale, scale, 0.5f), scale, TextAlignment.CENTER);
             var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
 
             v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
             v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
             v.Y -= 5 + scale * kMonospaceConstant.Y / 2;
-            sprite.Position = v;
-            return sprite;
+            indicator.Position = v;
+            scratchpad.Add(indicator);
+
+            var distSprite = MySprite.CreateText($"{((int)dist).ToString()} m", "Monospace", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
+            v.Y += kMonospaceConstant.Y * scale;
+            distSprite.Position = v;
+            scratchpad.Add(distSprite);
+
+            // var updated = IntelProvider.GetLastUpdatedTime(MyTuple.Create(intel.IntelItemType, intel.ID));
+            // var diff = timestamp - updated;
+            // var display = diff.TotalMilliseconds < 1000 ? $"{(int)diff.TotalMilliseconds} ms" : $"{(int)diff.TotalSeconds} s";
+            // 
+            // var timeSprite = MySprite.CreateText(display, "Monospace", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
+            // v.Y += kMonospaceConstant.Y * 0.4f;
+            // timeSprite.Position = v;
+            // scratchpad.Add(timeSprite);
+        }
+
+        private void DrawHUD(TimeSpan timestamp)
+        {
+            if (executionCounter % 10 == 0)
+            {
+                DrawCenterHUD(timestamp);
+            }
+
+            UpdateLeftHUD(timestamp);
+        }
+
+        private void UpdateLeftHUD(TimeSpan timestamp)
+        {
+            LeftHUDBuilder.Clear();
+
+            LeftHUDBuilder.AppendLine($"{distMeters.ToString()} m");
+            LeftHUDBuilder.AppendLine($"{(Vector3I)Program.Me.CubeGrid.GetPosition()}");
+
+            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
+            {
+                LeftHUDBuilder.AppendLine(((Vector3I)intel.GetPosition(timestamp)).ToString());
+            }
+
+            panelLeft.Alignment = TextAlignment.RIGHT;
+            panelLeft.WriteText(LeftHUDBuilder.ToString());
+        }
+
+        private void DrawCenterHUD(TimeSpan timestamp)
+        {
+            using (var frame = panelMiddle.DrawFrame())
+            {
+                var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.1f));
+                crosshairs.Position = new Vector2(0, -2) + panelMiddle.TextureSize / 2f;
+                panelMiddle.ScriptBackgroundColor = new Color(1, 0, 0, 0);
+                frame.Add(crosshairs);
+
+                foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
+                {
+                    FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
+                }
+
+                foreach (var spr in SpriteScratchpad)
+                {
+                    frame.Add(spr);
+                }
+                SpriteScratchpad.Clear();
+            }
         }
         #endregion
 
         #region Intel
-        void ReportWaypoint(Waypoint w)
+        void ReportWaypoint(Waypoint w, TimeSpan timestamp)
         {
-            Program.IGC.SendBroadcastMessage(FleetIntelligenceConfig.IntelReportChannelTag, w);
+            IntelProvider.ReportFleetIntelligence(w, timestamp);
         }
         #endregion
 

@@ -74,54 +74,39 @@ namespace SharedProjects.Utility
             Name = split[3];
             ReferenceMode = (WaypointReferenceMode)int.Parse(split[4]);
         }
-
-        static public MyTuple<Vector3, Vector3, float, string, int> IGCPack(Waypoint w)
-        {
-            return MyTuple.Create
-            (
-                w.Position,
-                w.Direction,
-                w.MaxSpeed,
-                w.Name,
-                (int)w.ReferenceMode
-            );
-        }
         
-        static public MyTuple<int, MyTuple<Vector3, Vector3, float, string, int>> IGCPackGeneric(Waypoint w)
+        static public MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>> IGCPackGeneric(Waypoint w)
         {
             return MyTuple.Create
             (
                 (int)IntelItemType.Waypoint,
-                IGCPack(w)
+                w.ID,
+                MyTuple.Create
+                (
+                    w.Position,
+                    w.Direction,
+                    w.MaxSpeed,
+                    w.Name,
+                    (int)w.ReferenceMode
+                )
             );
         }
         static public Waypoint IGCUnpack(object data)
         {
-            var unpacked = (MyTuple< Vector3, Vector3, float, string, int>)data;
+            var unpacked = (MyTuple<Vector3, Vector3, float, string, int>)data;
             var w = new Waypoint();
-            w.Position = unpacked.Item1;
-            w.Direction = unpacked.Item2;
-            w.MaxSpeed = unpacked.Item3;
-            w.Name = unpacked.Item4;
-            w.ReferenceMode = (WaypointReferenceMode)unpacked.Item5;
+            w.IGCUnpackInto(unpacked);
             return w;
         }
 
-        //static public MyTuple<int, string> IGCPackGeneric(Waypoint w)
-        //{
-        //     return MyTuple.Create
-        //     (
-        //         (int)IntelItemType.Waypoint,
-        //         w.Serialize()
-        //     );
-        //}
-        //
-        //static public Waypoint IGCUnpack(object data)
-        //{
-        //    Waypoint w = new Waypoint();
-        //    w.Deserialize((string)data);
-        //    return w;
-        //}
+        public void IGCUnpackInto(MyTuple<Vector3, Vector3, float, string, int> unpacked)
+        {
+            Position = unpacked.Item1;
+            Direction = unpacked.Item2;
+            MaxSpeed = unpacked.Item3;
+            Name = unpacked.Item4;
+            ReferenceMode = (WaypointReferenceMode)unpacked.Item5;
+        }
 
         #endregion
     }

@@ -18,6 +18,7 @@ using VRage;
 using VRageMath;
 
 using SharedProjects.Utility;
+using System.Collections.Immutable;
 
 namespace SharedProjects.Subsystems
 {
@@ -26,7 +27,11 @@ namespace SharedProjects.Subsystems
     /// </summary>
     public interface IIntelProvider
     {
-        Dictionary<long, IFleetIntelligence> GetFleetIntelligences();
+        Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences();
+
+        TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key);
+
+        void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp);
     }
 
     // Handles tracking, updating, and transmitting fleet intelligence
@@ -43,18 +48,26 @@ namespace SharedProjects.Subsystems
         IMyBroadcastListener ReportListener;
         StringBuilder statusBuilder = new StringBuilder();
 
+        int heartbeatCounter = 0;
+        int heartbeatFrequency = 60;
+
         public void Command(string command, object argument)
         {
-            if (command == "additem") AddItem((IFleetIntelligence)argument);
+            if (command == "wipe")
+            {
+                IntelItems.Clear();
+                Timestamps.Clear();
+            }
         }
 
 
         public string GetStatus()
         {
             statusBuilder.Clear();
+            statusBuilder.AppendLine(ReportListener.MaxWaitingMessages.ToString());
             foreach (IFleetIntelligence intel in IntelItems.Values)
                 statusBuilder.AppendLine(intel.Serialize());
-            return statusBuilder.ToString();
+            return debugBuilder.ToString();
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -69,23 +82,34 @@ namespace SharedProjects.Subsystems
         public void Setup(MyGridProgram program, SubsystemManager manager)
         {
             Program = program;
-            ReportListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceConfig.IntelReportChannelTag);
+            ReportListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
         }
 
         public void Update(TimeSpan timestamp)
         {
-            while (ReportListener.HasPendingMessage)
-            {
-                var msg = ReportListener.AcceptMessage();
-                AddItem(FleetIntelligenceConfig.IGCUnpackGeneric(msg.Data));
-            }
+            UpdateIntelFromReports(timestamp);
+            CheckHeartbeat();
         }
         #endregion
 
         #region IIntelProvider
-        public Dictionary<long, IFleetIntelligence> GetFleetIntelligences()
+        public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences()
         {
             return IntelItems;
+        }
+
+        public TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key)
+        {
+            if (!Timestamps.ContainsKey(key))
+                return TimeSpan.MaxValue;
+            return Timestamps[key];
+        }
+
+        public void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp)
+        {
+            MyTuple<IntelItemType, long> key = MyTuple.Create(item.IntelItemType, item.ID);
+            IntelItems.Add(key, item);
+            Timestamps.Add(key, timestamp);
         }
         #endregion
 
@@ -93,61 +117,149 @@ namespace SharedProjects.Subsystems
         StringBuilder debugBuilder = new StringBuilder();
         #endregion
 
-        Dictionary<long, IFleetIntelligence> IntelItems = new Dictionary<long, IFleetIntelligence>();
+        Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
+        Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
 
-        void AddItem(IFleetIntelligence item)
+        private void CheckHeartbeat()
         {
-            IntelItems.Add(item.ID, item);
+            heartbeatCounter++;
+            if (heartbeatCounter >= heartbeatFrequency)
+            {
+                heartbeatCounter = 0;
+                SendSyncMessage();
+            }
         }
 
-        void AddItem(MyDetectedEntityInfo info)
+        private void SendSyncMessage()
         {
-            // TODO
+            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems);
+        }
+
+        private void UpdateIntelFromReports(TimeSpan timestamp)
+        {
+            while (ReportListener.HasPendingMessage)
+            {
+                var msg = ReportListener.AcceptMessage();
+                var updateKey = FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(msg.Data, IntelItems);
+                if (updateKey.Item1 != IntelItemType.NONE)
+                {
+                    Timestamps.Add(updateKey, timestamp);
+                }
+            }
         }
     }
 
     // TODO: Build
-    //public class IntelSlaveSubsystem : ISubsystem, IIntelProvider
-    //{
-    //    #region ISubsystem
-    //    public int UpdateFrequency => throw new NotImplementedException();
-    //
-    //    public void Command(string command, object argument)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-    //
-    //    public void DeserializeSubsystem(string serialized)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-    //
-    //    public string GetStatus()
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-    //
-    //    public string SerializeSubsystem()
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-    //
-    //    public void Setup(MyGridProgram program, SubsystemManager manager)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-    //
-    //    public void Update(TimeSpan timestamp)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-    //    #endregion
-    //
-    //    #region IIntelProvider
-    //    public Dictionary<long, IFleetIntelligence> GetFleetIntelligences()
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-    //    #endregion
-    //}
+    // TODO: Save/load serializations
+    // TODO: Get sync
+    public class IntelSlaveSubsystem : ISubsystem, IIntelProvider
+    {
+    
+        #region ISubsystem
+        public int UpdateFrequency => 1;
+    
+        public void Command(string command, object argument)
+        {
+        }
+        public string GetStatus()
+        {
+            return debugBuilder.ToString();
+        }
+    
+        public void DeserializeSubsystem(string serialized)
+        {
+        }    
+    
+        public string SerializeSubsystem()
+        {
+            return string.Empty;
+        }
+    
+        public void Setup(MyGridProgram program, SubsystemManager manager)
+        {
+            Program = program;
+            SyncListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelSyncChannelTag);
+        }
+    
+        public void Update(TimeSpan timestamp)
+        {
+            executionCounter++;
+            GetSyncMessages(timestamp);
+            TimeoutIntelItems(timestamp);
+        }
+
+        #endregion
+
+        #region IIntelProvider
+        public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences()
+        {
+            return IntelItems;
+        }
+
+        public TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key)
+        {
+            if (!Timestamps.ContainsKey(key))
+                return TimeSpan.MaxValue;
+            return Timestamps[key];
+        }
+
+        public void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp)
+        {
+            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligence(Program.IGC, item);
+        }
+
+
+        #endregion
+    
+        MyGridProgram Program;
+        IMyBroadcastListener SyncListener;
+
+        Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
+        Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
+        List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
+
+        StringBuilder debugBuilder = new StringBuilder();
+
+        long executionCounter = 0;
+
+        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(5);
+
+        private void GetSyncMessages(TimeSpan timestamp)
+        {
+            while (SyncListener.HasPendingMessage)
+            {
+                var msg = SyncListener.AcceptMessage();
+                FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(msg.Data, IntelItems, ref KeyScratchpad);
+            }
+
+            foreach (var key in KeyScratchpad)
+            {
+                Timestamps[key] = timestamp;
+            }
+
+            KeyScratchpad.Clear();
+        }
+
+        private void TimeoutIntelItems(TimeSpan timestamp)
+        {
+            if (executionCounter % 60 == 0)
+            {
+                foreach (var kvp in Timestamps)
+                {
+                    if ((kvp.Value + kIntelTimeout) < timestamp)
+                    {
+                        KeyScratchpad.Add(kvp.Key);
+                    }
+                }
+
+                foreach (var key in KeyScratchpad)
+                {
+                    IntelItems.Remove(key);
+                    Timestamps.Remove(key);
+                }
+
+                KeyScratchpad.Clear();
+            }
+        }
+    }
 }

@@ -17,4 +17,10 @@ namespace SharedProjects.Subsystems
 
         int UpdateFrequency { get; }
     }
+
+    public interface IControlIntercepter
+    {
+        bool InterceptControls { get; }
+        IMyShipController Controller { get; }
+    }
 }

@@ -32,7 +32,9 @@ namespace IngameScript
             // Add subsystems
             IntelMasterSubsystem intelSubsystem = new IntelMasterSubsystem();
             subsystemManager.AddSubsystem("intel", intelSubsystem);
-            subsystemManager.AddSubsystem("sensor", new SensorSubsystem(intelSubsystem));
+            SensorSubsystem sensorSubsystem = new SensorSubsystem(intelSubsystem);
+            subsystemManager.AddSubsystem("sensor", sensorSubsystem);
+            subsystemManager.AddSubsystem("sensorswivel", new SwivelSubsystem("[SN]", sensorSubsystem));
 
             subsystemManager.DeserializeManager(Storage);
         }

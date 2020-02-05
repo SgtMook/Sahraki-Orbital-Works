@@ -19,7 +19,6 @@ using VRageMath;
 using VRage.Library;
 
 using SharedProjects.Subsystems;
-using System.Collections.Immutable;
 
 namespace IngameScript
 {
@@ -31,12 +30,12 @@ namespace IngameScript
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             // Add subsystems
-            subsystemManager.AddSubsystem("autopilot", new AutopilotSubsystem());
-            subsystemManager.AddSubsystem("docking", new DockingSubsystem());
+            IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
+            subsystemManager.AddSubsystem("intel", intelSubsystem);
+            SensorSubsystem sensorSubsystem = new SensorSubsystem(intelSubsystem);
+            subsystemManager.AddSubsystem("sensor", sensorSubsystem);
+            subsystemManager.AddSubsystem("sensorswivel", new SwivelSubsystem("[SN]", sensorSubsystem));
 
-            IntelSlaveSubsystem subsystem = new IntelSlaveSubsystem();
-            subsystemManager.AddSubsystem("intel", subsystem);
-            subsystemManager.AddSubsystem("sensor", new SensorSubsystem(subsystem));
             subsystemManager.DeserializeManager(Storage);
         }
 
