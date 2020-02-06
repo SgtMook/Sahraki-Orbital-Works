@@ -22,7 +22,7 @@ namespace SharedProjects.Subsystems
     public class DockingSubsystem : ISubsystem
     {
         #region ISubsystem
-        public int UpdateFrequency => 100;
+        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update100;
 
         public void Command(string command, object argument)
         {
@@ -48,23 +48,21 @@ namespace SharedProjects.Subsystems
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, SubsystemManager manager)
+        public void Setup(MyGridProgram program)
         {
             Program = program;
-            Manager = manager;
 
             Program.GridTerminalSystem.GetBlocksOfType<IMyShipConnector>(getBlocksScratchPad, SameConstructAsMe);
 
             Connector = (IMyShipConnector)getBlocksScratchPad[0];
         }
 
-        public void Update(TimeSpan timestamp)
+        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
         }
         #endregion
 
         MyGridProgram Program;
-        SubsystemManager Manager;
         List<IMyTerminalBlock> getBlocksScratchPad = new List<IMyTerminalBlock>();
 
         IMyShipConnector Connector;

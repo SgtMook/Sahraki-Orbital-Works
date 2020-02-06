@@ -7,15 +7,15 @@ namespace SharedProjects.Subsystems
 {
     public interface ISubsystem
     {
-        void Setup(MyGridProgram program, SubsystemManager manager);
-        void Update(TimeSpan timestamp);
+        void Setup(MyGridProgram program);
+        void Update(TimeSpan timestamp, UpdateFrequency updateFlags);
         void Command(string command, object argument);
         string GetStatus();
 
         string SerializeSubsystem();
         void DeserializeSubsystem(string serialized);
 
-        int UpdateFrequency { get; }
+        UpdateFrequency UpdateFrequency { get; }
     }
 
     public interface IControlIntercepter

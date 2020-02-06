@@ -43,13 +43,10 @@ namespace SharedProjects.Subsystems
     public class IntelMasterSubsystem : ISubsystem, IIntelProvider
     {
         #region ISubsystem
-        public int UpdateFrequency => 1;
+        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10 | UpdateFrequency.Update100;
         MyGridProgram Program;
         IMyBroadcastListener ReportListener;
         StringBuilder statusBuilder = new StringBuilder();
-
-        int heartbeatCounter = 0;
-        int heartbeatFrequency = 60;
 
         public void Command(string command, object argument)
         {
@@ -65,8 +62,6 @@ namespace SharedProjects.Subsystems
         {
             statusBuilder.Clear();
             statusBuilder.AppendLine(ReportListener.MaxWaitingMessages.ToString());
-            foreach (IFleetIntelligence intel in IntelItems.Values)
-                statusBuilder.AppendLine(intel.Serialize());
             return debugBuilder.ToString();
         }
 
@@ -79,16 +74,18 @@ namespace SharedProjects.Subsystems
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, SubsystemManager manager)
+        public void Setup(MyGridProgram program)
         {
             Program = program;
             ReportListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
         }
 
-        public void Update(TimeSpan timestamp)
+        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            UpdateIntelFromReports(timestamp);
-            CheckHeartbeat();
+            if ((updateFlags & UpdateFrequency.Update10) != 0)
+                UpdateIntelFromReports(timestamp);
+            if ((updateFlags & UpdateFrequency.Update100) != 0)
+                SendSyncMessage();
         }
         #endregion
 
@@ -120,16 +117,6 @@ namespace SharedProjects.Subsystems
         Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
         Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
 
-        private void CheckHeartbeat()
-        {
-            heartbeatCounter++;
-            if (heartbeatCounter >= heartbeatFrequency)
-            {
-                heartbeatCounter = 0;
-                SendSyncMessage();
-            }
-        }
-
         private void SendSyncMessage()
         {
             FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems);
@@ -154,10 +141,10 @@ namespace SharedProjects.Subsystems
     // TODO: Get sync
     public class IntelSlaveSubsystem : ISubsystem, IIntelProvider
     {
-    
+
         #region ISubsystem
-        public int UpdateFrequency => 1;
-    
+        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10 | UpdateFrequency.Update100;
+
         public void Command(string command, object argument)
         {
         }
@@ -175,17 +162,18 @@ namespace SharedProjects.Subsystems
             return string.Empty;
         }
     
-        public void Setup(MyGridProgram program, SubsystemManager manager)
+        public void Setup(MyGridProgram program)
         {
             Program = program;
             SyncListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelSyncChannelTag);
         }
     
-        public void Update(TimeSpan timestamp)
+        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            executionCounter++;
-            GetSyncMessages(timestamp);
-            TimeoutIntelItems(timestamp);
+            if ((updateFlags & UpdateFrequency.Update10) != 0)
+                GetSyncMessages(timestamp);
+            if ((updateFlags & UpdateFrequency.Update100) != 0)
+                TimeoutIntelItems(timestamp);
         }
 
         #endregion
@@ -220,8 +208,6 @@ namespace SharedProjects.Subsystems
 
         StringBuilder debugBuilder = new StringBuilder();
 
-        long executionCounter = 0;
-
         TimeSpan kIntelTimeout = TimeSpan.FromSeconds(5);
 
         private void GetSyncMessages(TimeSpan timestamp)
@@ -242,24 +228,21 @@ namespace SharedProjects.Subsystems
 
         private void TimeoutIntelItems(TimeSpan timestamp)
         {
-            if (executionCounter % 60 == 0)
+            foreach (var kvp in Timestamps)
             {
-                foreach (var kvp in Timestamps)
+                if ((kvp.Value + kIntelTimeout) < timestamp)
                 {
-                    if ((kvp.Value + kIntelTimeout) < timestamp)
-                    {
-                        KeyScratchpad.Add(kvp.Key);
-                    }
+                    KeyScratchpad.Add(kvp.Key);
                 }
-
-                foreach (var key in KeyScratchpad)
-                {
-                    IntelItems.Remove(key);
-                    Timestamps.Remove(key);
-                }
-
-                KeyScratchpad.Clear();
             }
+
+            foreach (var key in KeyScratchpad)
+            {
+                IntelItems.Remove(key);
+                Timestamps.Remove(key);
+            }
+
+            KeyScratchpad.Clear();
         }
     }
 }

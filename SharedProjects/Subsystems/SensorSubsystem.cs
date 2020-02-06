@@ -36,7 +36,7 @@ namespace SharedProjects.Subsystems
         #endregion
 
         #region ISubsystem
-        public int UpdateFrequency { get; private set; }
+        public UpdateFrequency UpdateFrequency { get; set; }
 
         public void Command(string command, object argument)
         {
@@ -59,23 +59,26 @@ namespace SharedProjects.Subsystems
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, SubsystemManager manager)
+        public void Setup(MyGridProgram program)
         {
             Program = program;
-            Manager = manager;
             GetParts();
-            UpdateFrequency = 1;
         }
 
-        public void Update(TimeSpan timestamp)
+        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            executionCounter++;
+            if ((updateFlags & UpdateFrequency.Update1) != 0)
+            {
+                UpdateInputs(timestamp);
+            }
+            if ((updateFlags & UpdateFrequency.Update10) != 0)
+            {
+                UpdateRaytracing();
+                DrawHUD(timestamp);
+            }
 
-            UpdateInputs(timestamp);
-
-            DrawHUD(timestamp);
-
-            UpdateRaytracing();
+            UpdateFrequency = UpdateFrequency.Update10;
+            if (InterceptControls) UpdateFrequency |= UpdateFrequency.Update1;
         }
 
         #endregion
@@ -83,7 +86,6 @@ namespace SharedProjects.Subsystems
         IMyShipController controller;
 
         MyGridProgram Program;
-        SubsystemManager Manager;
 
         IMyTextPanel panelLeft;
         IMyTextPanel panelRight;
@@ -97,11 +99,10 @@ namespace SharedProjects.Subsystems
 
         IIntelProvider IntelProvider;
 
-        long executionCounter = 0;
-
         public SensorSubsystem(IIntelProvider intelProvider)
         {
             IntelProvider = intelProvider;
+            UpdateFrequency = UpdateFrequency.Update10;
         }
 
         void GetParts()
@@ -323,11 +324,7 @@ namespace SharedProjects.Subsystems
 
         private void DrawHUD(TimeSpan timestamp)
         {
-            if (executionCounter % 10 == 0)
-            {
-                DrawCenterHUD(timestamp);
-            }
-
+            DrawCenterHUD(timestamp);
             UpdateLeftHUD(timestamp);
         }
 

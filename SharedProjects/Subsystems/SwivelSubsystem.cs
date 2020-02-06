@@ -24,7 +24,7 @@ namespace SharedProjects.Subsystems
     public class SwivelSubsystem : ISubsystem
     {
         #region ISubsystem
-        public int UpdateFrequency => 1;
+        public UpdateFrequency UpdateFrequency { get; set; }
 
         public void Command(string command, object argument)
         {
@@ -44,21 +44,23 @@ namespace SharedProjects.Subsystems
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, SubsystemManager manager)
+        public void Setup(MyGridProgram program)
         {
             Program = program;
             GetParts();
         }
 
-        public void Update(TimeSpan timestamp)
+        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             if (controlIntercepter.InterceptControls)
             {
+                UpdateFrequency = UpdateFrequency.Update1;
                 pitch.TargetVelocityRPM = controlIntercepter.Controller.RotationIndicator[0] * 0.3f;
                 yaw.TargetVelocityRPM = controlIntercepter.Controller.RotationIndicator[1] * 0.3f;
             }
             else
             {
+                UpdateFrequency = UpdateFrequency.Update10;
                 pitch.TargetVelocityRPM = 0;
                 yaw.TargetVelocityRPM = 0;
             }
@@ -69,6 +71,7 @@ namespace SharedProjects.Subsystems
         {
             this.tag = tag;
             this.controlIntercepter = controlIntercepter;
+            UpdateFrequency = UpdateFrequency.Update10;
         }
 
         private string tag;

@@ -35,17 +35,26 @@ namespace SharedProjects.Subsystems
             if (command == "setwaypoint") SetWaypoint((Waypoint)argument);
         }
 
-        public void Setup(MyGridProgram program, SubsystemManager manager)
+        public void Setup(MyGridProgram program)
         {
             Program = program;
+
+            UpdateFrequency = UpdateFrequency.Update10;
 
             GetParts();
         }
 
-        public void Update(TimeSpan timestamp)
+        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            if (targetPosition != Vector3.Zero) SetThrusterPowers();
-            if (targetDirection != Vector3.Zero) SetGyroPowers();
+            bool hasPos = targetPosition != Vector3.Zero;
+            if (hasPos) SetThrusterPowers();
+            bool hasDir = targetDirection != Vector3.Zero;
+            if (hasDir) SetGyroPowers();
+
+            if (hasPos || hasDir)
+                UpdateFrequency = UpdateFrequency.Update1;
+            else
+                UpdateFrequency = UpdateFrequency.Update10;
         }
 
         public string GetStatus()
@@ -83,13 +92,7 @@ namespace SharedProjects.Subsystems
             return statusbuilder.ToString();
         }
 
-        public int UpdateFrequency
-        {
-            get
-            {
-                return 1;
-            }
-        }
+        public UpdateFrequency UpdateFrequency { get; set; }
 
         public string SerializeSubsystem()
         {

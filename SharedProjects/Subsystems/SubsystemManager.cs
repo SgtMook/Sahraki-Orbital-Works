@@ -44,7 +44,7 @@ namespace SharedProjects.Subsystems
             if (!Subsystems.ContainsKey(name))
             {
                 Subsystems[name] = subsystem;
-                subsystem.Setup(Program, this);
+                subsystem.Setup(Program);
                 return "AOK";
             }
             else
@@ -116,17 +116,29 @@ namespace SharedProjects.Subsystems
             }
         }
 
-        public void Update()
+        public void Update(UpdateType updateSource)
         {
-            UpdateCounter++;
             Timestamp += Program.Runtime.TimeSinceLastRun;
+            UpdateCounter++;
+
+            // TODO: FIGURE THIS OUT
+            UpdateFrequency updateFrequency = UpdateFrequency.None;
+            if ((updateSource & UpdateType.Update1) != 0) updateFrequency |= UpdateFrequency.Update1;
+            if ((updateSource & UpdateType.Update10) != 0) updateFrequency |= UpdateFrequency.Update10;
+            if ((updateSource & UpdateType.Update100) != 0) updateFrequency |= UpdateFrequency.Update100;
+
+            UpdateFrequency targetFrequency = UpdateFrequency.None;
+
             foreach (ISubsystem subsystem in Subsystems.Values)
             {
-                if (subsystem.UpdateFrequency > 0 && UpdateCounter % subsystem.UpdateFrequency == 0)
+                if ((subsystem.UpdateFrequency & updateFrequency) != 0)
                 {
-                    subsystem.Update(Timestamp);
+                    subsystem.Update(Timestamp, updateFrequency);
                 }
+                targetFrequency |= subsystem.UpdateFrequency;
             }
+
+            Program.Runtime.UpdateFrequency = targetFrequency;
         }
 
         public string GetStatus()
@@ -151,6 +163,7 @@ namespace SharedProjects.Subsystems
 
         public void Command(string subsystem, string command, object argument)
         {
+            Timestamp += Program.Runtime.TimeSinceLastRun;
             if (Subsystems.ContainsKey(subsystem))
             {
                 Subsystems[subsystem].Command(command, argument);
