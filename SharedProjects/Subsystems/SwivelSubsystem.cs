@@ -26,7 +26,7 @@ namespace SharedProjects.Subsystems
         #region ISubsystem
         public UpdateFrequency UpdateFrequency { get; set; }
 
-        public void Command(string command, object argument)
+        public void Command(TimeSpan timestamp, string command, object argument)
         {
         }
 
@@ -44,7 +44,7 @@ namespace SharedProjects.Subsystems
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program)
+        public void Setup(MyGridProgram program, string name)
         {
             Program = program;
             GetParts();

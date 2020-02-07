@@ -44,7 +44,7 @@ namespace SharedProjects.Subsystems
             if (!Subsystems.ContainsKey(name))
             {
                 Subsystems[name] = subsystem;
-                subsystem.Setup(Program);
+                subsystem.Setup(Program, name);
                 return "AOK";
             }
             else
@@ -118,10 +118,8 @@ namespace SharedProjects.Subsystems
 
         public void Update(UpdateType updateSource)
         {
-            Timestamp += Program.Runtime.TimeSinceLastRun;
             UpdateCounter++;
 
-            // TODO: FIGURE THIS OUT
             UpdateFrequency updateFrequency = UpdateFrequency.None;
             if ((updateSource & UpdateType.Update1) != 0) updateFrequency |= UpdateFrequency.Update1;
             if ((updateSource & UpdateType.Update10) != 0) updateFrequency |= UpdateFrequency.Update10;
@@ -163,15 +161,19 @@ namespace SharedProjects.Subsystems
 
         public void Command(string subsystem, string command, object argument)
         {
-            Timestamp += Program.Runtime.TimeSinceLastRun;
             if (Subsystems.ContainsKey(subsystem))
             {
-                Subsystems[subsystem].Command(command, argument);
+                Subsystems[subsystem].Command(Timestamp, command, argument);
             }
             else
             {
                 // TODO: error handle
             }
+        }
+
+        public void UpdateTime()
+        {
+            Timestamp += Program.Runtime.TimeSinceLastRun;
         }
     }
 }

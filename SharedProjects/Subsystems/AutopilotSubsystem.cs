@@ -27,15 +27,15 @@ namespace SharedProjects.Subsystems
         StringBuilder statusbuilder = new StringBuilder();
         // StringBuilder debugBuilder = new StringBuilder();
 
-        #region Subsystem 
-        public void Command(string command, object argument)
+        #region ISubsystem
+        public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "move") targetPosition = ParseGPS((string)argument);
             if (command == "turn") targetDirection = ParseGPS((string)argument) - reference.WorldMatrix.Translation;
             if (command == "setwaypoint") SetWaypoint((Waypoint)argument);
         }
 
-        public void Setup(MyGridProgram program)
+        public void Setup(MyGridProgram program, string name)
         {
             Program = program;
 

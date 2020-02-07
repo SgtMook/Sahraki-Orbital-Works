@@ -38,7 +38,7 @@ namespace SharedProjects.Subsystems
         #region ISubsystem
         public UpdateFrequency UpdateFrequency { get; set; }
 
-        public void Command(string command, object argument)
+        public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "togglecontrol") InterceptControls = !InterceptControls;
         }
@@ -59,7 +59,7 @@ namespace SharedProjects.Subsystems
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program)
+        public void Setup(MyGridProgram program, string name)
         {
             Program = program;
             GetParts();
@@ -103,6 +103,7 @@ namespace SharedProjects.Subsystems
         {
             IntelProvider = intelProvider;
             UpdateFrequency = UpdateFrequency.Update10;
+            InterceptControls = false;
         }
 
         void GetParts()
@@ -330,6 +331,7 @@ namespace SharedProjects.Subsystems
 
         private void UpdateLeftHUD(TimeSpan timestamp)
         {
+            if (panelLeft == null) return;
             LeftHUDBuilder.Clear();
 
             LeftHUDBuilder.AppendLine($"{distMeters.ToString()} m");
@@ -346,6 +348,7 @@ namespace SharedProjects.Subsystems
 
         private void DrawCenterHUD(TimeSpan timestamp)
         {
+            if (panelMiddle == null) return;
             using (var frame = panelMiddle.DrawFrame())
             {
                 var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.1f));

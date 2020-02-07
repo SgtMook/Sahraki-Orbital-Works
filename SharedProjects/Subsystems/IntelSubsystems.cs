@@ -43,12 +43,13 @@ namespace SharedProjects.Subsystems
     public class IntelMasterSubsystem : ISubsystem, IIntelProvider
     {
         #region ISubsystem
+
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10 | UpdateFrequency.Update100;
         MyGridProgram Program;
         IMyBroadcastListener ReportListener;
         StringBuilder statusBuilder = new StringBuilder();
 
-        public void Command(string command, object argument)
+        public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "wipe")
             {
@@ -74,7 +75,7 @@ namespace SharedProjects.Subsystems
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program)
+        public void Setup(MyGridProgram program, string name)
         {
             Program = program;
             ReportListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
@@ -85,7 +86,7 @@ namespace SharedProjects.Subsystems
             if ((updateFlags & UpdateFrequency.Update10) != 0)
                 UpdateIntelFromReports(timestamp);
             if ((updateFlags & UpdateFrequency.Update100) != 0)
-                SendSyncMessage();
+                SendSyncMessage(timestamp);
         }
         #endregion
 
@@ -117,9 +118,10 @@ namespace SharedProjects.Subsystems
         Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
         Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
 
-        private void SendSyncMessage()
+        private void SendSyncMessage(TimeSpan timestamp)
         {
-            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems);
+            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me);
+            Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.TimeChannelTag, timestamp.TotalMilliseconds);
         }
 
         private void UpdateIntelFromReports(TimeSpan timestamp)
@@ -127,7 +129,7 @@ namespace SharedProjects.Subsystems
             while (ReportListener.HasPendingMessage)
             {
                 var msg = ReportListener.AcceptMessage();
-                var updateKey = FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(msg.Data, IntelItems);
+                var updateKey = FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(msg.Data, IntelItems, Program.IGC.Me);
                 if (updateKey.Item1 != IntelItemType.NONE)
                 {
                     Timestamps.Add(updateKey, timestamp);
@@ -145,9 +147,14 @@ namespace SharedProjects.Subsystems
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10 | UpdateFrequency.Update100;
 
-        public void Command(string command, object argument)
+        public void Command(TimeSpan timestamp, string command, object argument)
         {
+            if (command == "sync")
+            {
+                GetTimeMessage(timestamp);
+            }
         }
+
         public string GetStatus()
         {
             return debugBuilder.ToString();
@@ -162,14 +169,18 @@ namespace SharedProjects.Subsystems
             return string.Empty;
         }
     
-        public void Setup(MyGridProgram program)
+        public void Setup(MyGridProgram program, string name)
         {
             Program = program;
             SyncListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelSyncChannelTag);
+            TimeListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.TimeChannelTag);
+            TimeListener.SetMessageCallback($"{name} sync");
         }
     
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
+            debugBuilder.Clear();
+            debugBuilder.AppendLine(CanonicalTimeDiff.TotalMilliseconds.ToString());
             if ((updateFlags & UpdateFrequency.Update10) != 0)
                 GetSyncMessages(timestamp);
             if ((updateFlags & UpdateFrequency.Update100) != 0)
@@ -193,12 +204,13 @@ namespace SharedProjects.Subsystems
 
         public void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp)
         {
-            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligence(Program.IGC, item);
+            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligence(Program.IGC, item, CanonicalTimeSourceID);
         }
 
+        private const double kOneTick = 16.6666666;
 
         #endregion
-    
+
         MyGridProgram Program;
         IMyBroadcastListener SyncListener;
 
@@ -210,12 +222,17 @@ namespace SharedProjects.Subsystems
 
         TimeSpan kIntelTimeout = TimeSpan.FromSeconds(5);
 
+        long CanonicalTimeSourceID;
+        TimeSpan CanonicalTimeDiff; // Add this to timestamp to get canonical time
+        IMyBroadcastListener TimeListener;
+
         private void GetSyncMessages(TimeSpan timestamp)
         {
             while (SyncListener.HasPendingMessage)
             {
                 var msg = SyncListener.AcceptMessage();
-                FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(msg.Data, IntelItems, ref KeyScratchpad);
+                if (msg.Source == CanonicalTimeSourceID)
+                    FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(msg.Data, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID);
             }
 
             foreach (var key in KeyScratchpad)
@@ -224,6 +241,21 @@ namespace SharedProjects.Subsystems
             }
 
             KeyScratchpad.Clear();
+        }
+
+        private void GetTimeMessage(TimeSpan timestamp)
+        {
+            MyIGCMessage? msg = null;
+
+            while (TimeListener.HasPendingMessage)
+                msg = TimeListener.AcceptMessage();
+
+            if (msg != null)
+            {
+                var tMsg = (MyIGCMessage)msg;
+                CanonicalTimeSourceID = tMsg.Source;
+                CanonicalTimeDiff = TimeSpan.FromMilliseconds((double)tMsg.Data + kOneTick) - timestamp;
+            }
         }
 
         private void TimeoutIntelItems(TimeSpan timestamp)

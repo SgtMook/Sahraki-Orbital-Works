@@ -7,9 +7,9 @@ namespace SharedProjects.Subsystems
 {
     public interface ISubsystem
     {
-        void Setup(MyGridProgram program);
+        void Setup(MyGridProgram program, string name);
         void Update(TimeSpan timestamp, UpdateFrequency updateFlags);
-        void Command(string command, object argument);
+        void Command(TimeSpan timestamp, string command, object argument);
         string GetStatus();
 
         string SerializeSubsystem();

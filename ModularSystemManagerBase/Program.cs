@@ -53,6 +53,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
+            subsystemManager.UpdateTime();
             if (commandLine.TryParse(argument))
             {
                 subsystemManager.Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
