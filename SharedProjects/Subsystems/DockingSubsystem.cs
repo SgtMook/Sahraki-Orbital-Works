@@ -17,7 +17,7 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
-namespace SharedProjects.Subsystems
+namespace IngameScript
 {
     public class DockingSubsystem : ISubsystem
     {

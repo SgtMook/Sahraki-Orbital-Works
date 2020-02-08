@@ -17,9 +17,9 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
-using SharedProjects.Utility;
 
-namespace SharedProjects.Subsystems
+
+namespace IngameScript
 {
     public class SubsystemManager
     {

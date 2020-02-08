@@ -18,8 +18,10 @@ using VRage;
 using VRageMath;
 using System.Collections.Immutable;
 
-namespace SharedProjects.Utility
+namespace IngameScript
 {
+
+
     #region Enums
     public enum IntelItemType
     {
@@ -28,8 +30,7 @@ namespace SharedProjects.Utility
         Asteroid,
         EnemyLarge,
         EnemySmall,
-        FriendlyLarge,
-        FriendlySmall,
+        Friendly,
     }
     #endregion
 
@@ -49,6 +50,10 @@ namespace SharedProjects.Utility
         {
             if (item is Waypoint)
                 IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, Waypoint.IGCPackGeneric((Waypoint)item)));
+            else if (item is FriendlyShipIntel)
+                IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, FriendlyShipIntel.IGCPackGeneric((FriendlyShipIntel)item)));
+            else
+                throw new Exception("Bad type when sending fleet intel");
         }
 
         /// <summary>
@@ -56,9 +61,9 @@ namespace SharedProjects.Utility
         /// </summary>
         public static MyTuple<IntelItemType, long> ReceiveAndUpdateFleetIntelligence(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
+             // Waypoint
             if (data is MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>)
             {
-                // Waypoint
                 var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>)data;
                 if (masterID == unpacked.Item1)
                 {
@@ -75,20 +80,45 @@ namespace SharedProjects.Utility
                 }
             }
 
-            return MyTuple.Create<IntelItemType, long>(IntelItemType.NONE, 0);
+            // Friendly
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>)
+            {
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>)data;
+                if (masterID == unpacked.Item1)
+                {
+                    var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
+                    if (key.Item1 == IntelItemType.Friendly)
+                    {
+                        if (intelItems.ContainsKey(key))
+                            ((FriendlyShipIntel)intelItems[key]).IGCUnpackInto(unpacked.Item2.Item3);
+                        else
+                            intelItems.Add(key, FriendlyShipIntel.IGCUnpack(unpacked.Item2.Item3));
+
+                        return key;
+                    }
+                }
+            }
+
+            throw new Exception("Bad type when receiving fleet intel");
         }
 
         public static void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
             var WaypointArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>>(kMaxWaypoints); 
+            var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>>(kMaxWaypoints); 
 
             foreach (KeyValuePair<MyTuple<IntelItemType, long>, IFleetIntelligence> kvp in intelItems)
             {
                 if (kvp.Key.Item1 == IntelItemType.Waypoint && WaypointArrayBuilder.Count < kMaxWaypoints)
                     WaypointArrayBuilder.Add(MyTuple.Create(masterID, Waypoint.IGCPackGeneric((Waypoint)kvp.Value)));
+                else if (kvp.Key.Item1 == IntelItemType.Friendly)
+                    FriendlyShipIntelArrayBuilder.Add(MyTuple.Create(masterID, FriendlyShipIntel.IGCPackGeneric((FriendlyShipIntel)kvp.Value)));
+                else
+                    throw new Exception("Bad type when sending sync package");
             }
 
             IGC.SendBroadcastMessage(IntelSyncChannelTag, WaypointArrayBuilder.ToImmutable());
+            IGC.SendBroadcastMessage(IntelSyncChannelTag, FriendlyShipIntelArrayBuilder.ToImmutable());
         }
 
         /// <summary>
@@ -97,14 +127,32 @@ namespace SharedProjects.Utility
         public static void ReceiveAndUpdateFleetIntelligenceSyncPackage(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, ref List<MyTuple<IntelItemType, long>> updatedScratchpad, long masterID)
         {
             // Waypoint
-            if (data is ImmutableArray<MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>)
+            if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>>)
             {
-                foreach (var item in (ImmutableArray<MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>)data)
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
                     updatedScratchpad.Add(updatedKey);
                 }
             }
+            // FriendlyShipIntel
+            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>>)
+            {
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>>)data)
+                {
+                    var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
+                    updatedScratchpad.Add(updatedKey);
+                }
+            }
+            else
+            {
+                throw new Exception("Bad type when receiving sync package");
+            }
+        }
+
+        public static MyTuple<IntelItemType, long> GetIntelItemKey(IFleetIntelligence item)
+        {
+            return MyTuple.Create(item.IntelItemType, item.ID);
         }
     }
 
@@ -128,7 +176,7 @@ namespace SharedProjects.Utility
     // Representations of objects in the fleet intelligence system
     public interface IFleetIntelligence
     {
-        Vector3 GetPosition(TimeSpan time);
+        Vector3 GetPositionFromCanonicalTime(TimeSpan CanonicalTime);
         Vector3 GetVelocity();
 
         float Radius { get; }
@@ -188,7 +236,7 @@ namespace SharedProjects.Utility
         public string DisplayName => Name;
         public long ID => Position.ToString().GetHashCode();
         public IntelItemType IntelItemType => IntelItemType.Waypoint;
-        public Vector3 GetPosition(TimeSpan time)
+        public Vector3 GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
         {
             return Position;
         }
@@ -251,7 +299,7 @@ namespace SharedProjects.Utility
     #endregion
 
     #region Friendly
-    public class FriendlyLarge : IFleetIntelligence
+    public class FriendlyShipIntel : IFleetIntelligence
     {
         #region IFleetIntelligence
         public float Radius { get; set; }
@@ -260,7 +308,7 @@ namespace SharedProjects.Utility
 
         public string DisplayName { get; set; }
 
-        public IntelItemType IntelItemType => IntelItemType.FriendlyLarge;
+        public IntelItemType IntelItemType => IntelItemType.Friendly;
 
         public void Deserialize(string s)
         {
@@ -271,14 +319,61 @@ namespace SharedProjects.Utility
             return string.Empty;
         }
 
-        public Vector3 GetPosition(TimeSpan time)
+        public Vector3 GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
         {
-            return Vector3.Zero;
+            return CurrentPosition + CurrentVelocity * (float)(CanonicalTime - CurrentTime).TotalSeconds;
         }
 
         public Vector3 GetVelocity()
         {
-            return Vector3.Zero;
+            return CurrentVelocity;
+        }
+        #endregion
+
+        public Vector3 CurrentVelocity;
+        public Vector3 CurrentPosition;
+        public TimeSpan CurrentTime;
+
+        #region IGC Packing
+        static public MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>> IGCPackGeneric(FriendlyShipIntel fsi)
+        {
+            return MyTuple.Create
+            (
+                (int)IntelItemType.Friendly,
+                fsi.ID,
+                MyTuple.Create
+                (
+                    MyTuple.Create
+                    (
+                        fsi.CurrentPosition,
+                        fsi.CurrentVelocity,
+                        fsi.CurrentTime.TotalMilliseconds
+                    ),
+                     MyTuple.Create
+                    (   
+                        fsi.DisplayName,
+                        fsi.ID,
+                        fsi.Radius
+                    )
+                )
+            );
+        }
+        static public FriendlyShipIntel IGCUnpack(object data)
+        {
+            var unpacked = (MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>)data;
+            var fsi = new FriendlyShipIntel();
+            fsi.IGCUnpackInto(unpacked);
+            return fsi;
+        }
+
+        public void IGCUnpackInto(MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>> unpacked)
+        {
+            CurrentPosition = unpacked.Item1.Item1;
+            CurrentVelocity = unpacked.Item1.Item2;
+            CurrentTime = TimeSpan.FromMilliseconds(unpacked.Item1.Item3);
+            DisplayName = unpacked.Item2.Item1;
+            ID = unpacked.Item2.Item2;
+            Radius = unpacked.Item2.Item3;
         }
         #endregion
 

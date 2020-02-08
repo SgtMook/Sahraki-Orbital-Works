@@ -17,7 +17,7 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
-namespace SharedProjects.Utility
+namespace IngameScript
 {
     public static class TerminalPropertiesHelper
     {

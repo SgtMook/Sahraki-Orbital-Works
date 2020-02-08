@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Sandbox.ModAPI.Ingame;
 
-namespace SharedProjects.Subsystems
+namespace IngameScript
 {
     public interface ISubsystem
     {

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace SharedProjects.Utility
+namespace IngameScript
 {
     public class MyStringReader
     {

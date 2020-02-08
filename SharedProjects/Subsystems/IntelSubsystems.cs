@@ -17,10 +17,10 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
-using SharedProjects.Utility;
+
 using System.Collections.Immutable;
 
-namespace SharedProjects.Subsystems
+namespace IngameScript
 {
     /// <summary>
     /// This subsystem is capable of producing a dictionary of intel items
@@ -32,6 +32,8 @@ namespace SharedProjects.Subsystems
         TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key);
 
         void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp);
+
+        TimeSpan CanonicalTimeDiff { get; }
     }
 
     // Handles tracking, updating, and transmitting fleet intelligence
@@ -61,8 +63,6 @@ namespace SharedProjects.Subsystems
 
         public string GetStatus()
         {
-            statusBuilder.Clear();
-            statusBuilder.AppendLine(ReportListener.MaxWaitingMessages.ToString());
             return debugBuilder.ToString();
         }
 
@@ -79,14 +79,21 @@ namespace SharedProjects.Subsystems
         {
             Program = program;
             ReportListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
+            GetParts();
+            UpdateMyIntel(TimeSpan.Zero);
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             if ((updateFlags & UpdateFrequency.Update10) != 0)
+            {
                 UpdateIntelFromReports(timestamp);
-            if ((updateFlags & UpdateFrequency.Update100) != 0)
                 SendSyncMessage(timestamp);
+            }
+            if ((updateFlags & UpdateFrequency.Update100) != 0)
+            {
+                UpdateMyIntel(timestamp);
+            }
         }
         #endregion
 
@@ -106,9 +113,11 @@ namespace SharedProjects.Subsystems
         public void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp)
         {
             MyTuple<IntelItemType, long> key = MyTuple.Create(item.IntelItemType, item.ID);
-            IntelItems.Add(key, item);
-            Timestamps.Add(key, timestamp);
+            IntelItems[key] = item;
+            Timestamps[key] = timestamp;
         }
+
+        public TimeSpan CanonicalTimeDiff => TimeSpan.Zero;
         #endregion
 
         #region Debug
@@ -117,6 +126,44 @@ namespace SharedProjects.Subsystems
 
         Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
         Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
+
+        IMyShipController controller;
+
+        void GetParts()
+        {
+            controller = null;
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+        }
+
+        private bool CollectParts(IMyTerminalBlock block)
+        {
+            if (!Program.Me.IsSameConstructAs(block)) return false;
+
+            if (block is IMyShipController)
+                controller = (IMyShipController)block;
+
+            return false;
+        }
+
+        void UpdateMyIntel(TimeSpan timestamp)
+        {
+            if (controller == null) return;
+            FriendlyShipIntel myIntel;
+            var key = MyTuple.Create(IntelItemType.Friendly, Program.Me.CubeGrid.EntityId);
+            if (IntelItems.ContainsKey(key))
+                myIntel = (FriendlyShipIntel)IntelItems[key];
+            else
+                myIntel = new FriendlyShipIntel();
+
+            myIntel.DisplayName = Program.Me.CubeGrid.DisplayName;
+            myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
+            myIntel.CurrentPosition = Program.Me.CubeGrid.GetPosition();
+            myIntel.Radius = 100;// TODO: Add
+            myIntel.CurrentTime = timestamp;
+            myIntel.ID = Program.Me.CubeGrid.EntityId;
+
+            ReportFleetIntelligence(myIntel, timestamp);
+        }
 
         private void SendSyncMessage(TimeSpan timestamp)
         {
@@ -132,7 +179,7 @@ namespace SharedProjects.Subsystems
                 var updateKey = FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(msg.Data, IntelItems, Program.IGC.Me);
                 if (updateKey.Item1 != IntelItemType.NONE)
                 {
-                    Timestamps.Add(updateKey, timestamp);
+                    Timestamps[updateKey] = timestamp;
                 }
             }
         }
@@ -149,10 +196,7 @@ namespace SharedProjects.Subsystems
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "sync")
-            {
-                GetTimeMessage(timestamp);
-            }
+            if (command == "sync") GetTimeMessage(timestamp);
         }
 
         public string GetStatus()
@@ -175,16 +219,20 @@ namespace SharedProjects.Subsystems
             SyncListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelSyncChannelTag);
             TimeListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.TimeChannelTag);
             TimeListener.SetMessageCallback($"{name} sync");
+            GetParts();
         }
     
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            debugBuilder.Clear();
-            debugBuilder.AppendLine(CanonicalTimeDiff.TotalMilliseconds.ToString());
             if ((updateFlags & UpdateFrequency.Update10) != 0)
+            {
                 GetSyncMessages(timestamp);
+                UpdateMyIntel(timestamp);
+            }
             if ((updateFlags & UpdateFrequency.Update100) != 0)
+            {
                 TimeoutIntelItems(timestamp);
+            }
         }
 
         #endregion
@@ -204,13 +252,16 @@ namespace SharedProjects.Subsystems
 
         public void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp)
         {
+            if (CanonicalTimeSourceID == 0) return;
             FleetIntelligenceUtil.PackAndBroadcastFleetIntelligence(Program.IGC, item, CanonicalTimeSourceID);
+            Timestamps[FleetIntelligenceUtil.GetIntelItemKey(item)] = timestamp;
+            IntelItems[FleetIntelligenceUtil.GetIntelItemKey(item)] = item;
         }
 
-        private const double kOneTick = 16.6666666;
-
+        public TimeSpan CanonicalTimeDiff { get; set; } // Add this to timestamp to get canonical time
         #endregion
 
+        private const double kOneTick = 16.6666666;
         MyGridProgram Program;
         IMyBroadcastListener SyncListener;
 
@@ -223,8 +274,45 @@ namespace SharedProjects.Subsystems
         TimeSpan kIntelTimeout = TimeSpan.FromSeconds(5);
 
         long CanonicalTimeSourceID;
-        TimeSpan CanonicalTimeDiff; // Add this to timestamp to get canonical time
         IMyBroadcastListener TimeListener;
+
+        IMyShipController controller;
+
+        void GetParts()
+        {
+            controller = null;
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+        }
+
+        private bool CollectParts(IMyTerminalBlock block)
+        {
+            if (!Program.Me.IsSameConstructAs(block)) return false;
+
+            if (block is IMyShipController)
+                controller = (IMyShipController)block;
+
+            return false;
+        }
+
+        void UpdateMyIntel(TimeSpan timestamp)
+        {
+            if (controller == null) return;
+            FriendlyShipIntel myIntel;
+            var key = MyTuple.Create(IntelItemType.Friendly, Program.Me.CubeGrid.EntityId);
+            if (IntelItems.ContainsKey(key))
+                myIntel = (FriendlyShipIntel)IntelItems[key];
+            else
+                myIntel = new FriendlyShipIntel();
+
+            myIntel.DisplayName = Program.Me.CubeGrid.DisplayName;
+            myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
+            myIntel.CurrentPosition = Program.Me.CubeGrid.GetPosition();
+            myIntel.Radius = 100;// TODO: Add
+            myIntel.CurrentTime = timestamp + CanonicalTimeDiff;
+            myIntel.ID = Program.Me.CubeGrid.EntityId;
+
+            ReportFleetIntelligence(myIntel, timestamp);
+        }
 
         private void GetSyncMessages(TimeSpan timestamp)
         {

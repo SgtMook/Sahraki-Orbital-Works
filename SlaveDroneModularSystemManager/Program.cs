@@ -18,7 +18,6 @@ using VRage;
 using VRageMath;
 using VRage.Library;
 
-using SharedProjects.Subsystems;
 using System.Collections.Immutable;
 
 namespace IngameScript

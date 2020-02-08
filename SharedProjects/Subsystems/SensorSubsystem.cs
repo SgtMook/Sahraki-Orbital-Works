@@ -17,9 +17,9 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
-using SharedProjects.Utility;
 
-namespace SharedProjects.Subsystems
+
+namespace IngameScript
 {
     public class SensorSubsystem : ISubsystem, IControlIntercepter
     {
@@ -284,7 +284,7 @@ namespace SharedProjects.Subsystems
 
         void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan timestamp, ref List<MySprite> scratchpad)
         {
-            var worldDirection = intel.GetPosition(timestamp) - primaryCamera.WorldMatrix.Translation;
+            var worldDirection = intel.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff) - primaryCamera.WorldMatrix.Translation;
             var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
             var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y / bodyPosition.Z));
 
@@ -313,14 +313,13 @@ namespace SharedProjects.Subsystems
             distSprite.Position = v;
             scratchpad.Add(distSprite);
 
-            // var updated = IntelProvider.GetLastUpdatedTime(MyTuple.Create(intel.IntelItemType, intel.ID));
-            // var diff = timestamp - updated;
-            // var display = diff.TotalMilliseconds < 1000 ? $"{(int)diff.TotalMilliseconds} ms" : $"{(int)diff.TotalSeconds} s";
-            // 
-            // var timeSprite = MySprite.CreateText(display, "Monospace", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
-            // v.Y += kMonospaceConstant.Y * 0.4f;
-            // timeSprite.Position = v;
-            // scratchpad.Add(timeSprite);
+            if (intel is FriendlyShipIntel)
+            {
+                var nameSprite = MySprite.CreateText(intel.DisplayName, "Monospace", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
+                v.Y += kMonospaceConstant.Y * 0.4f;
+                nameSprite.Position = v;
+                scratchpad.Add(nameSprite);
+            }
         }
 
         private void DrawHUD(TimeSpan timestamp)
@@ -339,7 +338,7 @@ namespace SharedProjects.Subsystems
 
             foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
             {
-                LeftHUDBuilder.AppendLine(((Vector3I)intel.GetPosition(timestamp)).ToString());
+                LeftHUDBuilder.AppendLine(((Vector3I)intel.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff)).ToString());
             }
 
             panelLeft.Alignment = TextAlignment.RIGHT;

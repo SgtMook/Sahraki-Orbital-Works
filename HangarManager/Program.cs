@@ -17,7 +17,7 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
-using SharedProjects.Utility;
+
 
 namespace IngameScript
 {
