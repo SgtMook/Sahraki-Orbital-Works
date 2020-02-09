@@ -27,7 +27,7 @@ namespace IngameScript
     /// </summary>
     public interface IIntelProvider
     {
-        Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences();
+        Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences(TimeSpan timestamp);
 
         TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key);
 
@@ -36,6 +36,7 @@ namespace IngameScript
         TimeSpan CanonicalTimeDiff { get; }
 
         void SetAgentSubsystem(IAgentSubsystem agentSubsystem);
+        void ReportCommand(FriendlyShipIntel agent, TaskType taskType, IFleetIntelligence target, TimeSpan timestamp);
     }
 
     // Handles tracking, updating, and transmitting fleet intelligence
@@ -57,15 +58,6 @@ namespace IngameScript
             {
                 IntelItems.Clear();
                 Timestamps.Clear();
-            }
-            // TODO: Jank, remove
-            if (command == "sendcommand")
-            {
-                var args = ((string)argument).Split(' ');
-                var targetTag = args[0] + "-COMMAND";
-                var taskCommand = MyTuple.Create((int)TaskType.Move, MyTuple.Create((int)IntelItemType.Waypoint, long.Parse(args[1])), true);
-                Program.IGC.SendBroadcastMessage(targetTag, taskCommand);
-                debugBuilder.AppendLine("Message sent");
             }
         }
 
@@ -98,16 +90,17 @@ namespace IngameScript
             {
                 UpdateIntelFromReports(timestamp);
                 SendSyncMessage(timestamp);
+                UpdateMyIntel(timestamp);
             }
             if ((updateFlags & UpdateFrequency.Update100) != 0)
             {
-                UpdateMyIntel(timestamp);
+                TimeoutIntelItems(timestamp);
             }
         }
         #endregion
 
         #region IIntelProvider
-        public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences()
+        public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences(TimeSpan timestamp)
         {
             return IntelItems;
         }
@@ -132,6 +125,12 @@ namespace IngameScript
         {
             AgentSubsystem = agentSubsystem;
         }
+
+        public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, IFleetIntelligence target, TimeSpan timestamp)
+        {
+            SendSyncMessage(timestamp);
+            Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)target.IntelItemType, target.ID), (int)CommandType.Override, 0));
+        }
         #endregion
 
         #region Debug
@@ -144,6 +143,9 @@ namespace IngameScript
         IMyShipController controller;
 
         IAgentSubsystem AgentSubsystem;
+
+        List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
+        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(5);
 
         void GetParts()
         {
@@ -189,6 +191,25 @@ namespace IngameScript
             ReportFleetIntelligence(myIntel, timestamp);
         }
 
+        private void TimeoutIntelItems(TimeSpan timestamp)
+        {
+            foreach (var kvp in Timestamps)
+            {
+                if ((kvp.Value + kIntelTimeout) < timestamp)
+                {
+                    KeyScratchpad.Add(kvp.Key);
+                }
+            }
+
+            foreach (var key in KeyScratchpad)
+            {
+                IntelItems.Remove(key);
+                Timestamps.Remove(key);
+            }
+
+            KeyScratchpad.Clear();
+        }
+
         private void SendSyncMessage(TimeSpan timestamp)
         {
             FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me);
@@ -209,9 +230,8 @@ namespace IngameScript
         }
     }
 
-    // TODO: Build
     // TODO: Save/load serializations
-    // TODO: Get sync
+    // TODO: Send command, probably through master
     public class IntelSlaveSubsystem : ISubsystem, IIntelProvider
     {
 
@@ -262,8 +282,9 @@ namespace IngameScript
         #endregion
 
         #region IIntelProvider
-        public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences()
+        public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences(TimeSpan timestamp)
         {
+            GetSyncMessages(timestamp);
             return IntelItems;
         }
 
@@ -287,6 +308,11 @@ namespace IngameScript
         public void SetAgentSubsystem(IAgentSubsystem agentSubsystem)
         {
             AgentSubsystem = agentSubsystem;
+        }
+
+        public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, IFleetIntelligence target, TimeSpan timestamp)
+        {
+            //TODO: Probably gets the master to send it?
         }
         #endregion
 

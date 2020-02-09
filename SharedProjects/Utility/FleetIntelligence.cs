@@ -21,16 +21,15 @@ using System.Collections.Immutable;
 namespace IngameScript
 {
 
-
     #region Enums
+    [Flags]
     public enum IntelItemType
     {
-        NONE,
-        Waypoint,
-        Asteroid,
-        EnemyLarge,
-        EnemySmall,
-        Friendly,
+        NONE = 0,
+        Waypoint = 1,
+        Asteroid = 2,
+        Friendly = 4,
+        Enemy = 8,
     }
     #endregion
 
@@ -43,6 +42,11 @@ namespace IngameScript
         public const string TimeChannelTag = "[FLTTM]";
 
         public const int kMaxWaypoints = 64;
+
+        public static int CompareName(IFleetIntelligence a, IFleetIntelligence b)
+        {
+            return a.DisplayName.CompareTo(b.DisplayName);
+        }
 
         // Canonical fleet intel packing format is (MasterID, (IntelItemType, IntelItemID, (data)))
 
@@ -299,7 +303,7 @@ namespace IngameScript
     #endregion
 
     #region Friendly
-    public class FriendlyShipIntel : IFleetIntelligence, IComparable<FriendlyShipIntel>
+    public class FriendlyShipIntel : IFleetIntelligence
     {
         #region IFleetIntelligence
         public float Radius { get; set; }
@@ -327,13 +331,6 @@ namespace IngameScript
         public Vector3 GetVelocity()
         {
             return CurrentVelocity;
-        }
-        #endregion
-
-        #region IComparable
-        public int CompareTo(FriendlyShipIntel obj)
-        {
-            return DisplayName.CompareTo(obj.DisplayName);
         }
         #endregion
 

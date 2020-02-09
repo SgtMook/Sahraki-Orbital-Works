@@ -99,6 +99,7 @@ namespace IngameScript
 
         StringBuilder updateBuilder = new StringBuilder();
         StringBuilder LeftHUDBuilder = new StringBuilder();
+        StringBuilder RightHUDBuilder = new StringBuilder();
 
         IIntelProvider IntelProvider;
 
@@ -196,47 +197,59 @@ namespace IngameScript
 
         void DoA(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.Command)
+            if (CurrentUIMode == UIMode.SelectAgent)
             {
                 AgentSelection_CurrentClass = AgentClassAdd(AgentSelection_CurrentClass, -1);
                 AgentSelection_CurrentIndex = 0;
+            }
+            else if (CurrentUIMode == UIMode.SelectTarget)
+            {
+                TargetSelection_TaskTypesIndex = DeltaSelection(TargetSelection_TaskTypesIndex, TargetSelection_TaskTypes.Count, false);
             }
         }
 
         void DoS(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.Command)
+            if (CurrentUIMode == UIMode.SelectAgent)
             {
-                if (AgentSelection_FriendlyAgents.Count == 0) return;
-                AgentSelection_CurrentIndex += 1;
-                if (AgentSelection_CurrentIndex == AgentSelection_FriendlyAgents.Count) AgentSelection_CurrentIndex = 0;
+                AgentSelection_CurrentIndex = DeltaSelection(AgentSelection_CurrentIndex, AgentSelection_FriendlyAgents.Count, true);
             }
-            else
+            else if (CurrentUIMode == UIMode.SelectTarget)
             {
-                distMeters -= 500;
+                TargetSelection_TargetIndex = DeltaSelection(TargetSelection_TargetIndex, TargetSelection_Targets.Count + TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count(), true);
+            }
+            else if (CurrentUIMode == UIMode.Waypoint)
+            {
+                CursorDist -= 200;
             }
         }
 
         void DoD(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.Command)
+            if (CurrentUIMode == UIMode.SelectAgent)
             {
                 AgentSelection_CurrentClass = AgentClassAdd(AgentSelection_CurrentClass, 1);
                 AgentSelection_CurrentIndex = 0;
+            }
+            else if (CurrentUIMode == UIMode.SelectTarget)
+            {
+                TargetSelection_TaskTypesIndex = DeltaSelection(TargetSelection_TaskTypesIndex, TargetSelection_TaskTypes.Count, true);
             }
         }
 
         void DoW(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.Command)
+            if (CurrentUIMode == UIMode.SelectAgent)
             {
-                if (AgentSelection_FriendlyAgents.Count == 0) return;
-                AgentSelection_CurrentIndex -= 1;
-                if (AgentSelection_CurrentIndex == -1) AgentSelection_CurrentIndex = AgentSelection_FriendlyAgents.Count - 1;
+                AgentSelection_CurrentIndex = DeltaSelection(AgentSelection_CurrentIndex, AgentSelection_FriendlyAgents.Count, false);
             }
-            else
+            else if (CurrentUIMode == UIMode.SelectTarget)
             {
-                distMeters += 500;
+                TargetSelection_TargetIndex = DeltaSelection(TargetSelection_TargetIndex, TargetSelection_Targets.Count + TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count(), false);
+            }
+            else if (CurrentUIMode == UIMode.Waypoint)
+            {
+                CursorDist += 200;
             }
         }
 
@@ -252,13 +265,43 @@ namespace IngameScript
 
         void DoC(TimeSpan timestamp)
         {
-
+            if (CurrentUIMode == UIMode.SelectTarget)
+            {
+                CurrentUIMode = UIMode.SelectAgent;
+            }
+            else
+            {
+            }
         }
 
         void DoSpace(TimeSpan timestamp)
         {
-            Waypoint w = GetWaypoint();
-            ReportWaypoint(w, timestamp);
+            if (CurrentUIMode == UIMode.SelectAgent)
+            {
+                CurrentUIMode = UIMode.SelectTarget;
+            }
+            else if(CurrentUIMode == UIMode.SelectTarget)
+            {
+                if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count())
+                {
+                    // Special handling
+                    if (TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex] == "CURSOR")
+                    {
+                        CurrentUIMode = UIMode.Waypoint;
+                    }
+                }
+                else if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count() + TargetSelection_Targets.Count())
+                {
+                    SendCommand(TargetSelection_Targets[TargetSelection_TargetIndex - TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count()], timestamp);
+                    CurrentUIMode = UIMode.SelectAgent;
+                }
+            }
+            else
+            {
+                Waypoint w = GetWaypoint();
+                ReportWaypoint(w, timestamp);
+                SendCommand(w, timestamp);
+            }
         }
         #endregion
 
@@ -285,12 +328,12 @@ namespace IngameScript
         #endregion
 
         #region Waypoint Designation
-        int distMeters = 1000;
+        int CursorDist = 1000;
         Waypoint GetWaypoint()
         {
             var w = new Waypoint();
 
-            w.Position = Vector3D.Transform(Vector3D.Forward * distMeters, primaryCamera.WorldMatrix);
+            w.Position = Vector3D.Transform(Vector3D.Forward * CursorDist, primaryCamera.WorldMatrix);
 
             return w;
         }
@@ -311,12 +354,18 @@ namespace IngameScript
 
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
-        UIMode CurrentUIMode = UIMode.Command;
+        UIMode CurrentUIMode = UIMode.SelectAgent;
+
+        readonly Color kFocusedColor = new Color(0.5f, 0.5f, 1f);
+        readonly Color kUnfocusedColor = new Color(0.2f, 0.2f, 0.5f, 0.5f);
 
         enum UIMode
         {
             Debug,
-            Command
+            SelectAgent,
+            SelectTarget,
+            Scan,
+            Waypoint,
         }
 
         void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan timestamp, ref List<MySprite> scratchpad)
@@ -361,14 +410,45 @@ namespace IngameScript
 
         private void DrawHUD(TimeSpan timestamp)
         {
-            DrawCenterHUD(timestamp);
+            UpdateCenterHUD(timestamp);
             UpdateLeftHUD(timestamp);
+            UpdateRightHUD(timestamp);
+        }
+
+        private void UpdateCenterHUD(TimeSpan timestamp)
+        {
+            if (panelMiddle == null) return;
+            using (var frame = panelMiddle.DrawFrame())
+            {
+                panelMiddle.ScriptBackgroundColor = new Color(1, 0, 0, 0);
+
+                var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.1f));
+                crosshairs.Position = new Vector2(0, -2) + panelMiddle.TextureSize / 2f;
+                frame.Add(crosshairs);
+
+                if (CurrentUIMode == UIMode.Waypoint)
+                {
+                    var distIndicator = MySprite.CreateText(CursorDist.ToString(), "Debug", Color.White, 0.5f);
+                    distIndicator.Position = new Vector2(0, 5) + panelMiddle.TextureSize / 2f;
+                    frame.Add(distIndicator);
+                }
+
+                foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
+                {
+                    if (intel.IntelItemType == IntelItemType.Friendly && (AgentSelection_FriendlyAgents.Count == 0 || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
+                    FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
+                }
+
+                foreach (var spr in SpriteScratchpad)
+                {
+                    frame.Add(spr);
+                }
+                SpriteScratchpad.Clear();
+            }
         }
 
         private void UpdateLeftHUD(TimeSpan timestamp)
         {
-            // Updating 
-
             if (panelLeft == null) return;
 
             LeftHUDBuilder.Clear();
@@ -379,18 +459,19 @@ namespace IngameScript
             }
             else
             {
-                // TODO: Build agent selection menu here
+                panelLeft.FontColor = CurrentUIMode == UIMode.SelectAgent ? kFocusedColor : kUnfocusedColor;
                 DrawAgentSelectionUI(timestamp);
-
             }
+
+            panelLeft.WriteText(LeftHUDBuilder.ToString());
         }
 
         private void DrawDebugLeftUI(TimeSpan timestamp)
         {
-            LeftHUDBuilder.AppendLine(distMeters.ToString());
+            LeftHUDBuilder.AppendLine(CursorDist.ToString());
             LeftHUDBuilder.AppendLine();
 
-            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
+            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
             {
                 LeftHUDBuilder.AppendLine(intel.DisplayName);
                 LeftHUDBuilder.AppendLine(intel.ID.ToString());
@@ -403,13 +484,10 @@ namespace IngameScript
                     LeftHUDBuilder.AppendLine(fsi.AcceptedTaskTypes.ToString());
                 }
             }
-
-            panelLeft.WriteText(LeftHUDBuilder.ToString());
         }
 
-        AgentClass AgentSelection_CurrentClass = AgentClass.Drone; // None means self
+        AgentClass AgentSelection_CurrentClass = AgentClass.Drone;
         int AgentSelection_CurrentIndex = 0;
-        int AgentSelection_CurrentMaxIndex = 0;
         List<FriendlyShipIntel> AgentSelection_FriendlyAgents = new List<FriendlyShipIntel>();
 
         Dictionary<AgentClass, string> AgentClassTags = new Dictionary<AgentClass, string>
@@ -424,13 +502,12 @@ namespace IngameScript
 
         AgentClass AgentClassAdd(AgentClass agentClass, int places = 1)
         {
-            int i = (((int)agentClass + places) % (int)AgentClass.Last + (int)AgentClass.Last) % (int)AgentClass.Last;
-            return (AgentClass)i;
+            return (AgentClass)CustomMod((int)agentClass + places, (int)AgentClass.Last);
         }
 
         private void DrawAgentSelectionUI(TimeSpan timestamp)
         {
-            panelLeft.FontSize = 0.6f;
+            panelLeft.FontSize = 0.55f;
             panelLeft.TextPadding = 9;
 
             int kRowLength = 19;
@@ -439,19 +516,19 @@ namespace IngameScript
             LeftHUDBuilder.AppendLine("== SELECT AGENTS ==");
             LeftHUDBuilder.AppendLine();
             LeftHUDBuilder.Append(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, -1)]).Append("    [").Append(AgentClassTags[AgentSelection_CurrentClass]).Append("]    ").AppendLine(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, +1)]);
-            LeftHUDBuilder.AppendLine("[<A]           [D>]");
+            if (CurrentUIMode == UIMode.SelectAgent) LeftHUDBuilder.AppendLine("[<A]           [D>]");
+            else LeftHUDBuilder.AppendLine();
 
             LeftHUDBuilder.AppendLine();
 
             AgentSelection_FriendlyAgents.Clear();
 
-            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
+            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
             {
                 if (intel is FriendlyShipIntel && ((FriendlyShipIntel)intel).AgentClass == AgentSelection_CurrentClass)
                     AgentSelection_FriendlyAgents.Add((FriendlyShipIntel)intel);
             }
-
-            AgentSelection_FriendlyAgents.Sort();
+            AgentSelection_FriendlyAgents.Sort(FleetIntelligenceUtil.CompareName);
 
             for (int i = 0; i < kMenuRows; i++)
             {
@@ -474,14 +551,157 @@ namespace IngameScript
             if (AgentSelection_CurrentIndex < AgentSelection_FriendlyAgents.Count)
             {
                 AppendPaddedLine(kRowLength, AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex].DisplayName, LeftHUDBuilder);
-                AppendPaddedLine(kRowLength, "Status:", LeftHUDBuilder);
+                if (CurrentUIMode == UIMode.SelectAgent) AppendPaddedLine(kRowLength, "[SPACE] SELECT TGT", LeftHUDBuilder);
             }
             else
             {
                 AppendPaddedLine(kRowLength, "NONE SELECTED", LeftHUDBuilder);
             }
+        }
 
-            panelLeft.WriteText(LeftHUDBuilder.ToString());
+        private void UpdateRightHUD(TimeSpan timestamp)
+        {
+            if (panelRight == null) return;
+
+            RightHUDBuilder.Clear();
+
+            if (CurrentUIMode == UIMode.Debug)
+            {
+                // Do debug?
+            }
+            else
+            {
+                panelRight.FontColor = CurrentUIMode == UIMode.SelectTarget ? kFocusedColor : kUnfocusedColor;
+                DrawTargetSelectionUI(timestamp);
+            }
+
+            panelRight.WriteText(RightHUDBuilder.ToString());
+        }
+
+        Dictionary<TaskType, string> TaskTypeTags = new Dictionary<TaskType, string>
+        {
+            { TaskType.None, "N/A" },
+            { TaskType.Move, "MOV" },
+            { TaskType.SmartMove, "SMV" },
+            { TaskType.Attack, "ATK" },
+            { TaskType.Dock, "DOK" }
+        };
+
+        Dictionary<TaskType, IntelItemType> TaskTypeToTargetTypes = new Dictionary<TaskType, IntelItemType>
+        {
+            { TaskType.None, IntelItemType.NONE},
+            { TaskType.Move, IntelItemType.Waypoint | IntelItemType.Friendly },
+            { TaskType.SmartMove, IntelItemType.Waypoint },
+            { TaskType.Attack, IntelItemType.Enemy },
+            { TaskType.Dock, IntelItemType.NONE }
+        };
+
+        Dictionary<TaskType, string[]> TaskTypeToSpecialTargets = new Dictionary<TaskType, string[]>
+        {
+            { TaskType.None, new string[0]},
+            { TaskType.Move, new string[1] { "CURSOR" }},
+            { TaskType.SmartMove, new string[1] { "CURSOR" }},
+            { TaskType.Attack, new string[1] { "NEAREST" }},
+            { TaskType.Dock, new string[1] { "NEAREST" }}
+        };
+
+        List<TaskType> TargetSelection_TaskTypes = new List<TaskType>();
+        int TargetSelection_TaskTypesIndex = 0;
+        List<IFleetIntelligence> TargetSelection_Targets = new List<IFleetIntelligence>();
+        int TargetSelection_TargetIndex;
+
+        private void DrawTargetSelectionUI(TimeSpan timestamp)
+        {
+            panelRight.FontSize = 0.55f;
+            panelRight.TextPadding = 9;
+
+            RightHUDBuilder.AppendLine("=== SELECT TASK ===");
+
+            RightHUDBuilder.AppendLine();
+
+            if (AgentSelection_CurrentIndex >= AgentSelection_FriendlyAgents.Count) return;
+
+            var Agent = AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex];
+            TargetSelection_TaskTypes.Clear();
+
+            for (int i = 0; i < 30; i++)
+            {
+                if (((TaskType)(1 << i) & Agent.AcceptedTaskTypes) != 0)
+                    TargetSelection_TaskTypes.Add((TaskType)(1 << i));
+            }
+
+            if (TargetSelection_TaskTypes.Count == 0) return;
+
+            if (TargetSelection_TaskTypesIndex > TargetSelection_TaskTypes.Count) TargetSelection_TaskTypesIndex = 0;
+
+            RightHUDBuilder.Append(TaskTypeTags[TargetSelection_TaskTypes[CustomMod(TargetSelection_TaskTypesIndex - 1, TargetSelection_TaskTypes.Count)]]).
+                Append("    [").Append(TaskTypeTags[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]).Append("]    ").
+                AppendLine(TaskTypeTags[TargetSelection_TaskTypes[CustomMod(TargetSelection_TaskTypesIndex + 1, TargetSelection_TaskTypes.Count)]]);
+
+            if (CurrentUIMode == UIMode.SelectTarget) RightHUDBuilder.AppendLine("[<A]           [D>]");
+            else RightHUDBuilder.AppendLine();
+            RightHUDBuilder.AppendLine();
+
+            TargetSelection_Targets.Clear();
+            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
+            {
+                if ((intel.IntelItemType & TaskTypeToTargetTypes[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]) != 0)
+                    TargetSelection_Targets.Add(intel);
+            }
+
+            TargetSelection_Targets.Sort(FleetIntelligenceUtil.CompareName);
+
+            int kMenuRows = 16;
+            int kRowLength = 19;
+            int specialCount = TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count();
+            for (int i = 0; i < kMenuRows; i++)
+            {
+                if (i < specialCount)
+                {
+                    if (i == TargetSelection_TargetIndex) RightHUDBuilder.Append(">> ");
+                    else RightHUDBuilder.Append("   ");
+                    AppendPaddedLine(kRowLength - 3, TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][i], RightHUDBuilder);
+                }
+                else if (specialCount < i && i < TargetSelection_Targets.Count + specialCount + 1)
+                {
+                    if (i == TargetSelection_TargetIndex + 1) RightHUDBuilder.Append(">> ");
+                    else RightHUDBuilder.Append("   ");
+                    var intel = TargetSelection_Targets[i - specialCount - 1];
+                    AppendPaddedLine(kRowLength - 3, intel.DisplayName, RightHUDBuilder);
+                }
+                else
+                {
+                    RightHUDBuilder.AppendLine();
+                }
+            }
+
+            RightHUDBuilder.AppendLine();
+
+            RightHUDBuilder.AppendLine("==== SELECTION ====");
+
+            if (TargetSelection_TargetIndex < specialCount)
+            {
+                AppendPaddedLine(kRowLength, TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex], RightHUDBuilder);
+                if (CurrentUIMode == UIMode.SelectTarget)
+                {
+                    AppendPaddedLine(kRowLength, "[SPACE] SELECT", RightHUDBuilder);
+                    AppendPaddedLine(kRowLength, "[C] CANCLE CMD", RightHUDBuilder);
+                }
+            }
+            else if (specialCount <= TargetSelection_TargetIndex && TargetSelection_TargetIndex < TargetSelection_Targets.Count + specialCount)
+            {
+                AppendPaddedLine(kRowLength, TargetSelection_Targets[TargetSelection_TargetIndex - specialCount].DisplayName, RightHUDBuilder);
+                if (CurrentUIMode == UIMode.SelectTarget)
+                {
+                    AppendPaddedLine(kRowLength, "[SPACE] SEND CMD", RightHUDBuilder);
+                    AppendPaddedLine(kRowLength, "[C] CANCLE CMD", RightHUDBuilder);
+                }
+            }
+            else
+            {
+                AppendPaddedLine(kRowLength, "NONE SELECTED", RightHUDBuilder);
+            }
+
         }
 
         private void AppendPaddedLine(int TotalLength, string text, StringBuilder builder)
@@ -495,35 +715,36 @@ namespace IngameScript
                 builder.AppendLine(text);
         }
 
-        private void DrawCenterHUD(TimeSpan timestamp)
+        int CustomMod(int n, int d)
         {
-            if (panelMiddle == null) return;
-            using (var frame = panelMiddle.DrawFrame())
-            {
-                var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.1f));
-                crosshairs.Position = new Vector2(0, -2) + panelMiddle.TextureSize / 2f;
-                panelMiddle.ScriptBackgroundColor = new Color(1, 0, 0, 0);
-                frame.Add(crosshairs);
-
-                foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
-                {
-                    if (intel.IntelItemType == IntelItemType.Friendly && (AgentSelection_FriendlyAgents.Count == 0 || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
-                    FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
-                }
-
-                foreach (var spr in SpriteScratchpad)
-                {
-                    frame.Add(spr);
-                }
-                SpriteScratchpad.Clear();
-            }
+            return (n % d + d) % d;
         }
+
+        int DeltaSelection(int current, int total, bool positive, int min = 0)
+        {
+            if (total == 0) return 0;
+            int newCurrent = current + (positive ? 1 : -1);
+            if (newCurrent >= total) newCurrent = 0;
+            if (newCurrent <= -1) newCurrent = total - 1;
+            return newCurrent;
+        }
+
         #endregion
 
         #region Intel
         void ReportWaypoint(Waypoint w, TimeSpan timestamp)
         {
             IntelProvider.ReportFleetIntelligence(w, timestamp);
+        }
+
+        void SendCommand(IFleetIntelligence target, TimeSpan timestamp)
+        {
+            FriendlyShipIntel agent = AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex];
+            TaskType taskType = TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex];
+
+            IntelProvider.ReportCommand(agent, taskType, target, timestamp);
+
+            CurrentUIMode = UIMode.SelectAgent;
         }
         #endregion
 

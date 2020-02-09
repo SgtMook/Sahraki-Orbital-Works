@@ -19,7 +19,7 @@ using VRageMath;
 
 namespace IngameScript
 {
-    // Canonical command format is (int TaskType, MyTuple<int, long> IGCIntelKey, int CommandType)
+    // Canonical command format is (int TaskType, MyTuple<int, long> IGCIntelKey, int CommandType, int Arguments)
     public enum CommandType
     {
         Override,
@@ -122,7 +122,7 @@ namespace IngameScript
         {
             if (TaskQueue.Count == 0) return;
             ITask currentTask = TaskQueue.Peek();
-            currentTask.Do(IntelProvider.GetFleetIntelligences(), timestamp + IntelProvider.CanonicalTimeDiff);
+            currentTask.Do(IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff);
             if (currentTask.Status == TaskStatus.Complete)
                 TaskQueue.Dequeue();
             else if (currentTask.Status == TaskStatus.Aborted)
@@ -134,12 +134,12 @@ namespace IngameScript
             while (CommandListener.HasPendingMessage)
             {
                 var msg = CommandListener.AcceptMessage();
-                if (msg.Data is MyTuple<int, MyTuple<int, long>, bool>)
-                    AddTaskFromCommand(timestamp, (MyTuple<int, MyTuple<int, long>, int>)msg.Data);
+                if (msg.Data is MyTuple<int, MyTuple<int, long>, int, int>)
+                    AddTaskFromCommand(timestamp, (MyTuple<int, MyTuple<int, long>, int, int>)msg.Data);
             }
         }
 
-        private void AddTaskFromCommand(TimeSpan timestamp, MyTuple<int, MyTuple<int, long>, int> command)
+        private void AddTaskFromCommand(TimeSpan timestamp, MyTuple<int, MyTuple<int, long>, int, int> command)
         {
             if ((CommandType)command.Item3 == CommandType.Override)
             {
@@ -147,7 +147,7 @@ namespace IngameScript
             }
             if (TaskGenerators.ContainsKey((TaskType)command.Item1))
             {
-                TaskQueue.Enqueue(TaskGenerators[(TaskType)command.Item1].GenerateTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), IntelProvider.GetFleetIntelligences(), timestamp + IntelProvider.CanonicalTimeDiff));
+                TaskQueue.Enqueue(TaskGenerators[(TaskType)command.Item1].GenerateTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff));
             }
         }
     }
