@@ -299,7 +299,7 @@ namespace IngameScript
     #endregion
 
     #region Friendly
-    public class FriendlyShipIntel : IFleetIntelligence
+    public class FriendlyShipIntel : IFleetIntelligence, IComparable<FriendlyShipIntel>
     {
         #region IFleetIntelligence
         public float Radius { get; set; }
@@ -327,6 +327,13 @@ namespace IngameScript
         public Vector3 GetVelocity()
         {
             return CurrentVelocity;
+        }
+        #endregion
+
+        #region IComparable
+        public int CompareTo(FriendlyShipIntel obj)
+        {
+            return DisplayName.CompareTo(obj.DisplayName);
         }
         #endregion
 

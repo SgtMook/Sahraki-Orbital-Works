@@ -63,6 +63,9 @@ namespace IngameScript
         {
             Program = program;
             GetParts();
+
+            panelLeft.FontSize = 0.75f;
+            panelLeft.Alignment = TextAlignment.RIGHT;
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -193,22 +196,48 @@ namespace IngameScript
 
         void DoA(TimeSpan timestamp)
         {
-
+            if (CurrentUIMode == UIMode.Command)
+            {
+                AgentSelection_CurrentClass = AgentClassAdd(AgentSelection_CurrentClass, -1);
+                AgentSelection_CurrentIndex = 0;
+            }
         }
 
         void DoS(TimeSpan timestamp)
         {
-            distMeters -= 500;
+            if (CurrentUIMode == UIMode.Command)
+            {
+                if (AgentSelection_FriendlyAgents.Count == 0) return;
+                AgentSelection_CurrentIndex += 1;
+                if (AgentSelection_CurrentIndex == AgentSelection_FriendlyAgents.Count) AgentSelection_CurrentIndex = 0;
+            }
+            else
+            {
+                distMeters -= 500;
+            }
         }
 
         void DoD(TimeSpan timestamp)
         {
-
+            if (CurrentUIMode == UIMode.Command)
+            {
+                AgentSelection_CurrentClass = AgentClassAdd(AgentSelection_CurrentClass, 1);
+                AgentSelection_CurrentIndex = 0;
+            }
         }
 
         void DoW(TimeSpan timestamp)
         {
-            distMeters += 500;
+            if (CurrentUIMode == UIMode.Command)
+            {
+                if (AgentSelection_FriendlyAgents.Count == 0) return;
+                AgentSelection_CurrentIndex -= 1;
+                if (AgentSelection_CurrentIndex == -1) AgentSelection_CurrentIndex = AgentSelection_FriendlyAgents.Count - 1;
+            }
+            else
+            {
+                distMeters += 500;
+            }
         }
 
         void DoQ(TimeSpan timestamp)
@@ -282,6 +311,14 @@ namespace IngameScript
 
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
+        UIMode CurrentUIMode = UIMode.Command;
+
+        enum UIMode
+        {
+            Debug,
+            Command
+        }
+
         void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan timestamp, ref List<MySprite> scratchpad)
         {
             var worldDirection = intel.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff) - primaryCamera.WorldMatrix.Translation;
@@ -330,12 +367,26 @@ namespace IngameScript
 
         private void UpdateLeftHUD(TimeSpan timestamp)
         {
-            if (panelLeft == null) return;
+            // Updating 
 
-            panelLeft.FontSize = 0.75f;
+            if (panelLeft == null) return;
 
             LeftHUDBuilder.Clear();
 
+            if (CurrentUIMode == UIMode.Debug)
+            {
+                DrawDebugLeftUI(timestamp);
+            }
+            else
+            {
+                // TODO: Build agent selection menu here
+                DrawAgentSelectionUI(timestamp);
+
+            }
+        }
+
+        private void DrawDebugLeftUI(TimeSpan timestamp)
+        {
             LeftHUDBuilder.AppendLine(distMeters.ToString());
             LeftHUDBuilder.AppendLine();
 
@@ -353,8 +404,95 @@ namespace IngameScript
                 }
             }
 
-            panelLeft.Alignment = TextAlignment.RIGHT;
             panelLeft.WriteText(LeftHUDBuilder.ToString());
+        }
+
+        AgentClass AgentSelection_CurrentClass = AgentClass.Drone; // None means self
+        int AgentSelection_CurrentIndex = 0;
+        int AgentSelection_CurrentMaxIndex = 0;
+        List<FriendlyShipIntel> AgentSelection_FriendlyAgents = new List<FriendlyShipIntel>();
+
+        Dictionary<AgentClass, string> AgentClassTags = new Dictionary<AgentClass, string>
+        {
+            { AgentClass.None, "SLF" },
+            { AgentClass.Drone, "DRN" },
+            { AgentClass.Fighter, "FTR" },
+            { AgentClass.Bomber, "BMR" },
+            { AgentClass.Miner, "MNR" },
+            { AgentClass.Carrier, "CVS" },
+        };
+
+        AgentClass AgentClassAdd(AgentClass agentClass, int places = 1)
+        {
+            int i = (((int)agentClass + places) % (int)AgentClass.Last + (int)AgentClass.Last) % (int)AgentClass.Last;
+            return (AgentClass)i;
+        }
+
+        private void DrawAgentSelectionUI(TimeSpan timestamp)
+        {
+            panelLeft.FontSize = 0.6f;
+            panelLeft.TextPadding = 9;
+
+            int kRowLength = 19;
+            int kMenuRows = 12;
+
+            LeftHUDBuilder.AppendLine("== SELECT AGENTS ==");
+            LeftHUDBuilder.AppendLine();
+            LeftHUDBuilder.Append(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, -1)]).Append("    [").Append(AgentClassTags[AgentSelection_CurrentClass]).Append("]    ").AppendLine(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, +1)]);
+            LeftHUDBuilder.AppendLine("[<A]           [D>]");
+
+            LeftHUDBuilder.AppendLine();
+
+            AgentSelection_FriendlyAgents.Clear();
+
+            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
+            {
+                if (intel is FriendlyShipIntel && ((FriendlyShipIntel)intel).AgentClass == AgentSelection_CurrentClass)
+                    AgentSelection_FriendlyAgents.Add((FriendlyShipIntel)intel);
+            }
+
+            AgentSelection_FriendlyAgents.Sort();
+
+            for (int i = 0; i < kMenuRows; i++)
+            {
+                if (i < AgentSelection_FriendlyAgents.Count)
+                {
+                    var intel = AgentSelection_FriendlyAgents[i];
+                    if (i == AgentSelection_CurrentIndex) LeftHUDBuilder.Append(">> ");
+                    else LeftHUDBuilder.Append("   ");
+
+                    AppendPaddedLine(kRowLength - 3, intel.DisplayName, LeftHUDBuilder);
+                }
+                else
+                {
+                    LeftHUDBuilder.AppendLine();
+                }
+            }
+
+            LeftHUDBuilder.AppendLine("==== SELECTION ====");
+
+            if (AgentSelection_CurrentIndex < AgentSelection_FriendlyAgents.Count)
+            {
+                AppendPaddedLine(kRowLength, AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex].DisplayName, LeftHUDBuilder);
+                AppendPaddedLine(kRowLength, "Status:", LeftHUDBuilder);
+            }
+            else
+            {
+                AppendPaddedLine(kRowLength, "NONE SELECTED", LeftHUDBuilder);
+            }
+
+            panelLeft.WriteText(LeftHUDBuilder.ToString());
+        }
+
+        private void AppendPaddedLine(int TotalLength, string text, StringBuilder builder)
+        {
+            int length = text.Length;
+            if (length > TotalLength)
+                builder.AppendLine(text.Substring(0, TotalLength));
+            else if (length < TotalLength)
+                builder.Append(text).Append(' ', TotalLength - length).AppendLine();
+            else
+                builder.AppendLine(text);
         }
 
         private void DrawCenterHUD(TimeSpan timestamp)
@@ -369,6 +507,7 @@ namespace IngameScript
 
                 foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
                 {
+                    if (intel.IntelItemType == IntelItemType.Friendly && (AgentSelection_FriendlyAgents.Count == 0 || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
                     FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
                 }
 

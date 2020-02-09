@@ -34,7 +34,8 @@ namespace IngameScript
         Fighter,
         Bomber,
         Miner,
-        Carrier
+        Carrier,
+        Last
     }
 
     public interface IAgentSubsystem
