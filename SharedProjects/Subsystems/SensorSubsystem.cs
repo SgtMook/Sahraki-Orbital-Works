@@ -218,7 +218,7 @@ namespace IngameScript
             {
                 TargetSelection_TargetIndex = DeltaSelection(TargetSelection_TargetIndex, TargetSelection_Targets.Count + TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count(), true);
             }
-            else if (CurrentUIMode == UIMode.Waypoint)
+            else if (CurrentUIMode == UIMode.SelectWaypoint)
             {
                 CursorDist -= 200;
             }
@@ -247,7 +247,7 @@ namespace IngameScript
             {
                 TargetSelection_TargetIndex = DeltaSelection(TargetSelection_TargetIndex, TargetSelection_Targets.Count + TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count(), false);
             }
-            else if (CurrentUIMode == UIMode.Waypoint)
+            else if (CurrentUIMode == UIMode.SelectWaypoint)
             {
                 CursorDist += 200;
             }
@@ -255,7 +255,15 @@ namespace IngameScript
 
         void DoQ(TimeSpan timestamp)
         {
-
+            if (CurrentUIMode == UIMode.Scan)
+            {
+                CurrentUIMode = UIMode.SelectAgent;
+                AgentSelection_CurrentIndex = 0;
+            }
+            else if (CurrentUIMode == UIMode.SelectAgent || CurrentUIMode == UIMode.SelectTarget || CurrentUIMode == UIMode.SelectWaypoint)
+            {
+                CurrentUIMode = UIMode.Scan;
+            }
         }
 
         void DoE(TimeSpan timestamp)
@@ -287,7 +295,7 @@ namespace IngameScript
                     // Special handling
                     if (TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex] == "CURSOR")
                     {
-                        CurrentUIMode = UIMode.Waypoint;
+                        CurrentUIMode = UIMode.SelectWaypoint;
                     }
                 }
                 else if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count() + TargetSelection_Targets.Count())
@@ -296,24 +304,29 @@ namespace IngameScript
                     CurrentUIMode = UIMode.SelectAgent;
                 }
             }
-            else
+            else if (CurrentUIMode == UIMode.SelectWaypoint)
             {
                 Waypoint w = GetWaypoint();
                 ReportWaypoint(w, timestamp);
                 SendCommand(w, timestamp);
             }
+            else if (CurrentUIMode == UIMode.Scan)
+            {
+                DoScan(timestamp);
+                // TODO: Report scanned item as intel if available
+            }
         }
         #endregion
 
         #region Raycast
-        int cameraIndex = 0;
+        int Lidar_CameraIndex = 0;
         MyDetectedEntityInfo lastDetectedInfo;
         TimeSpan lastDetectedTimestamp;
         void DoScan(TimeSpan timestamp)
         {
-            IMyCameraBlock usingCamera = secondaryCameras[cameraIndex];
-            cameraIndex += 1;
-            if (cameraIndex == secondaryCameras.Count) cameraIndex = 0;
+            IMyCameraBlock usingCamera = secondaryCameras[Lidar_CameraIndex];
+            Lidar_CameraIndex += 1;
+            if (Lidar_CameraIndex == secondaryCameras.Count) Lidar_CameraIndex = 0;
             lastDetectedInfo = usingCamera.Raycast(usingCamera.AvailableScanRange);
             lastDetectedTimestamp = timestamp;
         }
@@ -346,8 +359,8 @@ namespace IngameScript
 
         Vector2 kMonospaceConstant = new Vector2(18.68108f, 28.8f);
 
-        const float kMinScale = 0.5f;
-        const float kMaxScale = 1.5f;
+        const float kMinScale = 0.25f;
+        const float kMaxScale = 0.5f;
 
         const float kMinDist = 1000;
         const float kMaxDist = 10000;
@@ -365,7 +378,7 @@ namespace IngameScript
             SelectAgent,
             SelectTarget,
             Scan,
-            Waypoint,
+            SelectWaypoint,
         }
 
         void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan timestamp, ref List<MySprite> scratchpad)
@@ -385,24 +398,24 @@ namespace IngameScript
                 scale = kMinScale + (kMaxScale - kMinScale) * (kMaxDist - dist) / (kMaxDist - kMinDist);
             }
 
-            var indicator = MySprite.CreateText("x", "Monospace", new Color(scale, scale, scale, 0.5f), scale, TextAlignment.CENTER);
+            var indicator = MySprite.CreateText("><", "Monospace", new Color(scale, scale, scale, 0.5f), scale, TextAlignment.CENTER);
             var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
 
             v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
             v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
-            v.Y -= 5 + scale * kMonospaceConstant.Y / 2;
+            v.Y -= 2 + scale * kMonospaceConstant.Y / 2;
             indicator.Position = v;
             scratchpad.Add(indicator);
 
-            var distSprite = MySprite.CreateText($"{((int)dist).ToString()} m", "Monospace", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
-            v.Y += kMonospaceConstant.Y * scale;
+            var distSprite = MySprite.CreateText($"{((int)dist).ToString()} m", "Debug", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
+            v.Y += kMonospaceConstant.Y * kMaxScale + 0.2f;
             distSprite.Position = v;
             scratchpad.Add(distSprite);
 
             if (intel is FriendlyShipIntel)
             {
-                var nameSprite = MySprite.CreateText(intel.DisplayName, "Monospace", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
-                v.Y += kMonospaceConstant.Y * 0.4f;
+                var nameSprite = MySprite.CreateText(intel.DisplayName, "Debug", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
+                v.Y += kMonospaceConstant.Y * 0.3f;
                 nameSprite.Position = v;
                 scratchpad.Add(nameSprite);
             }
@@ -426,7 +439,7 @@ namespace IngameScript
                 crosshairs.Position = new Vector2(0, -2) + panelMiddle.TextureSize / 2f;
                 frame.Add(crosshairs);
 
-                if (CurrentUIMode == UIMode.Waypoint)
+                if (CurrentUIMode == UIMode.SelectWaypoint)
                 {
                     var distIndicator = MySprite.CreateText(CursorDist.ToString(), "Debug", Color.White, 0.5f);
                     distIndicator.Position = new Vector2(0, 5) + panelMiddle.TextureSize / 2f;
@@ -435,7 +448,7 @@ namespace IngameScript
 
                 foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
                 {
-                    if (intel.IntelItemType == IntelItemType.Friendly && (AgentSelection_FriendlyAgents.Count == 0 || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
+                    if (intel.IntelItemType == IntelItemType.Friendly && (CurrentUIMode == UIMode.Scan || AgentSelection_FriendlyAgents.Count == 0 || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
                     FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
                 }
 
@@ -457,10 +470,15 @@ namespace IngameScript
             {
                 DrawDebugLeftUI(timestamp);
             }
-            else
+            else if (CurrentUIMode == UIMode.SelectAgent || CurrentUIMode == UIMode.SelectTarget || CurrentUIMode == UIMode.SelectWaypoint)
             {
                 panelLeft.FontColor = CurrentUIMode == UIMode.SelectAgent ? kFocusedColor : kUnfocusedColor;
                 DrawAgentSelectionUI(timestamp);
+            }
+            else if (CurrentUIMode == UIMode.Scan)
+            {
+                panelLeft.FontColor = kFocusedColor;
+                DrawScanUI(timestamp);
             }
 
             panelLeft.WriteText(LeftHUDBuilder.ToString());
@@ -513,7 +531,7 @@ namespace IngameScript
             int kRowLength = 19;
             int kMenuRows = 12;
 
-            LeftHUDBuilder.AppendLine("== SELECT AGENTS ==");
+            LeftHUDBuilder.AppendLine("===== COMMAND =====");
             LeftHUDBuilder.AppendLine();
             LeftHUDBuilder.Append(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, -1)]).Append("    [").Append(AgentClassTags[AgentSelection_CurrentClass]).Append("]    ").AppendLine(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, +1)]);
             if (CurrentUIMode == UIMode.SelectAgent) LeftHUDBuilder.AppendLine("[<A]           [D>]");
@@ -556,6 +574,76 @@ namespace IngameScript
             else
             {
                 AppendPaddedLine(kRowLength, "NONE SELECTED", LeftHUDBuilder);
+            }
+        }
+
+        private void DrawScanUI(TimeSpan timestamp)
+        {
+            panelLeft.FontSize = 0.55f;
+            panelLeft.TextPadding = 9;
+            int kRowLength = 19;
+
+            LeftHUDBuilder.AppendLine("====== LIDAR ======");
+            LeftHUDBuilder.AppendLine();
+
+            if (secondaryCameras.Count == 0)
+            {
+                LeftHUDBuilder.AppendLine("=== UNAVAILABLE ===");
+                return;
+            }
+
+            AppendPaddedLine(kRowLength, "SCANNERS:", LeftHUDBuilder);
+
+            LeftHUDBuilder.AppendLine();
+
+            for (int i = 0; i < 8; i++)
+            {
+                if (i < secondaryCameras.Count)
+                {
+                    LeftHUDBuilder.Append(i == Lidar_CameraIndex ? "> " : "  ");
+                    LeftHUDBuilder.Append((i + 1).ToString()).Append(": ");
+
+                    if (secondaryCameras[i].IsWorking)
+                    {
+                        if (secondaryCameras[i].AvailableScanRange >= kScanDistance)
+                        {
+                            AppendPaddedLine(kRowLength - 5, "READY", LeftHUDBuilder);
+                        }
+                        else
+                        {
+                            AppendPaddedLine(kRowLength - 5, "CHARGING", LeftHUDBuilder);
+                        }
+
+                        int p = (int)(secondaryCameras[i].AvailableScanRange * 10 / kScanDistance);
+                        LeftHUDBuilder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", secondaryCameras[i].AvailableScanRange / 1000)).AppendLine("km");
+                    }
+                    else
+                    {
+                        AppendPaddedLine(kRowLength - 5, "UNAVAILABLE", LeftHUDBuilder);
+                        LeftHUDBuilder.AppendLine();
+                    }
+                }
+                else
+                {
+                    LeftHUDBuilder.AppendLine();
+                    LeftHUDBuilder.AppendLine();
+                }
+            }
+
+            LeftHUDBuilder.AppendLine();
+            LeftHUDBuilder.AppendLine("===================");
+
+            if (secondaryCameras[Lidar_CameraIndex].IsWorking)
+            {
+                AppendPaddedLine(kRowLength, "STATUS: AVAILABLE", LeftHUDBuilder);
+                int p = (int)(secondaryCameras[Lidar_CameraIndex].AvailableScanRange * 10 / kScanDistance);
+                LeftHUDBuilder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", secondaryCameras[Lidar_CameraIndex].AvailableScanRange / 1000)).AppendLine("km");
+                AppendPaddedLine(kRowLength, "[SPACE] SCAN", LeftHUDBuilder);
+            }
+            else
+            {
+                AppendPaddedLine(kRowLength, "STATUS: UNAVAILABLE", LeftHUDBuilder);
+                AppendPaddedLine(kRowLength, "[SPACE] CYCLE", LeftHUDBuilder);
             }
         }
 
@@ -749,7 +837,7 @@ namespace IngameScript
         #endregion
 
         #region Debug
-        private const int kScanDistance = 5000000;
+        private const int kScanDistance = 25000;
         void GetRaycastDebug()
         {
             foreach (IMyCameraBlock camera in secondaryCameras)
@@ -757,7 +845,7 @@ namespace IngameScript
                 updateBuilder.AppendLine($"{((int)(camera.AvailableScanRange / 1000)).ToString()} km");
             }
 
-            updateBuilder.AppendLine(cameraIndex.ToString());
+            updateBuilder.AppendLine(Lidar_CameraIndex.ToString());
             updateBuilder.AppendLine();
             updateBuilder.AppendLine("Last detected: ");
             if (lastDetectedInfo.IsEmpty())

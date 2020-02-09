@@ -260,7 +260,7 @@ namespace IngameScript
             }
 
             var gridDirIndicator = Vector3.TransformNormal(AutopilotMoveIndicator, MatrixD.Transpose(
-                Program.Me.CubeGrid.WorldMatrix));
+                controller.CubeGrid.WorldMatrix));
 
             for (int i = 0; i < thrustersList.Count; i++)
             {
