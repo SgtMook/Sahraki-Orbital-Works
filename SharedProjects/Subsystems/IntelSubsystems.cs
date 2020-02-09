@@ -38,8 +38,6 @@ namespace IngameScript
 
     // Handles tracking, updating, and transmitting fleet intelligence
     // TODO: Serialize and deserialize intel items
-    // TODO: Send sync messages containing all the fleet intelligences
-    // TODO: Receive update messages
     // TODO: Remove items as necessary
     // TODO: Support more intel types
     public class IntelMasterSubsystem : ISubsystem, IIntelProvider
@@ -57,6 +55,15 @@ namespace IngameScript
             {
                 IntelItems.Clear();
                 Timestamps.Clear();
+            }
+            // TODO: Jank, remove
+            if (command == "sendcommand")
+            {
+                var args = ((string)argument).Split(' ');
+                var targetTag = args[0] + "-COMMAND";
+                var taskCommand = MyTuple.Create((int)TaskType.Move, MyTuple.Create((int)IntelItemType.Waypoint, long.Parse(args[1])), true);
+                Program.IGC.SendBroadcastMessage(targetTag, taskCommand);
+                debugBuilder.AppendLine("Message sent");
             }
         }
 
@@ -149,18 +156,19 @@ namespace IngameScript
         {
             if (controller == null) return;
             FriendlyShipIntel myIntel;
-            var key = MyTuple.Create(IntelItemType.Friendly, Program.Me.CubeGrid.EntityId);
+            IMyCubeGrid cubeGrid = Program.Me.CubeGrid;
+            var key = MyTuple.Create(IntelItemType.Friendly, cubeGrid.EntityId);
             if (IntelItems.ContainsKey(key))
                 myIntel = (FriendlyShipIntel)IntelItems[key];
             else
                 myIntel = new FriendlyShipIntel();
 
-            myIntel.DisplayName = Program.Me.CubeGrid.DisplayName;
+            myIntel.DisplayName = cubeGrid.DisplayName;
             myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
-            myIntel.CurrentPosition = Program.Me.CubeGrid.GetPosition();
-            myIntel.Radius = 100;// TODO: Add
+            myIntel.CurrentPosition = cubeGrid.GetPosition();
+            myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length();
             myIntel.CurrentTime = timestamp;
-            myIntel.ID = Program.Me.CubeGrid.EntityId;
+            myIntel.ID = cubeGrid.EntityId;
 
             ReportFleetIntelligence(myIntel, timestamp);
         }
@@ -298,18 +306,19 @@ namespace IngameScript
         {
             if (controller == null) return;
             FriendlyShipIntel myIntel;
-            var key = MyTuple.Create(IntelItemType.Friendly, Program.Me.CubeGrid.EntityId);
+            IMyCubeGrid cubeGrid = Program.Me.CubeGrid;
+            var key = MyTuple.Create(IntelItemType.Friendly, cubeGrid.EntityId);
             if (IntelItems.ContainsKey(key))
                 myIntel = (FriendlyShipIntel)IntelItems[key];
             else
                 myIntel = new FriendlyShipIntel();
 
-            myIntel.DisplayName = Program.Me.CubeGrid.DisplayName;
+            myIntel.DisplayName = cubeGrid.DisplayName;
             myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
-            myIntel.CurrentPosition = Program.Me.CubeGrid.GetPosition();
-            myIntel.Radius = 100;// TODO: Add
+            myIntel.CurrentPosition = cubeGrid.GetPosition();
+            myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length();
             myIntel.CurrentTime = timestamp + CanonicalTimeDiff;
-            myIntel.ID = Program.Me.CubeGrid.EntityId;
+            myIntel.ID = cubeGrid.EntityId;
 
             ReportFleetIntelligence(myIntel, timestamp);
         }

@@ -21,7 +21,15 @@ using VRageMath;
 
 namespace IngameScript
 {
-    public class AutopilotSubsystem : ISubsystem
+    public interface IAutopilot
+    {
+        void Move(Vector3 targetPosition);
+        void Turn(Vector3 targetPosition);
+        void SetWaypoint(Waypoint w);
+        bool AtWaypoint(Waypoint w);
+    }
+
+    public class AutopilotSubsystem : ISubsystem, IAutopilot
     {
 
         StringBuilder statusbuilder = new StringBuilder();
@@ -30,8 +38,8 @@ namespace IngameScript
         #region ISubsystem
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "move") targetPosition = ParseGPS((string)argument);
-            if (command == "turn") targetDirection = ParseGPS((string)argument) - reference.WorldMatrix.Translation;
+            if (command == "move") Move(ParseGPS((string)argument));
+            if (command == "turn") Turn(ParseGPS((string)argument));
             if (command == "setwaypoint") SetWaypoint((Waypoint)argument);
         }
 
@@ -111,6 +119,51 @@ namespace IngameScript
         }
         #endregion
 
+        #region IAutopilot
+        public void Move(Vector3 targetPosition)
+        {
+            this.targetPosition = targetPosition;
+        }
+        public void Turn(Vector3 targetPosition)
+        {
+            targetDirection = targetPosition - reference.WorldMatrix.Translation;
+        }
+        public void SetWaypoint(Waypoint w)
+        {
+            if (w.Position != Vector3.One)
+                targetPosition = w.Position;
+            if (w.Direction != Vector3.One)
+                targetDirection = w.Direction;
+            if (w.MaxSpeed != -1f)
+                maxSpeed = w.MaxSpeed;
+
+            if (w.ReferenceMode == WaypointReferenceMode.Dock)
+                reference = connector;
+            else
+                reference = controller;
+        }
+        public bool AtWaypoint(Waypoint w)
+        {
+            if (w.Position != Vector3.One && w.Position != Vector3.Zero)
+            {
+                var speed = (float)controller.GetShipVelocities().LinearVelocity.Length();
+                Vector3D posError = (w.Position - reference.WorldMatrix.Translation);
+                var distance = (float)posError.Length();
+                if (distance > 0.25f || speed > 0.25f)
+                    return false;
+            }
+            if (w.Direction != Vector3.One && w.Direction != Vector3.Zero)
+            {
+                double yawAngle, pitchAngle;
+                GetRotationAngles(w.Direction, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
+                if (yawAngle > 0.01f || pitchAngle > 0.01f)
+                    return false;
+            }
+
+            return true;
+        }
+        #endregion
+
         MyGridProgram Program;
 
         IMyRemoteControl controller;
@@ -139,21 +192,6 @@ namespace IngameScript
         };
 
         // Helpers
-
-        void SetWaypoint(Waypoint w)
-        {
-            if (w.Position != Vector3.One)
-                targetPosition = w.Position;
-            if (w.Direction != Vector3.One)
-                targetDirection = w.Direction;
-            if (w.MaxSpeed != -1f)
-                maxSpeed = w.MaxSpeed;
-
-            if (w.ReferenceMode == WaypointReferenceMode.Dock)
-                reference = connector;
-            else
-                reference = controller;
-        }
 
         void GetParts()
         {
@@ -320,15 +358,6 @@ namespace IngameScript
             else if (distance < 1) AutopilotMoveIndicator *= 0.2f;
 
             if (AutopilotMoveIndicator.Length() > 1) AutopilotMoveIndicator /= AutopilotMoveIndicator.Length();
-
-            // echoBuilder.AppendLine(speed.ToString());
-            // echoBuilder.AppendLine(desiredSpeed.ToString());
-            // echoBuilder.AppendLine(desiredVelocity.ToString());
-            // echoBuilder.AppendLine(Error.ToString());
-            // echoBuilder.AppendLine((Error - D).ToString());
-            // echoBuilder.AppendLine(I.ToString());
-            // echoBuilder.AppendLine(AutopilotMoveIndicator.ToString());
-            // echoBuilder.AppendLine(AutopilotMoveIndicator.Length().ToString());
 
             I += Error;
             if (I.Length() > 5) I *= 5 / I.Length();

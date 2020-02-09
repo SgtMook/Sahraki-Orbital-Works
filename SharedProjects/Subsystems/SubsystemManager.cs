@@ -147,8 +147,8 @@ namespace IngameScript
 
             StatusBuilder.AppendLine("=====");
 
-            StatusBuilder.AppendLine($"Cycle {UpdateCounter}");
-            StatusBuilder.AppendLine($"{Subsystems.Count} systems connected");
+            StatusBuilder.Append("Cycle ").AppendLine(UpdateCounter.ToString());
+            StatusBuilder.Append(Subsystems.Count.ToString()).AppendLine("systems connected");
 
             foreach (KeyValuePair<string, ISubsystem> kvp in Subsystems)
             {

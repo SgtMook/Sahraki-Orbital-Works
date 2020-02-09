@@ -333,11 +333,13 @@ namespace IngameScript
             if (panelLeft == null) return;
             LeftHUDBuilder.Clear();
 
-            LeftHUDBuilder.AppendLine($"{distMeters.ToString()} m");
-            LeftHUDBuilder.AppendLine($"{(Vector3I)Program.Me.CubeGrid.GetPosition()}");
+            LeftHUDBuilder.AppendLine(distMeters.ToString());
+            LeftHUDBuilder.AppendLine();
 
             foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences().Values)
             {
+                LeftHUDBuilder.AppendLine(intel.DisplayName);
+                LeftHUDBuilder.AppendLine(intel.ID.ToString());
                 LeftHUDBuilder.AppendLine(((Vector3I)intel.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff)).ToString());
             }
 

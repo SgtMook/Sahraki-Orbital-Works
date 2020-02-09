@@ -30,12 +30,18 @@ namespace IngameScript
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             // Add subsystems
-            subsystemManager.AddSubsystem("autopilot", new AutopilotSubsystem());
+            AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
+            subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
             subsystemManager.AddSubsystem("docking", new DockingSubsystem());
 
-            IntelSlaveSubsystem subsystem = new IntelSlaveSubsystem();
-            subsystemManager.AddSubsystem("intel", subsystem);
-            subsystemManager.AddSubsystem("sensor", new SensorSubsystem(subsystem));
+            IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
+            subsystemManager.AddSubsystem("intel", intelSubsystem);
+            subsystemManager.AddSubsystem("sensor", new SensorSubsystem(intelSubsystem));
+
+            AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem);
+            agentSubsystem.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
+            subsystemManager.AddSubsystem("agent", agentSubsystem);
+
             subsystemManager.DeserializeManager(Storage);
         }
 
