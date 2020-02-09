@@ -27,7 +27,25 @@ namespace IngameScript
         DoFirst
     }
 
-    public class AgentSubsystem : ISubsystem
+    public enum AgentClass
+    {
+        None,
+        Drone,
+        Fighter,
+        Bomber,
+        Miner,
+        Carrier
+    }
+
+    public interface IAgentSubsystem
+    {
+        string CommandChannelTag { get; }
+        TaskType AvailableTasks { get; }
+
+        AgentClass AgentClass { get; }
+    }
+
+    public class AgentSubsystem : ISubsystem, IAgentSubsystem
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10;
@@ -67,22 +85,26 @@ namespace IngameScript
         }
         #endregion
 
+        public string CommandChannelTag { get; set; }
+        public TaskType AvailableTasks { get; set; }
+        public AgentClass AgentClass { get; set; }
+
         MyGridProgram Program;
         IMyBroadcastListener CommandListener;
-        string CommandChannelTag;
 
         IIntelProvider IntelProvider;
 
         Dictionary<TaskType, ITaskGenerator> TaskGenerators = new Dictionary<TaskType, ITaskGenerator>();
-        TaskType AvailableTasks = TaskType.None;
 
         Queue<ITask> TaskQueue = new Queue<ITask>();
 
         StringBuilder DebugBuilder = new StringBuilder();
 
-        public AgentSubsystem(IIntelProvider intelProvider)
+        public AgentSubsystem(IIntelProvider intelProvider, AgentClass agentClass)
         {
             IntelProvider = intelProvider;
+            IntelProvider.SetAgentSubsystem(this);
+            AgentClass = agentClass;
         }
 
         public void AddTaskGenerator(ITaskGenerator taskGenerator)

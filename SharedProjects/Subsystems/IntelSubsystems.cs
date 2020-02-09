@@ -34,6 +34,8 @@ namespace IngameScript
         void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp);
 
         TimeSpan CanonicalTimeDiff { get; }
+
+        void SetAgentSubsystem(IAgentSubsystem agentSubsystem);
     }
 
     // Handles tracking, updating, and transmitting fleet intelligence
@@ -125,6 +127,11 @@ namespace IngameScript
         }
 
         public TimeSpan CanonicalTimeDiff => TimeSpan.Zero;
+
+        public void SetAgentSubsystem(IAgentSubsystem agentSubsystem)
+        {
+            AgentSubsystem = agentSubsystem;
+        }
         #endregion
 
         #region Debug
@@ -135,6 +142,8 @@ namespace IngameScript
         Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
 
         IMyShipController controller;
+
+        IAgentSubsystem AgentSubsystem;
 
         void GetParts()
         {
@@ -169,6 +178,13 @@ namespace IngameScript
             myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length();
             myIntel.CurrentTime = timestamp;
             myIntel.ID = cubeGrid.EntityId;
+
+            if (AgentSubsystem != null && AgentSubsystem.AvailableTasks != TaskType.None)
+            {
+                myIntel.CommandChannelTag = AgentSubsystem.CommandChannelTag;
+                myIntel.AcceptedTaskTypes = AgentSubsystem.AvailableTasks;
+                myIntel.AgentClass = AgentSubsystem.AgentClass;
+            }
 
             ReportFleetIntelligence(myIntel, timestamp);
         }
@@ -267,6 +283,11 @@ namespace IngameScript
         }
 
         public TimeSpan CanonicalTimeDiff { get; set; } // Add this to timestamp to get canonical time
+
+        public void SetAgentSubsystem(IAgentSubsystem agentSubsystem)
+        {
+            AgentSubsystem = agentSubsystem;
+        }
         #endregion
 
         private const double kOneTick = 16.6666666;
@@ -285,6 +306,8 @@ namespace IngameScript
         IMyBroadcastListener TimeListener;
 
         IMyShipController controller;
+
+        IAgentSubsystem AgentSubsystem;
 
         void GetParts()
         {
@@ -319,6 +342,13 @@ namespace IngameScript
             myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length();
             myIntel.CurrentTime = timestamp + CanonicalTimeDiff;
             myIntel.ID = cubeGrid.EntityId;
+
+            if (AgentSubsystem != null && AgentSubsystem.AvailableTasks != TaskType.None)
+            {
+                myIntel.CommandChannelTag = AgentSubsystem.CommandChannelTag;
+                myIntel.AcceptedTaskTypes = AgentSubsystem.AvailableTasks;
+                myIntel.AgentClass = AgentSubsystem.AgentClass;
+            }
 
             ReportFleetIntelligence(myIntel, timestamp);
         }

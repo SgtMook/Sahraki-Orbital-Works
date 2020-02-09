@@ -331,6 +331,9 @@ namespace IngameScript
         private void UpdateLeftHUD(TimeSpan timestamp)
         {
             if (panelLeft == null) return;
+
+            panelLeft.FontSize = 0.75f;
+
             LeftHUDBuilder.Clear();
 
             LeftHUDBuilder.AppendLine(distMeters.ToString());
@@ -341,6 +344,13 @@ namespace IngameScript
                 LeftHUDBuilder.AppendLine(intel.DisplayName);
                 LeftHUDBuilder.AppendLine(intel.ID.ToString());
                 LeftHUDBuilder.AppendLine(((Vector3I)intel.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff)).ToString());
+
+                if (intel is FriendlyShipIntel && ((FriendlyShipIntel)intel).AgentClass != AgentClass.None)
+                {
+                    var fsi = (FriendlyShipIntel)intel;
+                    LeftHUDBuilder.AppendLine(fsi.AgentClass.ToString());
+                    LeftHUDBuilder.AppendLine(fsi.AcceptedTaskTypes.ToString());
+                }
             }
 
             panelLeft.Alignment = TextAlignment.RIGHT;

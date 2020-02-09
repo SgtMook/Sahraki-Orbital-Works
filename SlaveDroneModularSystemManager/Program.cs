@@ -38,7 +38,7 @@ namespace IngameScript
             subsystemManager.AddSubsystem("intel", intelSubsystem);
             subsystemManager.AddSubsystem("sensor", new SensorSubsystem(intelSubsystem));
 
-            AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem);
+            AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Drone);
             agentSubsystem.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
             subsystemManager.AddSubsystem("agent", agentSubsystem);
 

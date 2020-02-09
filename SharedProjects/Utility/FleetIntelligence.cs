@@ -81,9 +81,9 @@ namespace IngameScript
             }
 
             // Friendly
-            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>)
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>>>)
             {
-                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>)data;
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>>>)data;
                 if (masterID == unpacked.Item1)
                 {
                     var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
@@ -105,7 +105,7 @@ namespace IngameScript
         public static void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
             var WaypointArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>>(kMaxWaypoints); 
-            var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>>(kMaxWaypoints); 
+            var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>>>>(kMaxWaypoints); 
 
             foreach (KeyValuePair<MyTuple<IntelItemType, long>, IFleetIntelligence> kvp in intelItems)
             {
@@ -136,9 +136,9 @@ namespace IngameScript
                 }
             }
             // FriendlyShipIntel
-            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>>)
+            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>>>>)
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>>>>)data)
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
                     updatedScratchpad.Add(updatedKey);
@@ -334,8 +334,12 @@ namespace IngameScript
         public Vector3 CurrentPosition;
         public TimeSpan CurrentTime;
 
+        public TaskType AcceptedTaskTypes;
+        public string CommandChannelTag;
+        public AgentClass AgentClass;
+
         #region IGC Packing
-        static public MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>> IGCPackGeneric(FriendlyShipIntel fsi)
+        static public MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>> IGCPackGeneric(FriendlyShipIntel fsi)
         {
             return MyTuple.Create
             (
@@ -350,23 +354,29 @@ namespace IngameScript
                         fsi.CurrentTime.TotalMilliseconds
                     ),
                      MyTuple.Create
-                    (   
+                    (
                         fsi.DisplayName,
                         fsi.ID,
                         fsi.Radius
+                    ),
+                     MyTuple.Create
+                    (
+                        (int)fsi.AcceptedTaskTypes,
+                        fsi.CommandChannelTag,
+                        (int)fsi.AgentClass
                     )
                 )
             );
         }
         static public FriendlyShipIntel IGCUnpack(object data)
         {
-            var unpacked = (MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>>)data;
+            var unpacked = (MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>)data;
             var fsi = new FriendlyShipIntel();
             fsi.IGCUnpackInto(unpacked);
             return fsi;
         }
 
-        public void IGCUnpackInto(MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>> unpacked)
+        public void IGCUnpackInto(MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>> unpacked)
         {
             CurrentPosition = unpacked.Item1.Item1;
             CurrentVelocity = unpacked.Item1.Item2;
@@ -374,6 +384,9 @@ namespace IngameScript
             DisplayName = unpacked.Item2.Item1;
             ID = unpacked.Item2.Item2;
             Radius = unpacked.Item2.Item3;
+            AcceptedTaskTypes = (TaskType)unpacked.Item3.Item1;
+            CommandChannelTag = unpacked.Item3.Item2;
+            AgentClass = (AgentClass)unpacked.Item3.Item3;
         }
         #endregion
 
