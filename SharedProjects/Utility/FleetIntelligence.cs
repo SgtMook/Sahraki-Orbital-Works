@@ -41,7 +41,7 @@ namespace IngameScript
         public const string IntelSyncChannelTag = "[FLTINT-SYN]";
         public const string TimeChannelTag = "[FLTTM]";
 
-        public const int kMaxWaypoints = 64;
+        public const int kMaxIntelPerType = 64;
 
         public static int CompareName(IFleetIntelligence a, IFleetIntelligence b)
         {
@@ -56,6 +56,8 @@ namespace IngameScript
                 IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, Waypoint.IGCPackGeneric((Waypoint)item)));
             else if (item is FriendlyShipIntel)
                 IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, FriendlyShipIntel.IGCPackGeneric((FriendlyShipIntel)item)));
+            else if (item is AsteroidIntel)
+                IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, AsteroidIntel.IGCPackGeneric((AsteroidIntel)item)));
             else
                 throw new Exception("Bad type when sending fleet intel");
         }
@@ -103,26 +105,49 @@ namespace IngameScript
                 }
             }
 
-            throw new Exception("Bad type when receiving fleet intel");
+            // Asteroid
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>)
+            {
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>)data;
+                if (masterID == unpacked.Item1)
+                {
+                    var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
+                    if (key.Item1 == IntelItemType.Asteroid)
+                    {
+                        if (intelItems.ContainsKey(key))
+                            ((AsteroidIntel)intelItems[key]).IGCUnpackInto(unpacked.Item2.Item3);
+                        else
+                            intelItems.Add(key, AsteroidIntel.IGCUnpack(unpacked.Item2.Item3));
+
+                        return key;
+                    }
+                }
+            }
+
+            throw new Exception($"Bad type when receiving fleet intel: {data.GetType().ToString()}");
         }
 
         public static void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
-            var WaypointArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>>(kMaxWaypoints); 
-            var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>>>>(kMaxWaypoints); 
+            var WaypointArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>>(kMaxIntelPerType); 
+            var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>>>>(kMaxIntelPerType); 
+            var AsteroidIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>>(kMaxIntelPerType); 
 
             foreach (KeyValuePair<MyTuple<IntelItemType, long>, IFleetIntelligence> kvp in intelItems)
             {
-                if (kvp.Key.Item1 == IntelItemType.Waypoint && WaypointArrayBuilder.Count < kMaxWaypoints)
+                if (kvp.Key.Item1 == IntelItemType.Waypoint)
                     WaypointArrayBuilder.Add(MyTuple.Create(masterID, Waypoint.IGCPackGeneric((Waypoint)kvp.Value)));
                 else if (kvp.Key.Item1 == IntelItemType.Friendly)
                     FriendlyShipIntelArrayBuilder.Add(MyTuple.Create(masterID, FriendlyShipIntel.IGCPackGeneric((FriendlyShipIntel)kvp.Value)));
+                else if (kvp.Key.Item1 == IntelItemType.Asteroid)
+                    AsteroidIntelArrayBuilder.Add(MyTuple.Create(masterID, AsteroidIntel.IGCPackGeneric((AsteroidIntel)kvp.Value)));
                 else
                     throw new Exception("Bad type when sending sync package");
             }
 
             IGC.SendBroadcastMessage(IntelSyncChannelTag, WaypointArrayBuilder.ToImmutable());
             IGC.SendBroadcastMessage(IntelSyncChannelTag, FriendlyShipIntelArrayBuilder.ToImmutable());
+            IGC.SendBroadcastMessage(IntelSyncChannelTag, AsteroidIntelArrayBuilder.ToImmutable());
         }
 
         /// <summary>
@@ -143,6 +168,15 @@ namespace IngameScript
             else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>>>>)
             {
                 foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>>>>>)data)
+                {
+                    var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
+                    updatedScratchpad.Add(updatedKey);
+                }
+            }
+            // AsteroidIntel
+            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>>)
+            {
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
                     updatedScratchpad.Add(updatedKey);
@@ -394,6 +428,86 @@ namespace IngameScript
         }
         #endregion
 
+    }
+    #endregion
+
+    #region Asteroid
+    public class AsteroidIntel : IFleetIntelligence
+    {
+        public Vector3 Position;
+
+        public static string SerializeAsteroid(AsteroidIntel astr)
+        {
+            return $"{astr.Position.ToString()}|{astr.Radius}|{astr.ID}";
+        }
+
+        public static AsteroidIntel DeserializeAsteroid(string s)
+        {
+            AsteroidIntel astr = new AsteroidIntel();
+            astr.Deserialize(s);
+            return astr;
+        }
+
+
+        #region IFleetIntelligence
+
+        public float Radius { get; set; }
+        public string DisplayName => "Asteroid";
+        public long ID { get; set; }
+        public IntelItemType IntelItemType => IntelItemType.Asteroid;
+        public Vector3 GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
+        {
+            return Position;
+        }
+
+        public Vector3 GetVelocity()
+        {
+            return Vector3.Zero;
+        }
+
+        public string Serialize()
+        {
+            return SerializeAsteroid(this);
+        }
+
+        public void Deserialize(string s)
+        {
+            string[] split = s.Split('|');
+            Position = VectorUtilities.StringToVector3(split[0]);
+            Radius = float.Parse(split[1]);
+            ID = long.Parse(split[2]);
+        }
+
+        static public MyTuple<int, long, MyTuple<Vector3, float, long>> IGCPackGeneric(AsteroidIntel astr)
+        {
+            return MyTuple.Create
+            (
+                (int)IntelItemType.Asteroid,
+                astr.ID,
+                MyTuple.Create
+                (
+                    astr.Position,
+                    astr.Radius,
+                    astr.ID
+                )
+            );
+        }
+        static public AsteroidIntel IGCUnpack(object data)
+        {
+            var unpacked = (MyTuple<Vector3, float, long>)data;
+            var astr = new AsteroidIntel();
+            astr.IGCUnpackInto(unpacked);
+            return astr;
+        }
+
+        public void IGCUnpackInto(MyTuple<Vector3, float, long> unpacked)
+        {
+            Position = unpacked.Item1;
+            Radius = unpacked.Item2;
+            ID = unpacked.Item3;
+        }
+
+        #endregion
     }
     #endregion
 

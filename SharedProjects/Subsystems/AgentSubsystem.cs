@@ -147,7 +147,7 @@ namespace IngameScript
             }
             if (TaskGenerators.ContainsKey((TaskType)command.Item1))
             {
-                TaskQueue.Enqueue(TaskGenerators[(TaskType)command.Item1].GenerateTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff));
+                TaskQueue.Enqueue(TaskGenerators[(TaskType)command.Item1].GenerateTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff, Program.Me.CubeGrid.EntityId));
             }
         }
     }

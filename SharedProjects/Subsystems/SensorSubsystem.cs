@@ -307,13 +307,21 @@ namespace IngameScript
             else if (CurrentUIMode == UIMode.SelectWaypoint)
             {
                 Waypoint w = GetWaypoint();
-                ReportWaypoint(w, timestamp);
+                ReportIntel(w, timestamp);
                 SendCommand(w, timestamp);
             }
             else if (CurrentUIMode == UIMode.Scan)
             {
                 DoScan(timestamp);
-                // TODO: Report scanned item as intel if available
+                if (lastDetectedInfo.Type == MyDetectedEntityType.Asteroid)
+                {
+                    float radius = (float)(lastDetectedInfo.BoundingBox.Max - lastDetectedInfo.BoundingBox.Center).Length();
+                    var astr = new AsteroidIntel();
+                    astr.Radius = radius;
+                    astr.ID = lastDetectedInfo.EntityId;
+                    astr.Position = lastDetectedInfo.BoundingBox.Center;
+                    ReportIntel(astr, timestamp);
+                }
             }
         }
         #endregion
@@ -407,10 +415,13 @@ namespace IngameScript
             indicator.Position = v;
             scratchpad.Add(indicator);
 
-            var distSprite = MySprite.CreateText($"{((int)dist).ToString()} m", "Debug", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
-            v.Y += kMonospaceConstant.Y * kMaxScale + 0.2f;
-            distSprite.Position = v;
-            scratchpad.Add(distSprite);
+            if (!(intel is AsteroidIntel))
+            {
+                var distSprite = MySprite.CreateText($"{((int)dist).ToString()} m", "Debug", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
+                v.Y += kMonospaceConstant.Y * kMaxScale + 0.2f;
+                distSprite.Position = v;
+                scratchpad.Add(distSprite);
+            }
 
             if (intel is FriendlyShipIntel)
             {
@@ -419,6 +430,13 @@ namespace IngameScript
                 nameSprite.Position = v;
                 scratchpad.Add(nameSprite);
             }
+            //if (intel is AsteroidIntel)
+            //{
+            //    var sizeSprite = MySprite.CreateText(((int)intel.Radius).ToString(), "Debug", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
+            //    v.Y += kMonospaceConstant.Y * 0.3f;
+            //    sizeSprite.Position = v;
+            //    scratchpad.Add(sizeSprite);
+            //}
         }
 
         private void DrawHUD(TimeSpan timestamp)
@@ -639,6 +657,7 @@ namespace IngameScript
                 int p = (int)(secondaryCameras[Lidar_CameraIndex].AvailableScanRange * 10 / kScanDistance);
                 LeftHUDBuilder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", secondaryCameras[Lidar_CameraIndex].AvailableScanRange / 1000)).AppendLine("km");
                 AppendPaddedLine(kRowLength, "[SPACE] SCAN", LeftHUDBuilder);
+                AppendPaddedLine(kRowLength, lastDetectedInfo.Type.ToString(), LeftHUDBuilder);
             }
             else
             {
@@ -820,9 +839,9 @@ namespace IngameScript
         #endregion
 
         #region Intel
-        void ReportWaypoint(Waypoint w, TimeSpan timestamp)
+        void ReportIntel(IFleetIntelligence intel, TimeSpan timestamp)
         {
-            IntelProvider.ReportFleetIntelligence(w, timestamp);
+            IntelProvider.ReportFleetIntelligence(intel, timestamp);
         }
 
         void SendCommand(IFleetIntelligence target, TimeSpan timestamp)

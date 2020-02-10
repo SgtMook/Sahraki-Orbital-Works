@@ -27,6 +27,10 @@ namespace IngameScript
         void Turn(Vector3 targetPosition);
         void SetWaypoint(Waypoint w);
         bool AtWaypoint(Waypoint w);
+
+        float GetBrakingDistance();
+
+        IMyShipController Controller { get; }
     }
 
     public class AutopilotSubsystem : ISubsystem, IAutopilot
@@ -162,6 +166,17 @@ namespace IngameScript
 
             return true;
         }
+
+        public float GetBrakingDistance()
+        {
+            var speed = (float)controller.GetShipVelocities().LinearVelocity.Length();
+            var maxThrust = thrusts[0];
+            float aMax = 0.8f * maxThrust / controller.CalculateShipMass().PhysicalMass;
+            float decelTime = speed / aMax;
+            return speed * decelTime - 0.5f * aMax * decelTime * decelTime;
+        }
+
+        public IMyShipController Controller => controller;
         #endregion
 
         MyGridProgram Program;
