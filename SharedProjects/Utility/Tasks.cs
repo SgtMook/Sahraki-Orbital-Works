@@ -107,7 +107,7 @@ namespace IngameScript
     #endregion
 
     #region WaypointTask
-    public struct WaypointTask : ITask
+    public class WaypointTask : ITask
     {
 
         #region ITask
@@ -115,7 +115,7 @@ namespace IngameScript
         {
             get
             {
-                return Autopilot.AtWaypoint(Waypoint) ? TaskStatus.Complete : TaskStatus.Incomplete;
+                return Autopilot.AtWaypoint(Destination) ? TaskStatus.Complete : TaskStatus.Incomplete;
             }
         }
 
@@ -128,37 +128,38 @@ namespace IngameScript
 
         readonly MyGridProgram Program;
         readonly IAutopilot Autopilot;
-        readonly Waypoint Waypoint;
+        public Waypoint Destination;
 
         readonly IIntelProvider DebugIntelProvider;
 
-        bool WaypointSet;
+        readonly Queue<Vector3> Path;
+
+        readonly List<IFleetIntelligence> IntelScratchpad;
+        readonly List<Vector3> PositionScratchpad;
 
         public WaypointTask(MyGridProgram program, IAutopilot pilotSubsystem, Waypoint waypoint, IIntelProvider debugIntelProvider)
         {
             Autopilot = pilotSubsystem;
             Program = program;
-            Waypoint = waypoint;
-            WaypointSet = false;
+            Destination = waypoint;
             DebugIntelProvider = debugIntelProvider;
+            Path = new Queue<Vector3>();
+            Path.Enqueue(Destination.Position);
+            IntelScratchpad = new List<IFleetIntelligence>();
+            PositionScratchpad = new List<Vector3>();
         }
 
         Vector3 PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
             Vector3 o = Autopilot.Controller.CubeGrid.WorldMatrix.Translation;
-            Vector3 targetPosition = Waypoint.GetPositionFromCanonicalTime(canonicalTime);
+            Vector3 targetPosition = Destination.GetPositionFromCanonicalTime(canonicalTime);
             float SafetyRadius = (float)(Autopilot.Controller.CubeGrid.WorldAABB.Max - Autopilot.Controller.CubeGrid.WorldAABB.Center).Length();
             float brakingDist = Autopilot.GetBrakingDistance();
 
-            var l = targetPosition - o;
-            float d = l.Length();
-            l.Normalize();
+            IntelScratchpad.Clear();
+            PositionScratchpad.Clear();
 
-            IFleetIntelligence closestObstacle = null;
-            float closestDist = float.MaxValue;
-            float closestApporoach = 0;
-
-            List<Waypoint> ws = new List<Waypoint>();
+            bool inObstacle = false;
 
             foreach (var kvp in IntelItems)
             {
@@ -169,65 +170,91 @@ namespace IngameScript
                     Vector3 c = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
                     float r = kvp.Value.Radius + SafetyRadius;
                     float distTo = (c - o).Length();
-                    if (distTo < r + brakingDist) // distTo < r + brakingDist
+                    if (distTo < r + brakingDist + Autopilot.Controller.GetShipSpeed() * 0.16)
                     {
-                        float lDoc = Vector3.Dot(l, o - c);
-                        float det = lDoc * lDoc - ((o - c).LengthSquared() - r * r);
+                        IntelScratchpad.Add(kvp.Value);
+                        PositionScratchpad.Add(c);
+                        if (distTo < r)
+                        {
+                            inObstacle = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            Vector3 target = Destination.Position;
+
+            if (inObstacle)
+            {
+                var dir = o - PositionScratchpad.Last();
+                dir.Normalize();
+                target = dir * (IntelScratchpad.Last().Radius + SafetyRadius * 2) + PositionScratchpad.Last();
+                var w = new Waypoint
+                {
+                    Position = target,
+                    Name = "[OBS] Escape"
+                };
+                DebugIntelProvider.ReportFleetIntelligence(w, canonicalTime);
+            }
+            else if (IntelScratchpad.Count > 0)
+            {
+                bool targetClear;
+
+                int iter = 0;
+                do
+                {
+                    iter += 1;
+                    targetClear = true;
+                    IFleetIntelligence closestObstacle = null;
+                    float closestDist = float.MaxValue;
+                    float closestApporoach = 0;
+
+                    var l = target - o;
+                    float d = l.Length();
+                    l.Normalize();
+
+                    for (int i = 0; i < IntelScratchpad.Count; i++)
+                    {
+                        float lDoc = Vector3.Dot(l, o - PositionScratchpad[i]);
+                        float det = lDoc * lDoc - ((o - PositionScratchpad[i]).LengthSquared() - IntelScratchpad[i].Radius * IntelScratchpad[i].Radius);
                         if (det > 0 && -lDoc > 0 && -lDoc < d) //  
                         {
-                            closestObstacle = kvp.Value;
+                            closestObstacle = IntelScratchpad[i];
                             var distIntersect = -lDoc - (float)Math.Sqrt(det);
 
                             if (closestDist > distIntersect)
                             {
                                 closestDist = distIntersect;
                                 closestApporoach = -lDoc;
-                                closestObstacle = kvp.Value;
+                                closestObstacle = IntelScratchpad[i];
                             }
-
-                            //closestDist = -lDoc + (float)Math.Sqrt(det);
-                            //var w = new Waypoint();
-                            //w.Position = o + l * closestDist;
-                            //w.Name = "[O1] " + closestObstacle.DisplayName;
-                            //ws.Add(w);
-                            //
-                            //closestDist = -lDoc - (float)Math.Sqrt(det);
-                            //w = new Waypoint();
-                            //w.Position = o + l * closestDist;
-                            //w.Name = "[O2] " + closestObstacle.DisplayName;
-                            //ws.Add(w);
-                            //
-                            //closestDist = -lDoc;
-                            //w = new Waypoint();
-                            //w.Position = o + l * closestDist;
-                            //w.Name = "[Oc] " + closestObstacle.DisplayName;
-                            //ws.Add(w);
                         }
                     }
-                }
-            }
 
-            //foreach (var w in ws)
-            //{
-            //    DebugIntelProvider.ReportFleetIntelligence(w, canonicalTime);
-            //}
+                    if (closestDist != float.MaxValue)
+                    {
+                        var c = l * closestApporoach + o;
+                        Vector3 dir = c - closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
+                        dir.Normalize();
+                        var v = dir * (closestObstacle.Radius + SafetyRadius) * 2 + closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
+                        v += v - o;
 
-            if (closestDist != float.MaxValue)
-            {
-                var c = l * closestApporoach + o;
-                Vector3 dir = c - closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
-                dir.Normalize();
-                var v = dir * (closestObstacle.Radius + SafetyRadius * 2) + closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
+                        targetClear = false;
+                        target = v;
+                    }
 
-                var w = new Waypoint();
-                w.Position = v;
-                w.Name = "[O1] " + (closestObstacle.Radius + SafetyRadius * 2).ToString() + closestObstacle.DisplayName;
+                } while (!targetClear);
+
+                var w = new Waypoint
+                {
+                    Position = target,
+                    Name = "[OBS]" + iter.ToString()
+                };
                 DebugIntelProvider.ReportFleetIntelligence(w, canonicalTime);
-
-                return v;
             }
 
-            return targetPosition;
+            return target;
         }
     }
     #endregion

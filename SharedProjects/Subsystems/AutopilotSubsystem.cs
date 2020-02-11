@@ -350,7 +350,10 @@ namespace IngameScript
             Vector3 desiredVelocity = posError * desiredSpeed;
             Vector3 currentVelocity = controller.GetShipVelocities().LinearVelocity;
 
-            Vector3 Error = (desiredVelocity - currentVelocity) * 30 / aMax;
+            Vector3 adjustVector = currentVelocity - VectorProjection(currentVelocity, desiredVelocity);
+            if (adjustVector.Length() < currentVelocity.Length() * 0.1) adjustVector = Vector3.Zero;
+
+            Vector3 Error = (desiredVelocity - currentVelocity - adjustVector * 3) * 30 / aMax;
 
 
             float kP = 1f;
