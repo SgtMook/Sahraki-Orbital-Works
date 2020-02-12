@@ -230,7 +230,7 @@ namespace IngameScript
                     for (int i = 0; i < IntelScratchpad.Count; i++)
                     {
                         float lDoc = Vector3.Dot(l, o - PositionScratchpad[i]);
-                        float det = lDoc * lDoc - ((o - PositionScratchpad[i]).LengthSquared() - IntelScratchpad[i].Radius * IntelScratchpad[i].Radius);
+                        float det = lDoc * lDoc - ((o - PositionScratchpad[i]).LengthSquared() - (IntelScratchpad[i].Radius + SafetyRadius) * (IntelScratchpad[i].Radius + SafetyRadius));
 
                         // Check if we intersect the sphere at all
                         if (det > 0)
@@ -251,7 +251,7 @@ namespace IngameScript
                                 }
                             }
                             // Check if this is a type 3 obstacle - that is, we enter its bonding sphere and the destination is inside
-                            else if ((Destination.Position - PositionScratchpad[i]).Length() < IntelScratchpad[i].Radius + SafetyRadius)
+                            else if ((target - PositionScratchpad[i]).Length() < IntelScratchpad[i].Radius + SafetyRadius)
                             {
                                 var distIntersect = -lDoc - (float)Math.Sqrt(det);
                                 if (closestDist > distIntersect)
@@ -268,6 +268,7 @@ namespace IngameScript
                     // If there is a potential collision
                     if (closestDist != float.MaxValue)
                     {
+                        targetClear = false;
                         Vector3 closestObstaclePos = closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
                         Vector3 v;
 
@@ -276,35 +277,35 @@ namespace IngameScript
                             var c = l * closestApporoach + o;
                             Vector3 dir = c - closestObstaclePos;
                             dir.Normalize();
-                            v = dir * (closestObstacle.Radius + SafetyRadius) * 2 + closestObstaclePos;
+                            v = dir * (closestObstacle.Radius + SafetyRadius * 2) + closestObstaclePos;
                             v += v - o;
 
                             target = v;
-                            targetClear = false;
+
                         }
                         else
                         {
-                            Vector3 dirCenterToDest = Destination.Position - closestObstaclePos;
+                            Vector3 dirCenterToDest = target - closestObstaclePos;
                             dirCenterToDest.Normalize();
                             Vector3 dirCenterToMe = o - closestObstaclePos;
                             var distToMe = dirCenterToMe.Length();
                             dirCenterToMe.Normalize();
-
                             var angle = Math.Acos(Vector3.Dot(dirCenterToDest, dirCenterToMe));
 
-                            if (angle > 0.6 && distToMe < (closestObstacle.Radius + SafetyRadius))
-                            {
-                                target = dirCenterToMe * (closestObstacle.Radius + SafetyRadius * 2) + closestObstaclePos;
-                            }
-                            else if (angle < 0.1)
+                            if (angle < 0.1)
                             {
                                 target = Destination.Position;
+                                break;
+                            }
+                            else if (angle > 0.6 && distToMe < (closestObstacle.Radius + SafetyRadius))
+                            {
+                                target = dirCenterToMe * (closestObstacle.Radius + SafetyRadius * 2) + closestObstaclePos;
+                                break;
                             }
                             else
                             {
                                 target = dirCenterToDest * (closestObstacle.Radius + SafetyRadius * 2) + closestObstaclePos;
                             }
-                            break;
                         }
                     }
 
