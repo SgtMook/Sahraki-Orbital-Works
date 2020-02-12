@@ -106,6 +106,45 @@ namespace IngameScript
     }
     #endregion
 
+    public class CompoundTask : ITask
+    {
+        #region ITask
+        public TaskStatus Status
+        {
+            get
+            {
+                if (TaskQueue.Count > 0)
+                    return TaskStatus.Incomplete;
+                else if (Aborted)
+                    return TaskStatus.Aborted;
+                else
+                    return TaskStatus.Complete;
+            }
+        }
+
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        {
+            var task = TaskQueue.Peek();
+            task.Do(IntelItems, canonicalTime);
+            if (task.Status == TaskStatus.Complete)
+                TaskQueue.Dequeue();
+            else if (task.Status == TaskStatus.Aborted)
+            {
+                TaskQueue.Clear();
+                Aborted = true;
+            }
+        }
+        #endregion
+        bool ContinueOnAbort;
+        bool Aborted = false;
+        public readonly Queue<ITask> TaskQueue = new Queue<ITask>();
+
+        public CompoundTask(bool continueOnAbort = false)
+        {
+            ContinueOnAbort = continueOnAbort;
+        }
+    }
+
     #region WaypointTask
     public class WaypointTask : ITask
     {
@@ -323,5 +362,13 @@ namespace IngameScript
         }
     }
     #endregion
+
+    #region DockTask
+
+    public class DockTask : ITask
+    {
+    }
+
     #endregion
-}
+    #endregion
+    }
