@@ -25,12 +25,15 @@ namespace IngameScript
     {
         void Move(Vector3 targetPosition);
         void Turn(Vector3 targetPosition);
+        void SetMaxSpeed(float maxSpeed);
+        void SetReference(IMyTerminalBlock block);
         void SetWaypoint(Waypoint w);
         bool AtWaypoint(Waypoint w);
 
         float GetBrakingDistance();
 
         IMyShipController Controller { get; }
+
     }
 
     public class AutopilotSubsystem : ISubsystem, IAutopilot
@@ -43,7 +46,7 @@ namespace IngameScript
         public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "move") Move(ParseGPS((string)argument));
-            if (command == "turn") Turn(ParseGPS((string)argument));
+            if (command == "turn") Turn(ParseGPS((string)argument) - reference.WorldMatrix.Translation);
             if (command == "setwaypoint") SetWaypoint((Waypoint)argument);
         }
 
@@ -66,14 +69,18 @@ namespace IngameScript
             if (hasPos || hasDir)
                 UpdateFrequency = UpdateFrequency.Update1;
             else
+            {
                 UpdateFrequency = UpdateFrequency.Update10;
+                reference = controller;
+                maxSpeed = 100;
+            }
         }
 
         public string GetStatus()
         {
             statusbuilder.Clear();
 
-            if (controller != null && connector != null)
+            if (controller != null)
             {
                 statusbuilder.AppendLine("AOK");
 
@@ -126,25 +133,29 @@ namespace IngameScript
         #region IAutopilot
         public void Move(Vector3 targetPosition)
         {
-            this.targetPosition = targetPosition;
+            if (targetPosition != Vector3.One)
+                this.targetPosition = targetPosition;
         }
-        public void Turn(Vector3 targetPosition)
+        public void Turn(Vector3 targetDirection)
         {
-            targetDirection = targetPosition - reference.WorldMatrix.Translation;
+            if (targetDirection != Vector3.One)
+                this.targetDirection = targetDirection;
+        }
+        public void SetMaxSpeed(float maxSpeed)
+        {
+            if (maxSpeed != -1f)
+                this.maxSpeed = maxSpeed;
+        }
+        public void SetReference(IMyTerminalBlock block)
+        {
+            if (block != null && Program.Me.IsSameConstructAs(block))
+                reference = block;
         }
         public void SetWaypoint(Waypoint w)
         {
-            if (w.Position != Vector3.One)
-                targetPosition = w.Position;
-            if (w.Direction != Vector3.One)
-                targetDirection = w.Direction;
-            if (w.MaxSpeed != -1f)
-                maxSpeed = w.MaxSpeed;
-
-            if (w.ReferenceMode == WaypointReferenceMode.Dock)
-                reference = connector;
-            else
-                reference = controller;
+            Move(w.Position);
+            Turn(w.Direction);
+            SetMaxSpeed(w.MaxSpeed);
         }
         public bool AtWaypoint(Waypoint w)
         {
@@ -182,7 +193,6 @@ namespace IngameScript
         MyGridProgram Program;
 
         IMyRemoteControl controller;
-        IMyShipConnector connector;
         IMyTerminalBlock reference;
 
         List<IMyThrust> thrustersList = new List<IMyThrust>();
@@ -211,7 +221,6 @@ namespace IngameScript
         void GetParts()
         {
             controller = null;
-            connector = null;
 
             thrustersList.Clear();
             for (int i = 0; i < thrusts.Length; i++)
@@ -238,9 +247,6 @@ namespace IngameScript
 
             if (block is IMyRemoteControl)
                 controller = (IMyRemoteControl)block;
-
-            if (block is IMyShipConnector)
-                connector = (IMyShipConnector)block;
 
             if (block is IMyThrust)
             {

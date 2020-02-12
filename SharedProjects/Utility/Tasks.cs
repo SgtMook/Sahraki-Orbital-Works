@@ -121,8 +121,10 @@ namespace IngameScript
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
-            // PlotPath(IntelItems, canonicalTime);
-            Autopilot.Move(PlotPath(IntelItems, canonicalTime));
+            Autopilot.Move(AvoidObstacles ? PlotPath(IntelItems, canonicalTime) : Destination.Position);
+            Autopilot.Turn(Destination.Direction);
+            Autopilot.SetMaxSpeed(Destination.MaxSpeed);
+            Autopilot.SetReference(MoveReference);
         }
         #endregion
 
@@ -132,27 +134,28 @@ namespace IngameScript
 
         readonly IIntelProvider DebugIntelProvider;
 
-        readonly Queue<Vector3> Path;
-
         readonly List<IFleetIntelligence> IntelScratchpad;
         readonly List<Vector3> PositionScratchpad;
 
-        public WaypointTask(MyGridProgram program, IAutopilot pilotSubsystem, Waypoint waypoint, IIntelProvider debugIntelProvider)
+        readonly bool AvoidObstacles;
+        readonly IMyTerminalBlock MoveReference;
+
+        public WaypointTask(MyGridProgram program, IAutopilot pilotSubsystem, Waypoint waypoint, IIntelProvider debugIntelProvider, bool avoidObstacles = true, IMyTerminalBlock moveReference = null)
         {
             Autopilot = pilotSubsystem;
             Program = program;
             Destination = waypoint;
             DebugIntelProvider = debugIntelProvider;
-            Path = new Queue<Vector3>();
-            Path.Enqueue(Destination.Position);
             IntelScratchpad = new List<IFleetIntelligence>();
             PositionScratchpad = new List<Vector3>();
+            AvoidObstacles = avoidObstacles;
+            MoveReference = moveReference;
         }
 
         Vector3 PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
             Vector3 o = Autopilot.Controller.CubeGrid.WorldMatrix.Translation;
-            Vector3 targetPosition = Destination.GetPositionFromCanonicalTime(canonicalTime);
+            Vector3 targetPosition = Destination.Position;
             float SafetyRadius = (float)(Autopilot.Controller.CubeGrid.WorldAABB.Max - Autopilot.Controller.CubeGrid.WorldAABB.Center).Length();
             float brakingDist = Autopilot.GetBrakingDistance();
 
@@ -174,7 +177,7 @@ namespace IngameScript
                     float r = kvp.Value.Radius + SafetyRadius;
                     float distTo = (c - o).Length();
                     // Check if distance is close enough. If so, shortlist this.
-                    if (distTo < r + brakingDist + Autopilot.Controller.GetShipSpeed() * 0.16)
+                    if (distTo < r + brakingDist + Autopilot.Controller.GetShipSpeed() * 0.16 + 100)
                     {
                         IntelScratchpad.Add(kvp.Value);
                         PositionScratchpad.Add(c);
@@ -299,7 +302,7 @@ namespace IngameScript
                             }
                             else
                             {
-                                target = dirCenterToDest * (closestObstacle.Radius + SafetyRadius) + closestObstaclePos;
+                                target = dirCenterToDest * (closestObstacle.Radius + SafetyRadius * 2) + closestObstaclePos;
                             }
                             break;
                         }

@@ -162,7 +162,6 @@ namespace IngameScript
 
                 controller.ControlThrusters = false;
                 TerminalPropertiesHelper.SetValue(controller, "ControlGyros", false);
-                // Take inputs
                 TriggerInputs(timestamp);
             }
             else
@@ -307,6 +306,8 @@ namespace IngameScript
             else if (CurrentUIMode == UIMode.SelectWaypoint)
             {
                 Waypoint w = GetWaypoint();
+                w.MaxSpeed = 10;
+                w.Direction = new Vector3(0, -2, 3);
                 ReportIntel(w, timestamp);
                 SendCommand(w, timestamp);
             }
