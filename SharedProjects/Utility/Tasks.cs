@@ -159,24 +159,29 @@ namespace IngameScript
             IntelScratchpad.Clear();
             PositionScratchpad.Clear();
 
-            bool inObstacle = false;
+            bool type1 = false;
 
+            // Quick filter on intel items that might interfere with pathing at this time based on type and distance
             foreach (var kvp in IntelItems)
             {
+                // If it's us, don't care
                 if (kvp.Key.Item2 == Program.Me.CubeGrid.EntityId) continue;
 
+                // If it's an asteroid or a ship, we might be interested
                 if (kvp.Value.IntelItemType == IntelItemType.Asteroid || kvp.Value.IntelItemType == IntelItemType.Friendly || kvp.Value.IntelItemType == IntelItemType.Enemy)
                 {
                     Vector3 c = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
                     float r = kvp.Value.Radius + SafetyRadius;
                     float distTo = (c - o).Length();
+                    // Check if distance is close enough. If so, shortlist this.
                     if (distTo < r + brakingDist + Autopilot.Controller.GetShipSpeed() * 0.16)
                     {
                         IntelScratchpad.Add(kvp.Value);
                         PositionScratchpad.Add(c);
-                        if (distTo < r)
+                        // If distance is closer than, we are inside its bounding sphere and must escape unless our destination is also in the radius
+                        if (distTo < r && (Destination.Position - c).Length() > r)
                         {
-                            inObstacle = true;
+                            type1 = true;
                             break;
                         }
                     }
@@ -185,23 +190,26 @@ namespace IngameScript
 
             Vector3 target = Destination.Position;
 
-            if (inObstacle)
+            if (type1)
             {
+                // Escape maneuver - move directly away from center of bounding sphere
                 var dir = o - PositionScratchpad.Last();
                 dir.Normalize();
                 target = dir * (IntelScratchpad.Last().Radius + SafetyRadius * 2) + PositionScratchpad.Last();
-                var w = new Waypoint
-                {
-                    Position = target,
-                    Name = "[OBS] Escape"
-                };
-                DebugIntelProvider.ReportFleetIntelligence(w, canonicalTime);
+                //var w = new Waypoint
+                //{
+                //    Position = target,
+                //    Name = "[OBS] Escape"
+                //};
+                //DebugIntelProvider.ReportFleetIntelligence(w, canonicalTime);
             }
             else if (IntelScratchpad.Count > 0)
             {
                 bool targetClear;
 
                 int iter = 0;
+
+                // Find a clear path around any obstacles:
                 do
                 {
                     iter += 1;
@@ -209,49 +217,102 @@ namespace IngameScript
                     IFleetIntelligence closestObstacle = null;
                     float closestDist = float.MaxValue;
                     float closestApporoach = 0;
+                    bool closestType3 = false;
 
                     var l = target - o;
                     float d = l.Length();
                     l.Normalize();
 
+                    // Go through each intel item we shortlisted earlier
                     for (int i = 0; i < IntelScratchpad.Count; i++)
                     {
                         float lDoc = Vector3.Dot(l, o - PositionScratchpad[i]);
                         float det = lDoc * lDoc - ((o - PositionScratchpad[i]).LengthSquared() - IntelScratchpad[i].Radius * IntelScratchpad[i].Radius);
-                        if (det > 0 && -lDoc > 0 && -lDoc < d) //  
-                        {
-                            closestObstacle = IntelScratchpad[i];
-                            var distIntersect = -lDoc - (float)Math.Sqrt(det);
 
-                            if (closestDist > distIntersect)
+                        // Check if we intersect the sphere at all
+                        if (det > 0)
+                        {
+                            // Check if this is a type 2 obstacle - that is, we enter its bounding sphere and the closest approach is some point along our path.
+                            if (-lDoc > 0 && -lDoc < d)
                             {
-                                closestDist = distIntersect;
-                                closestApporoach = -lDoc;
                                 closestObstacle = IntelScratchpad[i];
+                                var distIntersect = -lDoc - (float)Math.Sqrt(det);
+
+                                // Only care about the closest one. Hopefully this works well enough in practice.
+                                if (closestDist > distIntersect)
+                                {
+                                    closestDist = distIntersect;
+                                    closestApporoach = -lDoc;
+                                    closestObstacle = IntelScratchpad[i];
+                                    closestType3 = false;
+                                }
+                            }
+                            // Check if this is a type 3 obstacle - that is, we enter its bonding sphere and the destination is inside
+                            else if ((Destination.Position - PositionScratchpad[i]).Length() < IntelScratchpad[i].Radius + SafetyRadius)
+                            {
+                                var distIntersect = -lDoc - (float)Math.Sqrt(det);
+                                if (closestDist > distIntersect)
+                                {
+                                    closestDist = distIntersect;
+                                    closestApporoach = -lDoc;
+                                    closestObstacle = IntelScratchpad[i];
+                                    closestType3 = true;
+                                }
                             }
                         }
                     }
 
+                    // If there is a potential collision
                     if (closestDist != float.MaxValue)
                     {
-                        var c = l * closestApporoach + o;
-                        Vector3 dir = c - closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
-                        dir.Normalize();
-                        var v = dir * (closestObstacle.Radius + SafetyRadius) * 2 + closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
-                        v += v - o;
+                        Vector3 closestObstaclePos = closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
+                        Vector3 v;
 
-                        targetClear = false;
-                        target = v;
+                        if (!closestType3)
+                        {
+                            var c = l * closestApporoach + o;
+                            Vector3 dir = c - closestObstaclePos;
+                            dir.Normalize();
+                            v = dir * (closestObstacle.Radius + SafetyRadius) * 2 + closestObstaclePos;
+                            v += v - o;
+
+                            target = v;
+                            targetClear = false;
+                        }
+                        else
+                        {
+                            Vector3 dirCenterToDest = Destination.Position - closestObstaclePos;
+                            dirCenterToDest.Normalize();
+                            Vector3 dirCenterToMe = o - closestObstaclePos;
+                            var distToMe = dirCenterToMe.Length();
+                            dirCenterToMe.Normalize();
+
+                            var angle = Math.Acos(Vector3.Dot(dirCenterToDest, dirCenterToMe));
+
+                            if (angle > 0.6 && distToMe < (closestObstacle.Radius + SafetyRadius))
+                            {
+                                target = dirCenterToMe * (closestObstacle.Radius + SafetyRadius * 2) + closestObstaclePos;
+                            }
+                            else if (angle < 0.1)
+                            {
+                                target = Destination.Position;
+                            }
+                            else
+                            {
+                                target = dirCenterToDest * (closestObstacle.Radius + SafetyRadius) + closestObstaclePos;
+                            }
+                            break;
+                        }
                     }
 
                 } while (!targetClear);
 
-                var w = new Waypoint
-                {
-                    Position = target,
-                    Name = "[OBS]" + iter.ToString()
-                };
-                DebugIntelProvider.ReportFleetIntelligence(w, canonicalTime);
+                //var w = new Waypoint
+                //{
+                //    Position = target,
+                //    Name = "[OBS]" + iter.ToString()
+                //};
+                //DebugIntelProvider.ReportFleetIntelligence(w, canonicalTime);
             }
 
             return target;
