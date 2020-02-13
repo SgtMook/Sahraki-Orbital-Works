@@ -90,6 +90,8 @@ namespace IngameScript
         public TaskType AvailableTasks { get; set; }
         public AgentClass AgentClass { get; set; }
 
+        public IDockingSubsystem DockingSubsystem { get; set; }
+
         MyGridProgram Program;
         IMyBroadcastListener CommandListener;
 
@@ -101,7 +103,7 @@ namespace IngameScript
 
         StringBuilder DebugBuilder = new StringBuilder();
 
-        public AgentSubsystem(IIntelProvider intelProvider, AgentClass agentClass)
+        public AgentSubsystem(IIntelProvider intelProvider, AgentClass agentClass, IDockingSubsystem dockingSubsystem = null)
         {
             IntelProvider = intelProvider;
             IntelProvider.SetAgentSubsystem(this);
@@ -151,7 +153,6 @@ namespace IngameScript
             }
             if (TaskGenerators.ContainsKey((TaskType)command.Item1))
             {
-                DebugBuilder.AppendLine("Received " + command.Item1.ToString());
                 TaskQueue.Enqueue(TaskGenerators[(TaskType)command.Item1].GenerateTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff, Program.Me.CubeGrid.EntityId));
             }
         }

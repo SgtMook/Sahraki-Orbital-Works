@@ -37,11 +37,13 @@ namespace IngameScript
 
             IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
             subsystemManager.AddSubsystem("intel", intelSubsystem);
-            subsystemManager.AddSubsystem("sensor", new SensorSubsystem(intelSubsystem));
+            //subsystemManager.AddSubsystem("sensor", new SensorSubsystem(intelSubsystem));
 
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Drone);
-            agentSubsystem.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
-            agentSubsystem.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
+            UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(this, autopilotSubsystem, dockingSubsystem);
+            undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
+            undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
+            agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
             subsystemManager.AddSubsystem("agent", agentSubsystem);
 
             subsystemManager.DeserializeManager(Storage);

@@ -156,6 +156,8 @@ namespace IngameScript
         {
             if (block != null && Program.Me.IsSameConstructAs(block))
                 reference = block;
+            else
+                reference = controller;
         }
         public void SetWaypoint(Waypoint w)
         {

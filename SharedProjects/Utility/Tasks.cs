@@ -39,16 +39,13 @@ namespace IngameScript
     }
 
     #region Task Generators
-    /// <summary>
-    /// A task generator consumes commands in the form of a type and an intel ID, and emits a task
-    /// </summary>
+    // A task generator consumes commands in the form of a type and an intel ID, and emits a task
     public interface ITaskGenerator
     {
         TaskType AcceptedTypes { get; }
         ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID);
     }
 
-    #region WaypointTaskGenerator
     public class WaypointTaskGenerator : ITaskGenerator
     {
         #region ITaskGenerator
@@ -83,9 +80,7 @@ namespace IngameScript
             Autopilot = autopilot;
         }
     }
-    #endregion
 
-    #region DockTaskGenerator
     public class DockTaskGenerator : ITaskGenerator
     {
         #region ITaskGenerator
@@ -95,19 +90,10 @@ namespace IngameScript
         {
             if (intelKey.Item1 != IntelItemType.Dock)
             {
-                throw new Exception("Dock task generator received non dock task");
                 return new NullTask();
             }
             if (!IntelItems.ContainsKey(intelKey))
             {
-                StringBuilder builder = new StringBuilder();
-                builder.AppendLine($"{((int)intelKey.Item1).ToString()} {intelKey.Item2.ToString()} {IntelItems.Count()}");
-                foreach(var kvp in IntelItems)
-                {
-                    builder.AppendLine($"{(int)kvp.Key.Item1} {kvp.Key.Item2}, {kvp.Value.ID} {kvp.Value.DisplayName}");
-                }
-
-                throw new Exception($"Cannot find dock target {builder.ToString()}");
                 return new NullTask();
             }
             var Dock = (DockIntel)IntelItems[intelKey];
@@ -122,7 +108,7 @@ namespace IngameScript
 
         readonly IAutopilot Autopilot;
         readonly MyGridProgram Program;
-        IDockingSubsystem DockingSubsystem;
+        readonly IDockingSubsystem DockingSubsystem;
 
         public DockTaskGenerator(MyGridProgram program, IAutopilot autopilot, IDockingSubsystem ds)
         {
@@ -131,7 +117,51 @@ namespace IngameScript
             DockingSubsystem = ds;
         }
     }
-    #endregion
+
+    public class UndockFirstTaskGenerator : ITaskGenerator
+    {
+        #region ITaskGenerator
+        public TaskType AcceptedTypes { get; private set; }
+
+        public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
+        {
+            if ((AcceptedTypes & type) == 0) return new NullTask();
+
+            var mainTask = TaskGenerators[type].GenerateTask(type, intelKey, IntelItems, canonicalTime, myID);
+
+            if (DockingSubsystem.Connector.Status != MyShipConnectorStatus.Connected) return mainTask;
+
+            var task = new CompoundTask();
+            task.TaskQueue.Enqueue(new DockTask(DockingSubsystem, true));
+            var w = new Waypoint();
+            w.Position = DockingSubsystem.Connector.WorldMatrix.Backward * 40 + DockingSubsystem.Connector.WorldMatrix.Translation;
+            task.TaskQueue.Enqueue(new WaypointTask(Program, Autopilot, w, false, DockingSubsystem.Connector));
+            task.TaskQueue.Enqueue(mainTask);
+
+            return task;
+        }
+        #endregion
+
+        readonly IAutopilot Autopilot;
+        readonly MyGridProgram Program;
+        readonly IDockingSubsystem DockingSubsystem;
+        public UndockFirstTaskGenerator(MyGridProgram program, IAutopilot autopilot, IDockingSubsystem dockingSubsystem)
+        {
+            Autopilot = autopilot;
+            DockingSubsystem = dockingSubsystem;
+        }
+
+        Dictionary<TaskType, ITaskGenerator> TaskGenerators = new Dictionary<TaskType, ITaskGenerator>();
+        public void AddTaskGenerator(ITaskGenerator taskGenerator)
+        {
+            AcceptedTypes |= taskGenerator.AcceptedTypes;
+            for (int i = 0; i < 30; i++)
+            {
+                if ((1 << i & (int)taskGenerator.AcceptedTypes) != 0)
+                    TaskGenerators[(TaskType)(1 << i)] = taskGenerator;
+            }
+        }
+    }
     #endregion
 
     #region Tasks
@@ -310,10 +340,9 @@ namespace IngameScript
                             Vector3D dir = c - closestObstaclePos;
                             dir.Normalize();
                             v = dir * (closestObstacle.Radius + SafetyRadius * 2) + closestObstaclePos;
-                            // v += v - o;
-
-                            target = v;
-
+                            var vdir = v - o;
+                            vdir.Normalize();
+                            target = o + vdir * (o - Destination.Position).Length(); 
                         }
                         else
                         {
@@ -355,12 +384,22 @@ namespace IngameScript
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
             if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected)
+            {
+                if (Undock)
+                    DockingSubsystem.Undock();
                 Status = TaskStatus.Complete;
+            }
             else if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Unconnected)
-                Status = TaskStatus.Aborted;
+            {
+                if (Undock)
+                    Status = TaskStatus.Complete;
+                else
+                    Status = TaskStatus.Aborted;
+            }
             else
             {
-                DockingSubsystem.Dock();
+                if (!Undock)
+                    DockingSubsystem.Dock();
                 Status = TaskStatus.Complete;
             }
         }
@@ -368,10 +407,13 @@ namespace IngameScript
 
         IDockingSubsystem DockingSubsystem;
 
-        public DockTask(IDockingSubsystem dockingSubsystem)
+        bool Undock;
+
+        public DockTask(IDockingSubsystem dockingSubsystem, bool undock = false)
         {
             DockingSubsystem = dockingSubsystem;
             Status = TaskStatus.Incomplete;
+            Undock = undock;
         }
     }
     public class CompoundTask : ITask
@@ -458,8 +500,5 @@ namespace IngameScript
             base.Do(IntelItems, canonicalTime);
         }
     }
-
-
-
     #endregion
 }
