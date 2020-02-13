@@ -23,8 +23,8 @@ namespace IngameScript
 {
     public interface IAutopilot
     {
-        void Move(Vector3 targetPosition);
-        void Turn(Vector3 targetPosition);
+        void Move(Vector3D targetPosition);
+        void Turn(Vector3D targetPosition);
         void SetMaxSpeed(float maxSpeed);
         void SetReference(IMyTerminalBlock block);
         void SetWaypoint(Waypoint w);
@@ -97,11 +97,17 @@ namespace IngameScript
                 //float aMax = 0.8f * thrusts[0] / controller.CalculateShipMass().PhysicalMass;
                 //float desiredSpeed = Math.Min((float)Math.Sqrt(2f * aMax * distance), maxSpeed);
                 //
-                //Vector3 desiredVelocity = posError * desiredSpeed;
-                //Vector3 currentVelocity = controller.GetShipVelocities().LinearVelocity;
+                //Vector3D desiredVelocity = posError * desiredSpeed;
+                //Vector3D currentVelocity = controller.GetShipVelocities().LinearVelocity;
                 //
-                //Vector3 Error = (desiredVelocity - currentVelocity) * 30 / aMax;
+                //Vector3D Error = (desiredVelocity - currentVelocity) * 30 / aMax;
                 //statusbuilder.AppendLine($"TVOL: {Error}");
+                //statusbuilder.AppendLine($"tD: {targetDirection}");
+                //statusbuilder.AppendLine($"refD: {reference.WorldMatrix.Forward}");
+                //
+                //double yawAngle, pitchAngle;
+                //GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
+                //statusbuilder.AppendLine($"angles: {yawAngle} {pitchAngle}");
             }
             else
             {
@@ -131,12 +137,12 @@ namespace IngameScript
         #endregion
 
         #region IAutopilot
-        public void Move(Vector3 targetPosition)
+        public void Move(Vector3D targetPosition)
         {
             if (targetPosition != Vector3.One)
                 this.targetPosition = targetPosition;
         }
-        public void Turn(Vector3 targetDirection)
+        public void Turn(Vector3D targetDirection)
         {
             if (targetDirection != Vector3.One)
                 this.targetDirection = targetDirection;
@@ -201,10 +207,10 @@ namespace IngameScript
         float[] thrusts = new float[6];
         float maxSpeed = 98;
 
-        Vector3 D = Vector3.Zero;
-        Vector3 I = Vector3.Zero;
-        Vector3 targetDirection = Vector3.Zero;
-        Vector3 targetPosition = Vector3.Zero;
+        Vector3D D = Vector3.Zero;
+        Vector3D I = Vector3.Zero;
+        Vector3D targetDirection = Vector3.Zero;
+        Vector3D targetPosition = Vector3.Zero;
 
         Dictionary<Base6Directions.Direction, Vector3I> DirectionMap = new Dictionary<Base6Directions.Direction, Vector3I>()
         {
@@ -267,7 +273,7 @@ namespace IngameScript
 
         void SetThrusterPowers()
         {
-            Vector3 AutopilotMoveIndicator;
+            Vector3D AutopilotMoveIndicator;
 
             GetMovementVectors(targetPosition, controller, reference, thrusts[0], maxSpeed, out AutopilotMoveIndicator, ref D, ref I);
 
@@ -280,13 +286,13 @@ namespace IngameScript
                 controller.DampenersOverride = false;
             }
 
-            var gridDirIndicator = Vector3.TransformNormal(AutopilotMoveIndicator, MatrixD.Transpose(
+            var gridDirIndicator = Vector3D.TransformNormal(AutopilotMoveIndicator, MatrixD.Transpose(
                 controller.CubeGrid.WorldMatrix));
 
             for (int i = 0; i < thrustersList.Count; i++)
             {
                 var f = thrustersList[i].Orientation.Forward;
-                float power = (DirectionMap[f] * -1f).Dot(ref gridDirIndicator);
+                float power = (DirectionMap[f] * -1f).Dot(gridDirIndicator);
                 thrustersList[i].ThrustOverridePercentage = Math.Max(power, 0) * 1f;
             }
         }
@@ -299,7 +305,7 @@ namespace IngameScript
             GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
             ApplyGyroOverride(pitchAngle * 2, yawAngle * 2, 0, gyros, reference);
 
-            if (yawAngle < 0.01f && pitchAngle < 0.01f)
+            if (Math.Abs(yawAngle) < 0.01f && Math.Abs(pitchAngle) < 0.01f)
             {
                 targetDirection = Vector3.Zero;
                 foreach (var gyro in gyros)
@@ -309,7 +315,7 @@ namespace IngameScript
             }
         }
 
-        Vector3 ParseGPS(string s)
+        Vector3D ParseGPS(string s)
         {
             var split = s.Split(':');
             return new Vector3(float.Parse(split[2]), float.Parse(split[3]), float.Parse(split[4]));
@@ -342,7 +348,7 @@ namespace IngameScript
             }
         }
 
-        void GetMovementVectors(Vector3 target, IMyShipController controller, IMyTerminalBlock reference, float maxThrust, float maxSpeed, out Vector3 AutopilotMoveIndicator, ref Vector3 D, ref Vector3 I)
+        void GetMovementVectors(Vector3D target, IMyShipController controller, IMyTerminalBlock reference, float maxThrust, float maxSpeed, out Vector3D AutopilotMoveIndicator, ref Vector3D D, ref Vector3D I)
         {
             var speed = (float)controller.GetShipVelocities().LinearVelocity.Length();
 
@@ -353,13 +359,13 @@ namespace IngameScript
             float aMax = 0.8f * maxThrust / controller.CalculateShipMass().PhysicalMass;
             float desiredSpeed = Math.Min((float)Math.Sqrt(2f * aMax * distance), maxSpeed);
 
-            Vector3 desiredVelocity = posError * desiredSpeed;
-            Vector3 currentVelocity = controller.GetShipVelocities().LinearVelocity;
+            Vector3D desiredVelocity = posError * desiredSpeed;
+            Vector3D currentVelocity = controller.GetShipVelocities().LinearVelocity;
 
-            Vector3 adjustVector = currentVelocity - VectorProjection(currentVelocity, desiredVelocity);
+            Vector3D adjustVector = currentVelocity - VectorProjection(currentVelocity, desiredVelocity);
             if (adjustVector.Length() < currentVelocity.Length() * 0.1) adjustVector = Vector3.Zero;
 
-            Vector3 Error = (desiredVelocity - currentVelocity - adjustVector * 3) * 30 / aMax;
+            Vector3D Error = (desiredVelocity - currentVelocity - adjustVector * 3) * 30 / aMax;
 
 
             float kP = 1f;

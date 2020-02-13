@@ -49,7 +49,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            updateBuilder.Clear();
+            //updateBuilder.Clear();
 
             return updateBuilder.ToString();
         }
@@ -64,7 +64,6 @@ namespace IngameScript
             Program = program;
             GetParts();
 
-            panelLeft.FontSize = 0.75f;
             panelLeft.Alignment = TextAlignment.RIGHT;
         }
 
@@ -300,6 +299,7 @@ namespace IngameScript
                 else if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count() + TargetSelection_Targets.Count())
                 {
                     SendCommand(TargetSelection_Targets[TargetSelection_TargetIndex - TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count()], timestamp);
+                    updateBuilder.AppendLine(((int)TargetSelection_Targets[TargetSelection_TargetIndex - TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count()].IntelItemType).ToString());
                     CurrentUIMode = UIMode.SelectAgent;
                 }
             }
@@ -698,10 +698,10 @@ namespace IngameScript
         Dictionary<TaskType, IntelItemType> TaskTypeToTargetTypes = new Dictionary<TaskType, IntelItemType>
         {
             { TaskType.None, IntelItemType.NONE},
-            { TaskType.Move, IntelItemType.Waypoint | IntelItemType.Friendly },
+            { TaskType.Move, IntelItemType.Waypoint},
             { TaskType.SmartMove, IntelItemType.Waypoint },
             { TaskType.Attack, IntelItemType.Enemy },
-            { TaskType.Dock, IntelItemType.NONE }
+            { TaskType.Dock, IntelItemType.Dock }
         };
 
         Dictionary<TaskType, string[]> TaskTypeToSpecialTargets = new Dictionary<TaskType, string[]>
@@ -798,7 +798,7 @@ namespace IngameScript
             }
             else if (specialCount <= TargetSelection_TargetIndex && TargetSelection_TargetIndex < TargetSelection_Targets.Count + specialCount)
             {
-                AppendPaddedLine(kRowLength, TargetSelection_Targets[TargetSelection_TargetIndex - specialCount].DisplayName, RightHUDBuilder);
+                AppendPaddedLine(kRowLength, TargetSelection_Targets[TargetSelection_TargetIndex - specialCount].ID.ToString(), RightHUDBuilder);
                 if (CurrentUIMode == UIMode.SelectTarget)
                 {
                     AppendPaddedLine(kRowLength, "[SPACE] SEND CMD", RightHUDBuilder);

@@ -36,6 +36,8 @@ namespace IngameScript
             subsystemManager.AddSubsystem("sensor", sensorSubsystem);
             subsystemManager.AddSubsystem("sensorswivel", new SwivelSubsystem("[SN]", sensorSubsystem));
 
+            subsystemManager.AddSubsystem("hangar", new HangarSubsystem(intelSubsystem));
+
             subsystemManager.DeserializeManager(Storage);
         }
 

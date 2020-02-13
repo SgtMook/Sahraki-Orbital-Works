@@ -61,7 +61,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return CommandChannelTag;
+            return DebugBuilder.ToString();
         }
 
         public string SerializeSubsystem()
@@ -124,9 +124,13 @@ namespace IngameScript
             ITask currentTask = TaskQueue.Peek();
             currentTask.Do(IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff);
             if (currentTask.Status == TaskStatus.Complete)
+            {
                 TaskQueue.Dequeue();
+            }
             else if (currentTask.Status == TaskStatus.Aborted)
-                TaskQueue.Dequeue();
+            {
+                var task = TaskQueue.Dequeue();
+            }
         }
 
         private void GetCommands(TimeSpan timestamp)
@@ -147,6 +151,7 @@ namespace IngameScript
             }
             if (TaskGenerators.ContainsKey((TaskType)command.Item1))
             {
+                DebugBuilder.AppendLine("Received " + command.Item1.ToString());
                 TaskQueue.Enqueue(TaskGenerators[(TaskType)command.Item1].GenerateTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff, Program.Me.CubeGrid.EntityId));
             }
         }

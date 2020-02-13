@@ -32,14 +32,16 @@ namespace IngameScript
             // Add subsystems
             AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
             subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
-            subsystemManager.AddSubsystem("docking", new DockingSubsystem());
+            DockingSubsystem dockingSubsystem = new DockingSubsystem();
+            subsystemManager.AddSubsystem("docking", dockingSubsystem);
 
             IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
             subsystemManager.AddSubsystem("intel", intelSubsystem);
             subsystemManager.AddSubsystem("sensor", new SensorSubsystem(intelSubsystem));
 
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Drone);
-            agentSubsystem.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem, intelSubsystem));
+            agentSubsystem.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
+            agentSubsystem.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
             subsystemManager.AddSubsystem("agent", agentSubsystem);
 
             subsystemManager.DeserializeManager(Storage);

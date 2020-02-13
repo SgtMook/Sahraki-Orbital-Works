@@ -52,7 +52,7 @@ namespace IngameScript
     public class WaypointTaskGenerator : ITaskGenerator
     {
         #region ITaskGenerator
-        public TaskType AcceptedTypes => TaskType.Move | TaskType.SmartMove;
+        public TaskType AcceptedTypes => TaskType.Move; // | TaskType.SmartMove;
 
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
@@ -68,7 +68,7 @@ namespace IngameScript
                 if (intelKey.Item1 != IntelItemType.Waypoint || !IntelItems.ContainsKey(intelKey)) return new NullTask();
 
                 Waypoint w = (Waypoint)IntelItems[intelKey];
-                return new WaypointTask(Program, Autopilot, w, DebugIntelProvider);
+                return new WaypointTask(Program, Autopilot, w);
             }
 
         }
@@ -77,13 +77,58 @@ namespace IngameScript
         readonly IAutopilot Autopilot;
         readonly MyGridProgram Program;
 
-        readonly IIntelProvider DebugIntelProvider;
-
-        public WaypointTaskGenerator(MyGridProgram program, IAutopilot autopilot, IIntelProvider debugIntelProvider)
+        public WaypointTaskGenerator(MyGridProgram program, IAutopilot autopilot)
         {
             Program = program;
             Autopilot = autopilot;
-            DebugIntelProvider = debugIntelProvider;
+        }
+    }
+    #endregion
+
+    #region DockTaskGenerator
+    public class DockTaskGenerator : ITaskGenerator
+    {
+        #region ITaskGenerator
+        public TaskType AcceptedTypes => TaskType.Dock; // | TaskType.SmartMove;
+
+        public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
+        {
+            if (intelKey.Item1 != IntelItemType.Dock)
+            {
+                throw new Exception("Dock task generator received non dock task");
+                return new NullTask();
+            }
+            if (!IntelItems.ContainsKey(intelKey))
+            {
+                StringBuilder builder = new StringBuilder();
+                builder.AppendLine($"{((int)intelKey.Item1).ToString()} {intelKey.Item2.ToString()} {IntelItems.Count()}");
+                foreach(var kvp in IntelItems)
+                {
+                    builder.AppendLine($"{(int)kvp.Key.Item1} {kvp.Key.Item2}, {kvp.Value.ID} {kvp.Value.DisplayName}");
+                }
+
+                throw new Exception($"Cannot find dock target {builder.ToString()}");
+                return new NullTask();
+            }
+            var Dock = (DockIntel)IntelItems[intelKey];
+
+            var approachTask = new WaypointTask(Program, Autopilot, new Waypoint(), true, DockingSubsystem.Connector);
+            var enterTask = new WaypointTask(Program, Autopilot, new Waypoint(), false, DockingSubsystem.Connector);
+            var dockTask = new DockTask(DockingSubsystem);
+
+            return new MoveToAndDockTask(approachTask, enterTask, dockTask, intelKey);
+        }
+        #endregion
+
+        readonly IAutopilot Autopilot;
+        readonly MyGridProgram Program;
+        IDockingSubsystem DockingSubsystem;
+
+        public DockTaskGenerator(MyGridProgram program, IAutopilot autopilot, IDockingSubsystem ds)
+        {
+            Program = program;
+            Autopilot = autopilot;
+            DockingSubsystem = ds;
         }
     }
     #endregion
@@ -96,7 +141,6 @@ namespace IngameScript
         TaskStatus Status { get; }
     }
 
-    #region NullTask
     public struct NullTask : ITask
     {
         public TaskStatus Status => TaskStatus.Aborted;
@@ -104,49 +148,7 @@ namespace IngameScript
         {
         }
     }
-    #endregion
-
-    public class CompoundTask : ITask
-    {
-        #region ITask
-        public TaskStatus Status
-        {
-            get
-            {
-                if (TaskQueue.Count > 0)
-                    return TaskStatus.Incomplete;
-                else if (Aborted)
-                    return TaskStatus.Aborted;
-                else
-                    return TaskStatus.Complete;
-            }
-        }
-
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
-        {
-            var task = TaskQueue.Peek();
-            task.Do(IntelItems, canonicalTime);
-            if (task.Status == TaskStatus.Complete)
-                TaskQueue.Dequeue();
-            else if (task.Status == TaskStatus.Aborted)
-            {
-                TaskQueue.Clear();
-                Aborted = true;
-            }
-        }
-        #endregion
-        bool ContinueOnAbort;
-        bool Aborted = false;
-        public readonly Queue<ITask> TaskQueue = new Queue<ITask>();
-
-        public CompoundTask(bool continueOnAbort = false)
-        {
-            ContinueOnAbort = continueOnAbort;
-        }
-    }
-
-    #region WaypointTask
-    public class WaypointTask : ITask
+    public struct WaypointTask : ITask
     {
 
         #region ITask
@@ -171,30 +173,27 @@ namespace IngameScript
         readonly IAutopilot Autopilot;
         public Waypoint Destination;
 
-        readonly IIntelProvider DebugIntelProvider;
-
         readonly List<IFleetIntelligence> IntelScratchpad;
         readonly List<Vector3> PositionScratchpad;
 
         readonly bool AvoidObstacles;
         readonly IMyTerminalBlock MoveReference;
 
-        public WaypointTask(MyGridProgram program, IAutopilot pilotSubsystem, Waypoint waypoint, IIntelProvider debugIntelProvider, bool avoidObstacles = true, IMyTerminalBlock moveReference = null)
+        public WaypointTask(MyGridProgram program, IAutopilot pilotSubsystem, Waypoint waypoint, bool avoidObstacles = true, IMyTerminalBlock moveReference = null)
         {
             Autopilot = pilotSubsystem;
             Program = program;
             Destination = waypoint;
-            DebugIntelProvider = debugIntelProvider;
             IntelScratchpad = new List<IFleetIntelligence>();
             PositionScratchpad = new List<Vector3>();
             AvoidObstacles = avoidObstacles;
             MoveReference = moveReference;
         }
 
-        Vector3 PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        Vector3D PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
-            Vector3 o = Autopilot.Controller.CubeGrid.WorldMatrix.Translation;
-            Vector3 targetPosition = Destination.Position;
+            Vector3D o = Autopilot.Controller.CubeGrid.WorldMatrix.Translation;
+            Vector3D targetPosition = Destination.Position;
             float SafetyRadius = (float)(Autopilot.Controller.CubeGrid.WorldAABB.Max - Autopilot.Controller.CubeGrid.WorldAABB.Center).Length();
             float brakingDist = Autopilot.GetBrakingDistance();
 
@@ -212,9 +211,9 @@ namespace IngameScript
                 // If it's an asteroid or a ship, we might be interested
                 if (kvp.Value.IntelItemType == IntelItemType.Asteroid || kvp.Value.IntelItemType == IntelItemType.Friendly || kvp.Value.IntelItemType == IntelItemType.Enemy)
                 {
-                    Vector3 c = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
+                    Vector3D c = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
                     float r = kvp.Value.Radius + SafetyRadius;
-                    float distTo = (c - o).Length();
+                    double distTo = (c - o).Length();
                     // Check if distance is close enough. If so, shortlist this.
                     if (distTo < r + brakingDist + Autopilot.Controller.GetShipSpeed() * 0.16 + 100)
                     {
@@ -230,7 +229,7 @@ namespace IngameScript
                 }
             }
 
-            Vector3 target = Destination.Position;
+            Vector3D target = Destination.Position;
 
             if (type1)
             {
@@ -238,12 +237,6 @@ namespace IngameScript
                 var dir = o - PositionScratchpad.Last();
                 dir.Normalize();
                 target = dir * (IntelScratchpad.Last().Radius + SafetyRadius * 2) + PositionScratchpad.Last();
-                //var w = new Waypoint
-                //{
-                //    Position = target,
-                //    Name = "[OBS] Escape"
-                //};
-                //DebugIntelProvider.ReportFleetIntelligence(w, canonicalTime);
             }
             else if (IntelScratchpad.Count > 0)
             {
@@ -262,14 +255,14 @@ namespace IngameScript
                     bool closestType3 = false;
 
                     var l = target - o;
-                    float d = l.Length();
+                    double d = l.Length();
                     l.Normalize();
 
                     // Go through each intel item we shortlisted earlier
                     for (int i = 0; i < IntelScratchpad.Count; i++)
                     {
                         float lDoc = Vector3.Dot(l, o - PositionScratchpad[i]);
-                        float det = lDoc * lDoc - ((o - PositionScratchpad[i]).LengthSquared() - (IntelScratchpad[i].Radius + SafetyRadius) * (IntelScratchpad[i].Radius + SafetyRadius));
+                        double det = lDoc * lDoc - ((o - PositionScratchpad[i]).LengthSquared() - (IntelScratchpad[i].Radius + SafetyRadius) * (IntelScratchpad[i].Radius + SafetyRadius));
 
                         // Check if we intersect the sphere at all
                         if (det > 0)
@@ -308,25 +301,25 @@ namespace IngameScript
                     if (closestDist != float.MaxValue)
                     {
                         targetClear = false;
-                        Vector3 closestObstaclePos = closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
-                        Vector3 v;
+                        Vector3D closestObstaclePos = closestObstacle.GetPositionFromCanonicalTime(canonicalTime);
+                        Vector3D v;
 
                         if (!closestType3)
                         {
                             var c = l * closestApporoach + o;
-                            Vector3 dir = c - closestObstaclePos;
+                            Vector3D dir = c - closestObstaclePos;
                             dir.Normalize();
                             v = dir * (closestObstacle.Radius + SafetyRadius * 2) + closestObstaclePos;
-                            v += v - o;
+                            // v += v - o;
 
                             target = v;
 
                         }
                         else
                         {
-                            Vector3 dirCenterToDest = target - closestObstaclePos;
+                            Vector3D dirCenterToDest = target - closestObstaclePos;
                             dirCenterToDest.Normalize();
-                            Vector3 dirCenterToMe = o - closestObstaclePos;
+                            Vector3D dirCenterToMe = o - closestObstaclePos;
                             var distToMe = dirCenterToMe.Length();
                             dirCenterToMe.Normalize();
                             var angle = Math.Acos(Vector3.Dot(dirCenterToDest, dirCenterToMe));
@@ -349,26 +342,124 @@ namespace IngameScript
                     }
 
                 } while (!targetClear);
-
-                //var w = new Waypoint
-                //{
-                //    Position = target,
-                //    Name = "[OBS]" + iter.ToString()
-                //};
-                //DebugIntelProvider.ReportFleetIntelligence(w, canonicalTime);
             }
 
             return target;
         }
     }
-    #endregion
-
-    #region DockTask
-
-    public class DockTask : ITask
+    public struct DockTask : ITask
     {
+        #region ITask
+        public TaskStatus Status { get; private set; }
+
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        {
+            if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected)
+                Status = TaskStatus.Complete;
+            else if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Unconnected)
+                Status = TaskStatus.Aborted;
+            else
+            {
+                DockingSubsystem.Dock();
+                Status = TaskStatus.Complete;
+            }
+        }
+        #endregion
+
+        IDockingSubsystem DockingSubsystem;
+
+        public DockTask(IDockingSubsystem dockingSubsystem)
+        {
+            DockingSubsystem = dockingSubsystem;
+            Status = TaskStatus.Incomplete;
+        }
+    }
+    public class CompoundTask : ITask
+    {
+        #region ITask
+        public TaskStatus Status
+        {
+            get
+            {
+                if (TaskQueue.Count > 0)
+                    return TaskStatus.Incomplete;
+                else if (Aborted)
+                    return TaskStatus.Aborted;
+                else
+                    return TaskStatus.Complete;
+            }
+        }
+
+        public virtual void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        {
+            var task = TaskQueue.Peek();
+            task.Do(IntelItems, canonicalTime);
+            if (task.Status == TaskStatus.Complete)
+                TaskQueue.Dequeue();
+            else if (task.Status == TaskStatus.Aborted && !ContinueOnAbort)
+            {
+                TaskQueue.Clear();
+                Aborted = true;
+            }
+            else if (task.Status == TaskStatus.Aborted && ContinueOnAbort)
+                TaskQueue.Dequeue();
+        }
+        #endregion
+        bool ContinueOnAbort;
+        protected bool Aborted;
+        public readonly Queue<ITask> TaskQueue;
+
+        public CompoundTask(bool continueOnAbort = false)
+        {
+            ContinueOnAbort = continueOnAbort;
+            Aborted = false;
+            TaskQueue = new Queue<ITask>();
+        }
+    }
+    public class MoveToAndDockTask : CompoundTask
+    {
+        WaypointTask ApproachTask;
+        WaypointTask EnterTask;
+        DockTask DockTask;
+        MyTuple<IntelItemType, long> IntelKey;
+
+        public MoveToAndDockTask(WaypointTask approachTask, WaypointTask enterTask, DockTask dockTask, MyTuple<IntelItemType, long> intelKey) : base (false)
+        {
+            ApproachTask = approachTask;
+            EnterTask = enterTask;
+            DockTask = dockTask;
+            IntelKey = intelKey;
+
+            TaskQueue.Enqueue(approachTask);
+            TaskQueue.Enqueue(enterTask);
+            TaskQueue.Enqueue(dockTask);
+        }
+
+        public override void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        {
+            if (!IntelItems.ContainsKey(IntelKey))
+            {
+                Aborted = true;
+                TaskQueue.Clear();
+            }
+
+            DockIntel dock = (DockIntel)IntelItems[IntelKey];
+
+            Vector3 approachPoint = dock.WorldMatrix.Forward * dock.UndockFar + dock.GetPositionFromCanonicalTime(canonicalTime);
+            Vector3 entryPoint = dock.WorldMatrix.Forward * dock.UndockNear + dock.GetPositionFromCanonicalTime(canonicalTime);
+
+            Vector3 dockDirection = dock.WorldMatrix.Backward;
+
+            ApproachTask.Destination.Direction = dockDirection;
+            ApproachTask.Destination.Position = approachPoint;
+            EnterTask.Destination.Direction = dockDirection;
+            EnterTask.Destination.Position = entryPoint;
+
+            base.Do(IntelItems, canonicalTime);
+        }
     }
 
+
+
     #endregion
-    #endregion
-    }
+}

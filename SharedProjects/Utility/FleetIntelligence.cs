@@ -57,6 +57,8 @@ namespace IngameScript
                 IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, Waypoint.IGCPackGeneric((Waypoint)item)));
             else if (item is FriendlyShipIntel)
                 IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, FriendlyShipIntel.IGCPackGeneric((FriendlyShipIntel)item)));
+            else if (item is DockIntel)
+                IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, DockIntel.IGCPackGeneric((DockIntel)item)));
             else if (item is AsteroidIntel)
                 IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, AsteroidIntel.IGCPackGeneric((AsteroidIntel)item)));
             else
@@ -69,9 +71,9 @@ namespace IngameScript
         public static MyTuple<IntelItemType, long> ReceiveAndUpdateFleetIntelligence(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
              // Waypoint
-            if (data is MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>)
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, float, string, int>>>)
             {
-                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>)data;
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, float, string, int>>>)data;
                 if (masterID == unpacked.Item1)
                 {
                     var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
@@ -88,9 +90,9 @@ namespace IngameScript
             }
 
             // Friendly
-            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>)
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>)
             {
-                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>)data;
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>)data;
                 if (masterID == unpacked.Item1)
                 {
                     var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
@@ -107,9 +109,9 @@ namespace IngameScript
             }
 
             // Asteroid
-            if (data is MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>)
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>)
             {
-                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>)data;
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>)data;
                 if (masterID == unpacked.Item1)
                 {
                     var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
@@ -125,21 +127,42 @@ namespace IngameScript
                 }
             }
 
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double>, MyTuple<long, int>, MyTuple<long, string>>>>)
+            {
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double>, MyTuple<long, int>, MyTuple<long, string>>>>)data;
+                if (masterID == unpacked.Item1)
+                {
+                    var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
+                    if (key.Item1 == IntelItemType.Dock)
+                    {
+                        if (intelItems.ContainsKey(key))
+                            ((DockIntel)intelItems[key]).IGCUnpackInto(unpacked.Item2.Item3);
+                        else
+                            intelItems.Add(key, DockIntel.IGCUnpack(unpacked.Item2.Item3));
+
+                        return key;
+                    }
+                }
+            }
+
             throw new Exception($"Bad type when receiving fleet intel: {data.GetType().ToString()}");
         }
 
         public static void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
-            var WaypointArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>>(kMaxIntelPerType); 
-            var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>(kMaxIntelPerType); 
-            var AsteroidIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>>(kMaxIntelPerType); 
-
+            var WaypointArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, float, string, int>>>>(kMaxIntelPerType); 
+            var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>(kMaxIntelPerType); 
+            var DockIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double>, MyTuple<long, int>, MyTuple<long, string>>>>>(kMaxIntelPerType); 
+            var AsteroidIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>(kMaxIntelPerType);
+            
             foreach (KeyValuePair<MyTuple<IntelItemType, long>, IFleetIntelligence> kvp in intelItems)
             {
                 if (kvp.Key.Item1 == IntelItemType.Waypoint)
                     WaypointArrayBuilder.Add(MyTuple.Create(masterID, Waypoint.IGCPackGeneric((Waypoint)kvp.Value)));
                 else if (kvp.Key.Item1 == IntelItemType.Friendly)
                     FriendlyShipIntelArrayBuilder.Add(MyTuple.Create(masterID, FriendlyShipIntel.IGCPackGeneric((FriendlyShipIntel)kvp.Value)));
+                else if (kvp.Key.Item1 == IntelItemType.Dock)
+                    DockIntelArrayBuilder.Add(MyTuple.Create(masterID, DockIntel.IGCPackGeneric((DockIntel)kvp.Value)));
                 else if (kvp.Key.Item1 == IntelItemType.Asteroid)
                     AsteroidIntelArrayBuilder.Add(MyTuple.Create(masterID, AsteroidIntel.IGCPackGeneric((AsteroidIntel)kvp.Value)));
                 else
@@ -148,6 +171,7 @@ namespace IngameScript
 
             IGC.SendBroadcastMessage(IntelSyncChannelTag, WaypointArrayBuilder.ToImmutable());
             IGC.SendBroadcastMessage(IntelSyncChannelTag, FriendlyShipIntelArrayBuilder.ToImmutable());
+            IGC.SendBroadcastMessage(IntelSyncChannelTag, DockIntelArrayBuilder.ToImmutable());
             IGC.SendBroadcastMessage(IntelSyncChannelTag, AsteroidIntelArrayBuilder.ToImmutable());
         }
 
@@ -157,27 +181,36 @@ namespace IngameScript
         public static void ReceiveAndUpdateFleetIntelligenceSyncPackage(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, ref List<MyTuple<IntelItemType, long>> updatedScratchpad, long masterID)
         {
             // Waypoint
-            if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>>)
+            if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, float, string, int>>>>)
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>>>>)data)
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, float, string, int>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
                     updatedScratchpad.Add(updatedKey);
                 }
             }
             // FriendlyShipIntel
-            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>)
+            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>)
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>)data)
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>)data)
+                {
+                    var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
+                    updatedScratchpad.Add(updatedKey);
+                }
+            }
+            // DockIntel
+            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double>, MyTuple<long, int>, MyTuple<long, string>>>>>)
+            {
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double>, MyTuple<long, int>, MyTuple<long, string>>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
                     updatedScratchpad.Add(updatedKey);
                 }
             }
             // AsteroidIntel
-            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>>)
+            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>)
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3, float, long>>>>)data)
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
                     updatedScratchpad.Add(updatedKey);
@@ -197,11 +230,11 @@ namespace IngameScript
 
     public class VectorUtilities
     {
-        public static Vector3 StringToVector3(string sVector)
+        public static Vector3D StringToVector3(string sVector)
         {
             sVector = sVector.Substring(1, sVector.Length - 2);
             string[] sArray = sVector.Split(' ');
-            Vector3 result = new Vector3(
+            Vector3D result = new Vector3(
                 float.Parse(sArray[0].Substring(2)),
                 float.Parse(sArray[1].Substring(2)),
                 float.Parse(sArray[2].Substring(2)));
@@ -215,8 +248,8 @@ namespace IngameScript
     // Representations of objects in the fleet intelligence system
     public interface IFleetIntelligence
     {
-        Vector3 GetPositionFromCanonicalTime(TimeSpan CanonicalTime);
-        Vector3 GetVelocity();
+        Vector3D GetPositionFromCanonicalTime(TimeSpan CanonicalTime);
+        Vector3D GetVelocity();
 
         float Radius { get; }
 
@@ -241,8 +274,8 @@ namespace IngameScript
 
     public class Waypoint : IFleetIntelligence
     {
-        public Vector3 Position; // Position of Zero means to stop moving, One means to keep original
-        public Vector3 Direction; // Direction of Zero means to stop turning, One means to keep original
+        public Vector3D Position; // Position of Zero means to stop moving, One means to keep original
+        public Vector3D Direction; // Direction of Zero means to stop turning, One means to keep original
         public float MaxSpeed;
         public string Name;
         public WaypointReferenceMode ReferenceMode;
@@ -275,12 +308,12 @@ namespace IngameScript
         public string DisplayName => Name;
         public long ID => Position.ToString().GetHashCode();
         public IntelItemType IntelItemType => IntelItemType.Waypoint;
-        public Vector3 GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
+        public Vector3D GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
         {
             return Position;
         }
 
-        public Vector3 GetVelocity()
+        public Vector3D GetVelocity()
         {
             return Vector3.Zero;
         }
@@ -300,11 +333,11 @@ namespace IngameScript
             ReferenceMode = (WaypointReferenceMode)int.Parse(split[4]);
         }
 
-        static public MyTuple<int, long, MyTuple<Vector3, Vector3, float, string, int>> IGCPackGeneric(Waypoint w)
+        static public MyTuple<int, long, MyTuple<Vector3D, Vector3D, float, string, int>> IGCPackGeneric(Waypoint w)
         {
             return MyTuple.Create
             (
-                (int)IntelItemType.Waypoint,
+                (int)w.IntelItemType,
                 w.ID,
                 MyTuple.Create
                 (
@@ -318,13 +351,13 @@ namespace IngameScript
         }
         static public Waypoint IGCUnpack(object data)
         {
-            var unpacked = (MyTuple<Vector3, Vector3, float, string, int>)data;
+            var unpacked = (MyTuple<Vector3D, Vector3D, float, string, int>)data;
             var w = new Waypoint();
             w.IGCUnpackInto(unpacked);
             return w;
         }
 
-        public void IGCUnpackInto(MyTuple<Vector3, Vector3, float, string, int> unpacked)
+        public void IGCUnpackInto(MyTuple<Vector3D, Vector3D, float, string, int> unpacked)
         {
             Position = unpacked.Item1;
             Direction = unpacked.Item2;
@@ -358,20 +391,20 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public Vector3 GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
+        public Vector3D GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
         {
-            return CurrentPosition + CurrentVelocity * (float)(CanonicalTime - CurrentTime).TotalSeconds;
+            return CurrentPosition + CurrentVelocity * (CanonicalTime - CurrentCanonicalTime).TotalSeconds;
         }
 
-        public Vector3 GetVelocity()
+        public Vector3D GetVelocity()
         {
             return CurrentVelocity;
         }
         #endregion
 
-        public Vector3 CurrentVelocity;
-        public Vector3 CurrentPosition;
-        public TimeSpan CurrentTime;
+        public Vector3D CurrentVelocity;
+        public Vector3D CurrentPosition;
+        public TimeSpan CurrentCanonicalTime;
 
         public TaskType AcceptedTaskTypes;
         public string CommandChannelTag;
@@ -380,11 +413,11 @@ namespace IngameScript
         public long HomeID = 0;
 
         #region IGC Packing
-        static public MyTuple<int, long, MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>> IGCPackGeneric(FriendlyShipIntel fsi)
+        static public MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>> IGCPackGeneric(FriendlyShipIntel fsi)
         {
             return MyTuple.Create
             (
-                (int)IntelItemType.Friendly,
+                (int)fsi.IntelItemType,
                 fsi.ID,
                 MyTuple.Create
                 (
@@ -392,7 +425,7 @@ namespace IngameScript
                     (
                         fsi.CurrentPosition,
                         fsi.CurrentVelocity,
-                        fsi.CurrentTime.TotalMilliseconds
+                        fsi.CurrentCanonicalTime.TotalMilliseconds
                     ),
                      MyTuple.Create
                     (
@@ -415,17 +448,17 @@ namespace IngameScript
         }
         static public FriendlyShipIntel IGCUnpack(object data)
         {
-            var unpacked = (MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>)data;
+            var unpacked = (MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>)data;
             var fsi = new FriendlyShipIntel();
             fsi.IGCUnpackInto(unpacked);
             return fsi;
         }
 
-        public void IGCUnpackInto(MyTuple<MyTuple<Vector3, Vector3, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>> unpacked)
+        public void IGCUnpackInto(MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>> unpacked)
         {
             CurrentPosition = unpacked.Item1.Item1;
             CurrentVelocity = unpacked.Item1.Item2;
-            CurrentTime = TimeSpan.FromMilliseconds(unpacked.Item1.Item3);
+            CurrentCanonicalTime = TimeSpan.FromMilliseconds(unpacked.Item1.Item3);
             DisplayName = unpacked.Item2.Item1;
             ID = unpacked.Item2.Item2;
             Radius = unpacked.Item2.Item3;
@@ -442,7 +475,7 @@ namespace IngameScript
     #region Asteroid
     public class AsteroidIntel : IFleetIntelligence
     {
-        public Vector3 Position;
+        public Vector3D Position;
 
         public static string SerializeAsteroid(AsteroidIntel astr)
         {
@@ -463,12 +496,12 @@ namespace IngameScript
         public string DisplayName => "Asteroid";
         public long ID { get; set; }
         public IntelItemType IntelItemType => IntelItemType.Asteroid;
-        public Vector3 GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
+        public Vector3D GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
         {
             return Position;
         }
 
-        public Vector3 GetVelocity()
+        public Vector3D GetVelocity()
         {
             return Vector3.Zero;
         }
@@ -486,11 +519,11 @@ namespace IngameScript
             ID = long.Parse(split[2]);
         }
 
-        static public MyTuple<int, long, MyTuple<Vector3, float, long>> IGCPackGeneric(AsteroidIntel astr)
+        static public MyTuple<int, long, MyTuple<Vector3D, float, long>> IGCPackGeneric(AsteroidIntel astr)
         {
             return MyTuple.Create
             (
-                (int)IntelItemType.Asteroid,
+                (int)astr.IntelItemType,
                 astr.ID,
                 MyTuple.Create
                 (
@@ -502,13 +535,13 @@ namespace IngameScript
         }
         static public AsteroidIntel IGCUnpack(object data)
         {
-            var unpacked = (MyTuple<Vector3, float, long>)data;
+            var unpacked = (MyTuple<Vector3D, float, long>)data;
             var astr = new AsteroidIntel();
             astr.IGCUnpackInto(unpacked);
             return astr;
         }
 
-        public void IGCUnpackInto(MyTuple<Vector3, float, long> unpacked)
+        public void IGCUnpackInto(MyTuple<Vector3D, float, long> unpacked)
         {
             Position = unpacked.Item1;
             Radius = unpacked.Item2;
@@ -520,6 +553,14 @@ namespace IngameScript
     #endregion
 
     #region Dock
+
+    public enum HangarStatus
+    {
+        None,
+        Available,
+        Occupied,
+        Reserved,
+    }
 
     public class DockIntel : IFleetIntelligence
     {
@@ -536,12 +577,12 @@ namespace IngameScript
         {
         }
 
-        public Vector3 GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
+        public Vector3D GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
         {
-            return WorldMatrix.Translation + CurrentVelocity * (float)(CanonicalTime - CurrentTime).TotalSeconds;
+            return WorldMatrix.Translation + CurrentVelocity * (CanonicalTime - CurrentCanonicalTime).TotalSeconds;
         }
 
-        public Vector3 GetVelocity()
+        public Vector3D GetVelocity()
         {
             return CurrentVelocity;
         }
@@ -554,13 +595,65 @@ namespace IngameScript
 
         public MatrixD WorldMatrix;
         public float UndockFar = 20;
-        public float UndockNear = 1;
+        public float UndockNear = 2.0f;
+
+        public Vector3D CurrentVelocity;
+        public TimeSpan CurrentCanonicalTime;
 
         public long OwnerID;
+        public HangarStatus Status;
 
-        public Vector3 CurrentVelocity;
+        #region IGC Packing
+        static public MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double>, MyTuple<long, int>, MyTuple<long, string>>> IGCPackGeneric(DockIntel di)
+        {
+            return MyTuple.Create
+            (
+                (int)di.IntelItemType,
+                di.ID,
+                MyTuple.Create
+                (
+                    MyTuple.Create
+                    (
+                        di.WorldMatrix,
+                        di.UndockFar,
+                        di.UndockNear,
+                        di.CurrentVelocity,
+                        di.CurrentCanonicalTime.TotalMilliseconds
+                    ),
+                     MyTuple.Create
+                    (
+                         di.OwnerID,
+                         (int)di.Status
+                    ),
+                     MyTuple.Create
+                    (
+                        di.ID,
+                        di.DisplayName
+                    )
+                )
+            );
+        }
+        static public DockIntel IGCUnpack(object data)
+        {
+            var unpacked = (MyTuple<MyTuple<MatrixD, float, float, Vector3D, double>, MyTuple<long, int>, MyTuple<long, string>>)data;
+            var di = new DockIntel();
+            di.IGCUnpackInto(unpacked);
+            return di;
+        }
 
-        TimeSpan CurrentTime;
+        public void IGCUnpackInto(MyTuple<MyTuple<MatrixD, float, float, Vector3D, double>, MyTuple<long, int>, MyTuple<long, string>> unpacked)
+        {
+            WorldMatrix = unpacked.Item1.Item1;
+            UndockFar = unpacked.Item1.Item2;
+            UndockNear = unpacked.Item1.Item3;
+            CurrentVelocity = unpacked.Item1.Item4;
+            CurrentCanonicalTime = TimeSpan.FromMilliseconds(unpacked.Item1.Item5);
+            OwnerID = unpacked.Item2.Item1;
+            Status = (HangarStatus)unpacked.Item2.Item2;
+            ID = unpacked.Item3.Item1;
+            DisplayName = unpacked.Item3.Item2;
+        }
+        #endregion
 
     }
 

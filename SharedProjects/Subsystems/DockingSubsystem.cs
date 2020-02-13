@@ -19,7 +19,14 @@ using VRageMath;
 
 namespace IngameScript
 {
-    public class DockingSubsystem : ISubsystem
+    public interface IDockingSubsystem
+    {
+        void Dock();
+        void Undock();
+
+        IMyShipConnector Connector { get; }
+    }
+    public class DockingSubsystem : ISubsystem, IDockingSubsystem
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update100;
@@ -62,23 +69,25 @@ namespace IngameScript
         }
         #endregion
 
-        MyGridProgram Program;
-        List<IMyTerminalBlock> getBlocksScratchPad = new List<IMyTerminalBlock>();
+        #region IDockingSubsystem
+        public IMyShipConnector Connector { get; set; }
 
-        IMyShipConnector Connector;
-
-        void Dock()
+        public void Dock()
         {
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(getBlocksScratchPad, SetBlockToDock);
             ((IMyShipConnector)getBlocksScratchPad[0]).Connect();
             getBlocksScratchPad.Clear();
         }
-        void Undock()
+        public void Undock()
         {
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(getBlocksScratchPad, SetBlockToUndock);
             ((IMyShipConnector)getBlocksScratchPad[0]).Disconnect();
             getBlocksScratchPad.Clear();
         }
+
+        MyGridProgram Program;
+        List<IMyTerminalBlock> getBlocksScratchPad = new List<IMyTerminalBlock>();
+        #endregion
 
         void RequestExtend()
         {

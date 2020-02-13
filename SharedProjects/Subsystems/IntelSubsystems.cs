@@ -31,12 +31,12 @@ namespace IngameScript
 
         TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key);
 
-        void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp);
+        void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan LocalTime);
 
         TimeSpan CanonicalTimeDiff { get; }
 
         void SetAgentSubsystem(IAgentSubsystem agentSubsystem);
-        void ReportCommand(FriendlyShipIntel agent, TaskType taskType, IFleetIntelligence target, TimeSpan timestamp);
+        void ReportCommand(FriendlyShipIntel agent, TaskType taskType, IFleetIntelligence target, TimeSpan LocalTime);
     }
 
     // Handles tracking, updating, and transmitting fleet intelligence
@@ -178,7 +178,7 @@ namespace IngameScript
             myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
             myIntel.CurrentPosition = cubeGrid.GetPosition();
             myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length();
-            myIntel.CurrentTime = timestamp;
+            myIntel.CurrentCanonicalTime = timestamp;
             myIntel.ID = cubeGrid.EntityId;
 
             if (AgentSubsystem != null && AgentSubsystem.AvailableTasks != TaskType.None)
@@ -367,7 +367,7 @@ namespace IngameScript
             myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
             myIntel.CurrentPosition = cubeGrid.GetPosition();
             myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length();
-            myIntel.CurrentTime = timestamp + CanonicalTimeDiff;
+            myIntel.CurrentCanonicalTime = timestamp + CanonicalTimeDiff;
             myIntel.ID = cubeGrid.EntityId;
 
             if (AgentSubsystem != null && AgentSubsystem.AvailableTasks != TaskType.None)
