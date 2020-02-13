@@ -102,7 +102,7 @@ namespace IngameScript
             var enterTask = new WaypointTask(Program, Autopilot, new Waypoint(), false, DockingSubsystem.Connector);
             var dockTask = new DockTask(DockingSubsystem);
 
-            return new MoveToAndDockTask(approachTask, enterTask, dockTask, intelKey);
+            return new MoveToAndDockTask(approachTask, enterTask, dockTask, intelKey, DockingSubsystem.Connector.CubeGrid.GridSizeEnum);
         }
         #endregion
 
@@ -464,13 +464,17 @@ namespace IngameScript
         WaypointTask EnterTask;
         DockTask DockTask;
         MyTuple<IntelItemType, long> IntelKey;
+        MyCubeSize DockSize;
 
-        public MoveToAndDockTask(WaypointTask approachTask, WaypointTask enterTask, DockTask dockTask, MyTuple<IntelItemType, long> intelKey) : base (false)
+        public MoveToAndDockTask(WaypointTask approachTask, WaypointTask enterTask, DockTask dockTask, MyTuple<IntelItemType, long> intelKey, MyCubeSize dockSize) : base (false)
         {
             ApproachTask = approachTask;
             EnterTask = enterTask;
             DockTask = dockTask;
             IntelKey = intelKey;
+            DockSize = dockSize;
+
+            enterTask.Destination.MaxSpeed = 20f;
 
             TaskQueue.Enqueue(approachTask);
             TaskQueue.Enqueue(enterTask);
@@ -488,7 +492,7 @@ namespace IngameScript
             DockIntel dock = (DockIntel)IntelItems[IntelKey];
 
             Vector3 approachPoint = dock.WorldMatrix.Forward * dock.UndockFar + dock.GetPositionFromCanonicalTime(canonicalTime);
-            Vector3 entryPoint = dock.WorldMatrix.Forward * dock.UndockNear + dock.GetPositionFromCanonicalTime(canonicalTime);
+            Vector3 entryPoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f)) + dock.GetPositionFromCanonicalTime(canonicalTime);
 
             Vector3 dockDirection = dock.WorldMatrix.Backward;
 

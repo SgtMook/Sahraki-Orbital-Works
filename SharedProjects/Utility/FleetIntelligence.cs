@@ -595,7 +595,7 @@ namespace IngameScript
 
         public MatrixD WorldMatrix;
         public float UndockFar = 20;
-        public float UndockNear = 2.0f;
+        public float UndockNear = 1.5f;
 
         public Vector3D CurrentVelocity;
         public TimeSpan CurrentCanonicalTime;
