@@ -61,9 +61,9 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            bool hasPos = targetPosition != Vector3.Zero;
+            bool hasPos = targetPosition != Vector3D.Zero;
             if (hasPos) SetThrusterPowers();
-            bool hasDir = targetDirection != Vector3.Zero;
+            bool hasDir = targetDirection != Vector3D.Zero;
             if (hasDir) SetGyroPowers();
 
             if (hasPos || hasDir)

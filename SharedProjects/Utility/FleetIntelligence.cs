@@ -656,7 +656,44 @@ namespace IngameScript
         #endregion
 
     }
+    #endregion
 
+    #region Enemy
+    public class EnemyShipIntel : IFleetIntelligence
+    {
+        #region IFleetIntelligence
+        public float Radius { get; set; }
+
+        public long ID { get; set; }
+
+        public string DisplayName { get; set; }
+
+        public IntelItemType IntelItemType => IntelItemType.Enemy;
+
+        public void Deserialize(string s)
+        {
+        }
+
+        public Vector3D GetPositionFromCanonicalTime(TimeSpan CanonicalTime)
+        {
+            return CurrentPosition + CurrentVelocity * (CanonicalTime - CurrentCanonicalTime).TotalSeconds;
+        }
+
+        public Vector3D GetVelocity()
+        {
+            return CurrentVelocity;
+        }
+
+        public string Serialize()
+        {
+            return string.Empty;
+        }
+        #endregion
+
+        public Vector3D CurrentVelocity;
+        public Vector3D CurrentPosition;
+        public TimeSpan CurrentCanonicalTime;
+    }
     #endregion
 
     #endregion
