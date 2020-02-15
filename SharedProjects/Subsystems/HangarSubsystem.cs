@@ -29,6 +29,7 @@ namespace IngameScript
         StringBuilder statusBuilder = new StringBuilder();
 
         public IMyShipConnector Connector;
+        public IMyInteriorLight DirectionIndicator;
         public HangarStatus hangarStatus = HangarStatus.None;
         public long OwnerID;
 
@@ -51,15 +52,27 @@ namespace IngameScript
             if (part is IMyInteriorLight)
             {
                 IMyInteriorLight light = (IMyInteriorLight)part;
-                lights.Add(light);
-                light.Intensity = 2f;
-                light.Radius = 12f;
+                if (light.CustomName.Contains("<DI>"))
+                {
+                    DirectionIndicator = light;
+                    light.Color = Color.Red;
+                    light.Intensity = 0.5f;
+                    light.BlinkIntervalSeconds = 1;
+                    light.BlinkLength = 0.1f;
+                }
+                else
+                {
+                    lights.Add(light);
+                    light.Intensity = 2f;
+                    light.Radius = 12f;
+                }
             }
         }
 
         public void Clear()
         {
             Connector = null;
+            DirectionIndicator = null;
             extender = null;
             rotor = null;
             gates.Clear();
@@ -188,7 +201,9 @@ namespace IngameScript
             hangar.Intel.ID = hangar.Connector.EntityId;
             hangar.Intel.DisplayName = builder.Append("H").Append(hangar.Index.ToString()).Append('-').Append(Program.Me.CubeGrid.CustomName).ToString();
 
-            hangar.Intel.UndockNear = hangar.Connector.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 1.50f : 0.75f;
+            hangar.Intel.UndockNear = hangar.Connector.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 1.3f : 0.55f;
+
+            hangar.Intel.IndicatorDir = hangar.DirectionIndicator == null ? Vector3D.Zero : hangar.DirectionIndicator.WorldMatrix.Forward;
 
             return hangar.Intel;
         }

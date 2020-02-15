@@ -25,6 +25,7 @@ namespace IngameScript
         void Undock();
 
         IMyShipConnector Connector { get; }
+        IMyInteriorLight DirectionIndicator { get; }
     }
     public class DockingSubsystem : ISubsystem, IDockingSubsystem
     {
@@ -47,6 +48,7 @@ namespace IngameScript
         public string GetStatus()
         {
             if (Connector == null) return "NO CONNECTOR";
+            else if (DirectionIndicator == null) return "NO INDICATOR";
             return "AOK";
         }
 
@@ -58,10 +60,7 @@ namespace IngameScript
         public void Setup(MyGridProgram program, string name)
         {
             Program = program;
-
-            Program.GridTerminalSystem.GetBlocksOfType<IMyShipConnector>(getBlocksScratchPad, SameConstructAsMe);
-
-            Connector = (IMyShipConnector)getBlocksScratchPad[0];
+            GetParts();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -71,6 +70,7 @@ namespace IngameScript
 
         #region IDockingSubsystem
         public IMyShipConnector Connector { get; set; }
+        public IMyInteriorLight DirectionIndicator { get; set; }
 
         public void Dock()
         {
@@ -84,10 +84,10 @@ namespace IngameScript
             ((IMyShipConnector)getBlocksScratchPad[0]).Disconnect();
             getBlocksScratchPad.Clear();
         }
+        #endregion
 
         MyGridProgram Program;
         List<IMyTerminalBlock> getBlocksScratchPad = new List<IMyTerminalBlock>();
-        #endregion
 
         void RequestExtend()
         {
@@ -132,9 +132,21 @@ namespace IngameScript
             return false;
         }
 
-        bool SameConstructAsMe(IMyTerminalBlock block)
+        void GetParts()
         {
-            return block.IsSameConstructAs(Program.Me);
+            Connector = null;
+            DirectionIndicator = null;
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+        }
+
+        bool CollectParts(IMyTerminalBlock block)
+        {
+            if (!block.IsSameConstructAs(Program.Me)) return false;
+
+            if (block is IMyShipConnector) Connector = (IMyShipConnector)block;
+            if (block is IMyInteriorLight) DirectionIndicator = (IMyInteriorLight)block;
+
+            return false;
         }
     }
 }

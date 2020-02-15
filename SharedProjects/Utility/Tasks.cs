@@ -100,9 +100,10 @@ namespace IngameScript
 
             var approachTask = new WaypointTask(Program, Autopilot, new Waypoint(), true, DockingSubsystem.Connector);
             var enterTask = new WaypointTask(Program, Autopilot, new Waypoint(), false, DockingSubsystem.Connector);
+            var closeTask = new WaypointTask(Program, Autopilot, new Waypoint(), false, DockingSubsystem.Connector);
             var dockTask = new DockTask(DockingSubsystem);
 
-            return new MoveToAndDockTask(approachTask, enterTask, dockTask, intelKey, DockingSubsystem.Connector.CubeGrid.GridSizeEnum);
+            return new MoveToAndDockTask(approachTask, enterTask, closeTask, dockTask, intelKey, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
         }
         #endregion
 
@@ -194,8 +195,9 @@ namespace IngameScript
         {
             Autopilot.Move(AvoidObstacles ? PlotPath(IntelItems, canonicalTime) : Destination.Position);
             Autopilot.Turn(Destination.Direction);
+            Autopilot.Spin(Destination.DirectionUp);
             Autopilot.SetMaxSpeed(Destination.MaxSpeed);
-            Autopilot.SetReference(MoveReference);
+            Autopilot.SetMoveReference(MoveReference);
         }
         #endregion
 
@@ -462,22 +464,32 @@ namespace IngameScript
     {
         WaypointTask ApproachTask;
         WaypointTask EnterTask;
+        WaypointTask CloseTask;
         DockTask DockTask;
         MyTuple<IntelItemType, long> IntelKey;
         MyCubeSize DockSize;
 
-        public MoveToAndDockTask(WaypointTask approachTask, WaypointTask enterTask, DockTask dockTask, MyTuple<IntelItemType, long> intelKey, MyCubeSize dockSize) : base (false)
+        IMyTerminalBlock Connector;
+        IMyTerminalBlock Indicator;
+        public MoveToAndDockTask(WaypointTask approachTask, WaypointTask enterTask, WaypointTask closeTask, DockTask dockTask, MyTuple<IntelItemType, long> intelKey, MyCubeSize dockSize, IMyTerminalBlock connector, IMyTerminalBlock indicator = null) : base (false)
         {
+            if (indicator != null)
+            {
+                Indicator = indicator;
+                Connector = connector;
+            }
             ApproachTask = approachTask;
             EnterTask = enterTask;
+            CloseTask = closeTask;
             DockTask = dockTask;
             IntelKey = intelKey;
             DockSize = dockSize;
 
-            enterTask.Destination.MaxSpeed = 20f;
+            closeTask.Destination.MaxSpeed = 0.5f;
 
             TaskQueue.Enqueue(approachTask);
             TaskQueue.Enqueue(enterTask);
+            TaskQueue.Enqueue(closeTask);
             TaskQueue.Enqueue(dockTask);
         }
 
@@ -492,14 +504,27 @@ namespace IngameScript
             DockIntel dock = (DockIntel)IntelItems[IntelKey];
 
             Vector3 approachPoint = dock.WorldMatrix.Forward * dock.UndockFar + dock.GetPositionFromCanonicalTime(canonicalTime);
-            Vector3 entryPoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f)) + dock.GetPositionFromCanonicalTime(canonicalTime);
+            Vector3 entryPoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f) + 1) + dock.GetPositionFromCanonicalTime(canonicalTime);
+            Vector3 closePoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f)) + dock.GetPositionFromCanonicalTime(canonicalTime);
 
             Vector3 dockDirection = dock.WorldMatrix.Backward;
 
             ApproachTask.Destination.Direction = dockDirection;
             ApproachTask.Destination.Position = approachPoint;
+
             EnterTask.Destination.Direction = dockDirection;
             EnterTask.Destination.Position = entryPoint;
+
+            CloseTask.Destination.Direction = dockDirection;
+            CloseTask.Destination.Position = closePoint;
+
+            if (Indicator != null && dock.IndicatorDir != Vector3D.Zero)
+            {
+                var tDir = Vector3D.TransformNormal(Vector3D.TransformNormal(dock.IndicatorDir, MatrixD.Transpose(MatrixD.CreateFromDir(Connector.WorldMatrix.Forward, Indicator.WorldMatrix.Forward))), Connector.WorldMatrix);
+                ApproachTask.Destination.DirectionUp = tDir;// Vector3D.Transform(dock.IndicatorDir, indicatorRot);
+                EnterTask.Destination.DirectionUp = tDir;// Vector3D.Transform(dock.IndicatorDir, indicatorRot);
+                CloseTask.Destination.DirectionUp = tDir;// Vector3D.Transform(dock.IndicatorDir, indicatorRot);
+            }
 
             base.Do(IntelItems, canonicalTime);
         }

@@ -25,8 +25,9 @@ namespace IngameScript
     {
         void Move(Vector3D targetPosition);
         void Turn(Vector3D targetPosition);
+        void Spin(Vector3D targetUp);
         void SetMaxSpeed(float maxSpeed);
-        void SetReference(IMyTerminalBlock block);
+        void SetMoveReference(IMyTerminalBlock block);
         void SetWaypoint(Waypoint w);
         bool AtWaypoint(Waypoint w);
 
@@ -47,6 +48,7 @@ namespace IngameScript
         {
             if (command == "move") Move(ParseGPS((string)argument));
             if (command == "turn") Turn(ParseGPS((string)argument) - reference.WorldMatrix.Translation);
+            if (command == "spin") Spin(ParseGPS((string)argument) - reference.WorldMatrix.Translation);
             if (command == "setwaypoint") SetWaypoint((Waypoint)argument);
         }
 
@@ -63,7 +65,7 @@ namespace IngameScript
         {
             bool hasPos = targetPosition != Vector3D.Zero;
             if (hasPos) SetThrusterPowers();
-            bool hasDir = targetDirection != Vector3D.Zero;
+            bool hasDir = targetDirection != Vector3D.Zero || targetUp != Vector3D.Zero;
             if (hasDir) SetGyroPowers();
 
             if (hasPos || hasDir)
@@ -87,7 +89,7 @@ namespace IngameScript
                 // Debug
                 //statusbuilder.AppendLine($"TPOS: {targetPosition.ToString()}");
                 //statusbuilder.AppendLine($"TDIR: {targetDirection.ToString()}");
-                
+
                 //var speed = (float)controller.GetShipVelocities().LinearVelocity.Length();
                 //
                 //Vector3D posError = (targetPosition - reference.WorldMatrix.Translation);
@@ -105,9 +107,9 @@ namespace IngameScript
                 //statusbuilder.AppendLine($"tD: {targetDirection}");
                 //statusbuilder.AppendLine($"refD: {reference.WorldMatrix.Forward}");
                 //
-                //double yawAngle, pitchAngle;
-                //GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
-                //statusbuilder.AppendLine($"angles: {yawAngle} {pitchAngle}");
+                //statusbuilder.AppendLine(reference.WorldMatrix.Up.ToString());
+                //statusbuilder.AppendLine(targetUp.ToString());
+                //statusbuilder.AppendLine(VectorAngleBetween(reference.WorldMatrix.Up, targetUp).ToString());
             }
             else
             {
@@ -147,12 +149,17 @@ namespace IngameScript
             if (targetDirection != Vector3.One)
                 this.targetDirection = targetDirection;
         }
+        public void Spin(Vector3D targetUp)
+        {
+            if (targetUp != Vector3.One)
+                this.targetUp = targetUp;
+        }
         public void SetMaxSpeed(float maxSpeed)
         {
             if (maxSpeed != -1f)
                 this.maxSpeed = maxSpeed;
         }
-        public void SetReference(IMyTerminalBlock block)
+        public void SetMoveReference(IMyTerminalBlock block)
         {
             if (block != null && Program.Me.IsSameConstructAs(block))
                 reference = block;
@@ -179,7 +186,14 @@ namespace IngameScript
             {
                 double yawAngle, pitchAngle;
                 GetRotationAngles(w.Direction, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
-                if (yawAngle > 0.01f || pitchAngle > 0.01f)
+                if (Math.Abs(yawAngle) > 0.01f || Math.Abs(pitchAngle) > 0.01f)
+                    return false;
+            }
+            if (w.DirectionUp != Vector3.One && w.DirectionUp != Vector3.Zero)
+            {
+                var projectedTargetUp = targetUp - reference.WorldMatrix.Forward.Dot(targetUp) * reference.WorldMatrix.Forward;
+                var spinAngle = -1 * VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
+                if (Math.Abs(spinAngle) > 0.01f)
                     return false;
             }
 
@@ -211,8 +225,9 @@ namespace IngameScript
 
         Vector3D D = Vector3.Zero;
         Vector3D I = Vector3.Zero;
-        Vector3D targetDirection = Vector3.Zero;
         Vector3D targetPosition = Vector3.Zero;
+        Vector3D targetDirection = Vector3.Zero;
+        Vector3D targetUp = Vector3.Zero;
 
         Dictionary<Base6Directions.Direction, Vector3I> DirectionMap = new Dictionary<Base6Directions.Direction, Vector3I>()
         {
@@ -301,15 +316,21 @@ namespace IngameScript
 
         void SetGyroPowers()
         {
-            if (targetDirection == Vector3.Zero) return;
+            if (targetDirection == Vector3.Zero && targetUp == Vector3.Zero) return;
 
-            double yawAngle, pitchAngle;
-            GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
-            ApplyGyroOverride(pitchAngle * 2, yawAngle * 2, 0, gyros, reference);
+            double yawAngle = 0, pitchAngle = 0, spinAngle = 0;
+            if (targetDirection != Vector3.Zero) GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
+            if (targetUp != Vector3.Zero)
+            {
+                var projectedTargetUp = targetUp - reference.WorldMatrix.Forward.Dot(targetUp) * reference.WorldMatrix.Forward;
+                spinAngle = -1 * VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
+            }
+            ApplyGyroOverride(pitchAngle * 2, yawAngle * 2, spinAngle * 2, gyros, reference);
 
-            if (Math.Abs(yawAngle) < 0.01f && Math.Abs(pitchAngle) < 0.01f)
+            if (Math.Abs(yawAngle) < 0.01f && Math.Abs(pitchAngle) < 0.01f && Math.Abs(spinAngle) < 0.01f)
             {
                 targetDirection = Vector3.Zero;
+                targetUp = Vector3.Zero;
                 foreach (var gyro in gyros)
                 {
                     gyro.GyroOverride = false;
@@ -369,7 +390,6 @@ namespace IngameScript
 
             Vector3D Error = (desiredVelocity - currentVelocity - adjustVector * 3) * 30 / aMax;
 
-
             float kP = 1f;
             float kD = 2.5f;
             float kI = 0.2f;
@@ -384,9 +404,8 @@ namespace IngameScript
 
             if (D == Vector3.Zero) D = Error;
 
-
             AutopilotMoveIndicator = kP * Error + kD * (Error - D) + kI * I;
-            if (distance < 10) AutopilotMoveIndicator *= 0.5f;
+            if (distance < 10 && speed < 10) AutopilotMoveIndicator *= 0.5f;
             else if (distance < 1) AutopilotMoveIndicator *= 0.2f;
 
             if (AutopilotMoveIndicator.Length() > 1) AutopilotMoveIndicator /= AutopilotMoveIndicator.Length();
