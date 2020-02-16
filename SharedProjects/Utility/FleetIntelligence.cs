@@ -153,7 +153,7 @@ namespace IngameScript
                 if (masterID == unpacked.Item1)
                 {
                     var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
-                    if (key.Item1 == IntelItemType.Asteroid)
+                    if (key.Item1 == IntelItemType.Enemy)
                     {
                         if (intelItems.ContainsKey(key))
                             ((EnemyShipIntel)intelItems[key]).IGCUnpackInto(unpacked.Item2.Item3);
@@ -781,6 +781,20 @@ namespace IngameScript
             Radius = unpacked.Item2.Item3;
         }
         #endregion
+
+        public void FromDetectedInfo(MyDetectedEntityInfo info, TimeSpan canonicalTime)
+        {
+            if (info.Type != MyDetectedEntityType.SmallGrid && info.Type != MyDetectedEntityType.LargeGrid) return;
+            if (info.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) return;
+
+            CurrentPosition = info.Position;
+            CurrentVelocity = info.Velocity;
+            CurrentCanonicalTime = canonicalTime;
+            DisplayName = "ENEMY";
+            ID = info.EntityId;
+            Radius = (float)(info.BoundingBox.Max - info.BoundingBox.Center).Length();
+        }
+
     }
     #endregion
 

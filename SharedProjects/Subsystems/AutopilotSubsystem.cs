@@ -123,18 +123,19 @@ namespace IngameScript
 
         public string SerializeSubsystem()
         {
-            StringBuilder builder = new StringBuilder();
-            builder.AppendLine(targetPosition.ToString());
-            builder.AppendLine(targetDirection.ToString());
-            return builder.ToString();
+            // StringBuilder builder = new StringBuilder();
+            // builder.AppendLine(targetPosition.ToString());
+            // builder.AppendLine(targetDirection.ToString());
+            // return builder.ToString();
+            return string.Empty;
         }
 
         public void DeserializeSubsystem(string serialized)
         {
             // debugBuilder.Append(serialized);
-            MyStringReader reader = new MyStringReader(serialized);
-            targetPosition = VectorUtilities.StringToVector3(reader.NextLine());
-            targetDirection = VectorUtilities.StringToVector3(reader.NextLine());
+            // MyStringReader reader = new MyStringReader(serialized);
+            // targetPosition = VectorUtilities.StringToVector3(reader.NextLine());
+            // targetDirection = VectorUtilities.StringToVector3(reader.NextLine());
         }
         #endregion
 
@@ -192,7 +193,7 @@ namespace IngameScript
             if (w.DirectionUp != Vector3.One && w.DirectionUp != Vector3.Zero)
             {
                 var projectedTargetUp = targetUp - reference.WorldMatrix.Forward.Dot(targetUp) * reference.WorldMatrix.Forward;
-                var spinAngle = -1 * VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
+                var spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
                 if (Math.Abs(spinAngle) > 0.01f)
                     return false;
             }
@@ -223,9 +224,10 @@ namespace IngameScript
         float[] thrusts = new float[6];
         float maxSpeed = 98;
 
-        Vector3D D = Vector3.Zero;
-        Vector3D I = Vector3.Zero;
+        Vector3D DTranslate = Vector3.Zero;
+        Vector3D ITranslate = Vector3.Zero;
         Vector3D targetPosition = Vector3.Zero;
+
         Vector3D targetDirection = Vector3.Zero;
         Vector3D targetUp = Vector3.Zero;
 
@@ -292,7 +294,7 @@ namespace IngameScript
         {
             Vector3D AutopilotMoveIndicator;
 
-            GetMovementVectors(targetPosition, controller, reference, thrusts[0], maxSpeed, out AutopilotMoveIndicator, ref D, ref I);
+            GetMovementVectors(targetPosition, controller, reference, thrusts[0], maxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
 
             if (AutopilotMoveIndicator == Vector3.Zero)
             {
@@ -323,7 +325,7 @@ namespace IngameScript
             if (targetUp != Vector3.Zero)
             {
                 var projectedTargetUp = targetUp - reference.WorldMatrix.Forward.Dot(targetUp) * reference.WorldMatrix.Forward;
-                spinAngle = -1 * VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
+                spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
             }
             ApplyGyroOverride(pitchAngle * 2, yawAngle * 2, spinAngle * 2, gyros, reference);
 
@@ -347,15 +349,15 @@ namespace IngameScript
         void GetRotationAngles(Vector3D v_target, Vector3D v_front, Vector3D v_left, Vector3D v_up, out double yaw, out double pitch)
         {
             //Dependencies: VectorProjection() | VectorAngleBetween()
-            var projectTargetUp = VectorProjection(v_target, v_up);
+            var projectTargetUp =  VectorHelpers.VectorProjection(v_target, v_up);
             var projTargetFrontLeft = v_target - projectTargetUp;
 
-            yaw = VectorAngleBetween(v_front, projTargetFrontLeft);
+            yaw = VectorHelpers.VectorAngleBetween(v_front, projTargetFrontLeft);
 
             if (Vector3D.IsZero(projTargetFrontLeft) && !Vector3D.IsZero(projectTargetUp)) //check for straight up case
                 pitch = MathHelper.PiOver2;
             else
-                pitch = VectorAngleBetween(v_target, projTargetFrontLeft); //pitch should not exceed 90 degrees by nature of this definition
+                pitch = VectorHelpers.VectorAngleBetween(v_target, projTargetFrontLeft); //pitch should not exceed 90 degrees by nature of this definition
 
             //---Check if yaw angle is left or right  
             //multiplied by -1 to convert from right hand rule to left hand rule
@@ -385,7 +387,7 @@ namespace IngameScript
             Vector3D desiredVelocity = posError * desiredSpeed;
             Vector3D currentVelocity = controller.GetShipVelocities().LinearVelocity;
 
-            Vector3D adjustVector = currentVelocity - VectorProjection(currentVelocity, desiredVelocity);
+            Vector3D adjustVector = currentVelocity - VectorHelpers.VectorProjection(currentVelocity, desiredVelocity);
             if (adjustVector.Length() < currentVelocity.Length() * 0.1) adjustVector = Vector3.Zero;
 
             Vector3D Error = (desiredVelocity - currentVelocity - adjustVector * 3) * 30 / aMax;
@@ -421,22 +423,6 @@ namespace IngameScript
                 I = Vector3.Zero;
                 D = Vector3.Zero;
             }
-        }
-
-        Vector3D VectorProjection(Vector3D a, Vector3D b)
-        {
-            if (Vector3D.IsZero(b))
-                return Vector3D.Zero;
-
-            return a.Dot(b) / b.LengthSquared() * b;
-        }
-
-        double VectorAngleBetween(Vector3D a, Vector3D b) //returns radians
-        {
-            if (Vector3D.IsZero(a) || Vector3D.IsZero(b))
-                return 0;
-            else
-                return Math.Acos(MathHelper.Clamp(a.Dot(b) / Math.Sqrt(a.LengthSquared() * b.LengthSquared()), -1, 1));
         }
 
         void ApplyGyroOverride(double pitch_speed, double yaw_speed, double roll_speed, List<IMyGyro> gyro_list, IMyTerminalBlock reference)

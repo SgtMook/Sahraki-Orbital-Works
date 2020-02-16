@@ -98,9 +98,9 @@ namespace IngameScript
             }
             var Dock = (DockIntel)IntelItems[intelKey];
 
-            var approachTask = new WaypointTask(Program, Autopilot, new Waypoint(), true, DockingSubsystem.Connector);
-            var enterTask = new WaypointTask(Program, Autopilot, new Waypoint(), false, DockingSubsystem.Connector);
-            var closeTask = new WaypointTask(Program, Autopilot, new Waypoint(), false, DockingSubsystem.Connector);
+            var approachTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter, DockingSubsystem.Connector);
+            var enterTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
+            var closeTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
             var dockTask = new DockTask(DockingSubsystem);
 
             return new MoveToAndDockTask(approachTask, enterTask, closeTask, dockTask, intelKey, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
@@ -136,7 +136,7 @@ namespace IngameScript
             task.TaskQueue.Enqueue(new DockTask(DockingSubsystem, true));
             var w = new Waypoint();
             w.Position = DockingSubsystem.Connector.WorldMatrix.Backward * 40 + DockingSubsystem.Connector.WorldMatrix.Translation;
-            task.TaskQueue.Enqueue(new WaypointTask(Program, Autopilot, w, false, DockingSubsystem.Connector));
+            task.TaskQueue.Enqueue(new WaypointTask(Program, Autopilot, w, WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector));
             task.TaskQueue.Enqueue(mainTask);
 
             return task;
@@ -193,13 +193,20 @@ namespace IngameScript
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
-            Autopilot.Move(AvoidObstacles ? PlotPath(IntelItems, canonicalTime) : Destination.Position);
+            Autopilot.Move(ObstacleMode == AvoidObstacleMode.DoNotAvoid ? Destination.Position : PlotPath(IntelItems, canonicalTime));
             Autopilot.Turn(Destination.Direction);
             Autopilot.Spin(Destination.DirectionUp);
             Autopilot.SetMaxSpeed(Destination.MaxSpeed);
             Autopilot.SetMoveReference(MoveReference);
         }
         #endregion
+
+        public enum AvoidObstacleMode
+        {
+            Avoid,
+            SmartEnter,
+            DoNotAvoid,
+        }
 
         readonly MyGridProgram Program;
         readonly IAutopilot Autopilot;
@@ -208,17 +215,17 @@ namespace IngameScript
         readonly List<IFleetIntelligence> IntelScratchpad;
         readonly List<Vector3> PositionScratchpad;
 
-        readonly bool AvoidObstacles;
+        readonly AvoidObstacleMode ObstacleMode;
         readonly IMyTerminalBlock MoveReference;
 
-        public WaypointTask(MyGridProgram program, IAutopilot pilotSubsystem, Waypoint waypoint, bool avoidObstacles = true, IMyTerminalBlock moveReference = null)
+        public WaypointTask(MyGridProgram program, IAutopilot pilotSubsystem, Waypoint waypoint, AvoidObstacleMode avoidObstacleMode = AvoidObstacleMode.SmartEnter, IMyTerminalBlock moveReference = null)
         {
             Autopilot = pilotSubsystem;
             Program = program;
             Destination = waypoint;
             IntelScratchpad = new List<IFleetIntelligence>();
             PositionScratchpad = new List<Vector3>();
-            AvoidObstacles = avoidObstacles;
+            ObstacleMode = avoidObstacleMode;
             MoveReference = moveReference;
         }
 

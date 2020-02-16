@@ -145,7 +145,7 @@ namespace IngameScript
         IAgentSubsystem AgentSubsystem;
 
         List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
-        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(5);
+        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(0.5);
 
         void GetParts()
         {

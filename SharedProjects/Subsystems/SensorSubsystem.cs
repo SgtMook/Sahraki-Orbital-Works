@@ -468,6 +468,7 @@ namespace IngameScript
                 foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
                 {
                     if (intel.IntelItemType == IntelItemType.Friendly && (CurrentUIMode == UIMode.Scan || AgentSelection_FriendlyAgents.Count == 0 || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
+                    if (intel.IntelItemType == IntelItemType.Enemy) continue;
                     FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
                 }
 
@@ -700,7 +701,7 @@ namespace IngameScript
             { TaskType.None, IntelItemType.NONE},
             { TaskType.Move, IntelItemType.Waypoint},
             { TaskType.SmartMove, IntelItemType.Waypoint },
-            { TaskType.Attack, IntelItemType.Enemy },
+            { TaskType.Attack, IntelItemType.Enemy | IntelItemType.Waypoint },
             { TaskType.Dock, IntelItemType.Dock }
         };
 
@@ -709,7 +710,7 @@ namespace IngameScript
             { TaskType.None, new string[0]},
             { TaskType.Move, new string[1] { "CURSOR" }},
             { TaskType.SmartMove, new string[1] { "CURSOR" }},
-            { TaskType.Attack, new string[1] { "NEAREST" }},
+            { TaskType.Attack, new string[2] { "CURSOR", "NEAREST" }},
             { TaskType.Dock, new string[1] { "NEAREST" }}
         };
 
@@ -740,7 +741,7 @@ namespace IngameScript
 
             if (TargetSelection_TaskTypes.Count == 0) return;
 
-            if (TargetSelection_TaskTypesIndex > TargetSelection_TaskTypes.Count) TargetSelection_TaskTypesIndex = 0;
+            if (TargetSelection_TaskTypesIndex >= TargetSelection_TaskTypes.Count) TargetSelection_TaskTypesIndex = 0;
 
             RightHUDBuilder.Append(TaskTypeTags[TargetSelection_TaskTypes[CustomMod(TargetSelection_TaskTypesIndex - 1, TargetSelection_TaskTypes.Count)]]).
                 Append("    [").Append(TaskTypeTags[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]).Append("]    ").
