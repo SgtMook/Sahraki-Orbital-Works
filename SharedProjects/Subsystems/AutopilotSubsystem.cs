@@ -75,6 +75,8 @@ namespace IngameScript
                 UpdateFrequency = UpdateFrequency.Update10;
                 reference = controller;
                 maxSpeed = 100;
+                IYaw = 0;
+                IPitch = 0;
             }
         }
 
@@ -108,8 +110,8 @@ namespace IngameScript
                 //statusbuilder.AppendLine($"refD: {reference.WorldMatrix.Forward}");
                 //
                 //statusbuilder.AppendLine(reference.WorldMatrix.Up.ToString());
-                //statusbuilder.AppendLine(targetUp.ToString());
-                //statusbuilder.AppendLine(VectorAngleBetween(reference.WorldMatrix.Up, targetUp).ToString());
+                statusbuilder.AppendLine(IPitch.ToString());
+                statusbuilder.AppendLine(IYaw.ToString());
             }
             else
             {
@@ -228,6 +230,9 @@ namespace IngameScript
         Vector3D ITranslate = Vector3.Zero;
         Vector3D targetPosition = Vector3.Zero;
 
+        double IYaw = 0;
+        double IPitch = 0;
+
         Vector3D targetDirection = Vector3.Zero;
         Vector3D targetUp = Vector3.Zero;
 
@@ -327,7 +332,12 @@ namespace IngameScript
                 var projectedTargetUp = targetUp - reference.WorldMatrix.Forward.Dot(targetUp) * reference.WorldMatrix.Forward;
                 spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
             }
-            ApplyGyroOverride(pitchAngle * 2, yawAngle * 2, spinAngle * 2, gyros, reference);
+
+            IYaw += yawAngle;
+            IPitch += pitchAngle;
+            double kI = 0.01;
+
+            ApplyGyroOverride(pitchAngle * 2 + IPitch * kI, yawAngle * 2 + IYaw * kI, spinAngle * 2, gyros, reference);
 
             if (Math.Abs(yawAngle) < 0.01f && Math.Abs(pitchAngle) < 0.01f && Math.Abs(spinAngle) < 0.01f)
             {
