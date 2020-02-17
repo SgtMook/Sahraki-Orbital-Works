@@ -357,7 +357,7 @@ namespace IngameScript
             IPitch += pitchAngle;
             double kI = 0.01;
 
-            ApplyGyroOverride(pitchAngle * 2 + IPitch * kI, yawAngle * 2 + IYaw * kI, spinAngle * 2, gyros, reference);
+            ApplyGyroOverride(pitchAngle * 5 + IPitch * kI, yawAngle * 5 + IYaw * kI, spinAngle * 5, gyros, reference);
 
             if (Math.Abs(yawAngle) < 0.01f && Math.Abs(pitchAngle) < 0.01f && Math.Abs(spinAngle) < 0.01f)
             {

@@ -24,7 +24,19 @@ namespace IngameScript
     public class SensorSubsystem : ISubsystem, IControlIntercepter
     {
         #region IControlIntercepter
-        public bool InterceptControls { get; set; }
+        public bool InterceptControls
+        {
+            get
+            {
+                return interceptControls;
+            }
+            set
+            {
+                interceptControls = value;
+                controller.ControlThrusters = !interceptControls;
+                TerminalPropertiesHelper.SetValue(controller, "ControlGyros", !interceptControls);
+            }
+        }
 
         public IMyShipController Controller
         {
@@ -102,11 +114,14 @@ namespace IngameScript
 
         IIntelProvider IntelProvider;
 
-        public SensorSubsystem(IIntelProvider intelProvider)
+        string Tag;
+        bool interceptControls = false;
+
+        public SensorSubsystem(IIntelProvider intelProvider, string tag = "")
         {
             IntelProvider = intelProvider;
             UpdateFrequency = UpdateFrequency.Update10;
-            InterceptControls = false;
+            Tag = tag;
         }
 
         void GetParts()
@@ -122,21 +137,23 @@ namespace IngameScript
             if (block is IMyShipController)
                 controller = (IMyShipController)block;
 
+            if (!block.CustomName.StartsWith(Tag)) return false;
+
             if (block is IMyTextPanel)
             {
-                if (block.CustomName.StartsWith("[SN-SM]"))
+                if (block.CustomName.Contains("[SN-SM]"))
                     panelMiddle = (IMyTextPanel)block;
-                if (block.CustomName.StartsWith("[SN-SL]"))
+                if (block.CustomName.Contains("[SN-SL]"))
                     panelLeft = (IMyTextPanel)block;
-                if (block.CustomName.StartsWith("[SN-SR]"))
+                if (block.CustomName.Contains("[SN-SR]"))
                     panelRight = (IMyTextPanel)block;
             }
 
             if (block is IMyCameraBlock)
             {
-                if (block.CustomName.StartsWith("[SN-C-S]"))
+                if (block.CustomName.Contains("[SN-C-S]"))
                     secondaryCameras.Add((IMyCameraBlock)block);
-                else if (block.CustomName.StartsWith("[SN-C-P]"))
+                else if (block.CustomName.Contains("[SN-C-P]"))
                     primaryCamera = (IMyCameraBlock)block;
             }
 
@@ -157,16 +174,9 @@ namespace IngameScript
         {
             if (InterceptControls)
             {
-                if (!primaryCamera.IsActive) InterceptControls = false;
-
-                controller.ControlThrusters = false;
-                TerminalPropertiesHelper.SetValue(controller, "ControlGyros", false);
+                if (!primaryCamera.IsActive)
+                    InterceptControls = false;
                 TriggerInputs(timestamp);
-            }
-            else
-            {
-                controller.ControlThrusters = true;
-                TerminalPropertiesHelper.SetValue(controller, "ControlGyros", true);
             }
         }
 

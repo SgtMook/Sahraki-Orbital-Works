@@ -90,12 +90,13 @@ namespace IngameScript
         private bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (!block.CustomName.StartsWith(tag)) return false;
             if (block is IMyMotorStator)
             {
                 var rotor = (IMyMotorStator)block;
-                if (rotor.CustomName.StartsWith($"{tag} Yaw"))
+                if (rotor.CustomName.Contains("Yaw"))
                     yaw = rotor;
-                else if (rotor.CustomName.StartsWith($"{tag} Pitch"))
+                else if (rotor.CustomName.Contains("Pitch"))
                     pitch = rotor;
             }
 
