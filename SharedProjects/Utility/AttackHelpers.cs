@@ -21,6 +21,7 @@ namespace IngameScript
 {
     public static class AttackHelpers
     {
+        //https://stackoverflow.com/questions/17204513/how-to-find-the-interception-coordinates-of-a-moving-target-in-3d-space
         public static Vector3D GetAttackPoint(Vector3D relativeVelocity, Vector3D relativePosition, double projectileSpeed)
         {
             if (relativeVelocity == Vector3D.Zero) return relativePosition;

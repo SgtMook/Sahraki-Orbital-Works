@@ -187,12 +187,22 @@ namespace IngameScript
         {
             get
             {
-                return Autopilot.AtWaypoint(Destination) ? TaskStatus.Complete : TaskStatus.Incomplete;
+                if (Autopilot.AtWaypoint(Destination))
+                {
+                    Autopilot.Clear();
+                    return TaskStatus.Complete;
+                }
+                return TaskStatus.Incomplete;
             }
         }
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
+            if (!Cleared)
+            {
+                Autopilot.Clear();
+                Cleared = true;
+            }
             Autopilot.Move(ObstacleMode == AvoidObstacleMode.DoNotAvoid ? Destination.Position : PlotPath(IntelItems, canonicalTime));
             Autopilot.Turn(Destination.Direction);
             Autopilot.Spin(Destination.DirectionUp);
@@ -218,6 +228,8 @@ namespace IngameScript
         readonly AvoidObstacleMode ObstacleMode;
         readonly IMyTerminalBlock MoveReference;
 
+        bool Cleared;
+
         public WaypointTask(MyGridProgram program, IAutopilot pilotSubsystem, Waypoint waypoint, AvoidObstacleMode avoidObstacleMode = AvoidObstacleMode.SmartEnter, IMyTerminalBlock moveReference = null)
         {
             Autopilot = pilotSubsystem;
@@ -227,6 +239,7 @@ namespace IngameScript
             PositionScratchpad = new List<Vector3>();
             ObstacleMode = avoidObstacleMode;
             MoveReference = moveReference;
+            Cleared = false;
         }
 
         Vector3D PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
@@ -379,7 +392,7 @@ namespace IngameScript
                         }
                     }
 
-                } while (!targetClear);
+                } while (!targetClear && iter < 5);
             }
 
             return target;

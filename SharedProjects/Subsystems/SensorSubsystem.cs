@@ -467,7 +467,7 @@ namespace IngameScript
 
                 foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
                 {
-                    if (intel.IntelItemType == IntelItemType.Friendly && (CurrentUIMode == UIMode.Scan || AgentSelection_FriendlyAgents.Count == 0 || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
+                    if (intel.IntelItemType == IntelItemType.Friendly && (CurrentUIMode == UIMode.Scan || AgentSelection_FriendlyAgents.Count == 0 || AgentSelection_FriendlyAgents.Count <= AgentSelection_CurrentIndex || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
                     if (intel.IntelItemType == IntelItemType.Enemy) continue;
                     FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
                 }

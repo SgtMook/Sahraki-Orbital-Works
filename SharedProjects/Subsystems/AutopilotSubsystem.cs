@@ -30,10 +30,13 @@ namespace IngameScript
         void SetMoveReference(IMyTerminalBlock block);
         void SetWaypoint(Waypoint w);
         bool AtWaypoint(Waypoint w);
+        void Clear();
 
         float GetBrakingDistance();
 
         IMyShipController Controller { get; }
+
+        void SetStatus(string s);
 
     }
 
@@ -73,10 +76,7 @@ namespace IngameScript
             else
             {
                 UpdateFrequency = UpdateFrequency.Update10;
-                reference = controller;
-                maxSpeed = 100;
-                IYaw = 0;
-                IPitch = 0;
+                Clear();
             }
         }
 
@@ -110,15 +110,15 @@ namespace IngameScript
                 //statusbuilder.AppendLine($"refD: {reference.WorldMatrix.Forward}");
                 //
                 //statusbuilder.AppendLine(reference.WorldMatrix.Up.ToString());
-                statusbuilder.AppendLine(IPitch.ToString());
-                statusbuilder.AppendLine(IYaw.ToString());
+                //statusbuilder.AppendLine(IPitch.ToString());
+                //statusbuilder.AppendLine(IYaw.ToString());
             }
             else
             {
                 statusbuilder.AppendLine("ERR");
             }
 
-            return statusbuilder.ToString();
+            return Status;
         }
 
         public UpdateFrequency UpdateFrequency { get; set; }
@@ -203,6 +203,19 @@ namespace IngameScript
             return true;
         }
 
+        public void Clear()
+        {
+            targetDirection = Vector3D.Zero;
+            targetUp = Vector3D.Zero;
+            targetPosition = Vector3D.Zero;
+            reference = controller;
+            maxSpeed = 98;
+            IYaw = 0;
+            IPitch = 0;
+            ITranslate = Vector3D.Zero;
+            DTranslate = Vector3D.Zero;
+        }
+
         public float GetBrakingDistance()
         {
             var speed = (float)controller.GetShipVelocities().LinearVelocity.Length();
@@ -213,6 +226,11 @@ namespace IngameScript
         }
 
         public IMyShipController Controller => controller;
+
+        public void SetStatus(string s)
+        {
+            Status = s;
+        }
         #endregion
 
         MyGridProgram Program;
@@ -235,6 +253,8 @@ namespace IngameScript
 
         Vector3D targetDirection = Vector3.Zero;
         Vector3D targetUp = Vector3.Zero;
+
+        string Status = string.Empty;
 
         Dictionary<Base6Directions.Direction, Vector3I> DirectionMap = new Dictionary<Base6Directions.Direction, Vector3I>()
         {
