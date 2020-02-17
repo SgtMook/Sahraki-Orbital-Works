@@ -4,6 +4,8 @@
 # But not these files...
 !.gitignore
 !*Program.cs
+!*Subsystems.cs
+!*Tasks.cs
 # etc...
 
 # ...even if they are in subdirectories
