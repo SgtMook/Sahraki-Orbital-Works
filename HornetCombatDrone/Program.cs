@@ -42,7 +42,7 @@ namespace IngameScript
             HornetCombatSubsystem combatSubsystem = new HornetCombatSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("combat", combatSubsystem);
 
-            AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Drone);
+            AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Fighter);
             UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(this, autopilotSubsystem, dockingSubsystem);
 
             undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));

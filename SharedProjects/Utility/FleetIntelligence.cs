@@ -790,7 +790,7 @@ namespace IngameScript
             CurrentPosition = info.Position;
             CurrentVelocity = info.Velocity;
             CurrentCanonicalTime = canonicalTime;
-            DisplayName = "ENEMY";
+            DisplayName = (info.Type == MyDetectedEntityType.SmallGrid ? "SM" : "LG") + info.EntityId.ToString();
             ID = info.EntityId;
             Radius = (float)(info.BoundingBox.Max - info.BoundingBox.Center).Length();
         }

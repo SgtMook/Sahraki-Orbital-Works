@@ -32,7 +32,7 @@ namespace IngameScript
             var V0 = relativeVelocity;
 
             var a = V0.Dot(V0) - (s1 * s1);
-            var b = 2 * P0.Dot(P0);
+            var b = 2 * P0.Dot(V0);
             var c = P0.Dot(P0);
 
             double det = (b * b) - (4 * a * c);
@@ -42,10 +42,14 @@ namespace IngameScript
             var t1 = (-b + Math.Sqrt(det)) / (2 * a);
             var t2 = (-b - Math.Sqrt(det)) / (2 * a);
 
-            var t = t2;
+            if (t1 <= 0) t1 = double.MaxValue;
+            if (t2 <= 0) t2 = double.MaxValue;
 
-            if (t <= 0) t = t1;
-            if (t <= 0) return Vector3D.Zero;
+            var t = Math.Min(t1, t2);
+
+            if (t == double.MaxValue) return Vector3D.Zero;
+
+            // throw new Exception($"{relativePosition + relativeVelocity * t} {t} {(relativePosition + relativeVelocity * t).Length()}");
 
             return relativePosition + relativeVelocity * t;
         }

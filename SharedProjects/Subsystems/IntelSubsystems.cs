@@ -27,7 +27,7 @@ namespace IngameScript
     /// </summary>
     public interface IIntelProvider
     {
-        Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences(TimeSpan timestamp);
+        Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences(TimeSpan LocalTime);
 
         TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key);
 
@@ -145,7 +145,7 @@ namespace IngameScript
         IAgentSubsystem AgentSubsystem;
 
         List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
-        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(0.5);
+        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(4);
 
         void GetParts()
         {
