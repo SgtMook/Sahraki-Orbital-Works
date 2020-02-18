@@ -62,7 +62,7 @@ namespace IngameScript
             }
 
             EnemyShipIntel combatIntel = null;
-            double closestIntelDist = 1000;
+            double closestIntelDist = 1500;
             foreach (var intel in IntelItems)
             {
                 if (intel.Key.Item1 == IntelItemType.Enemy)

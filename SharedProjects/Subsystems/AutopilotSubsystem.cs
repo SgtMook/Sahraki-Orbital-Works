@@ -189,14 +189,14 @@ namespace IngameScript
             {
                 double yawAngle, pitchAngle;
                 GetRotationAngles(w.Direction, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
-                if (Math.Abs(yawAngle) > 0.01f || Math.Abs(pitchAngle) > 0.01f)
+                if (Math.Abs(yawAngle) > 0.03f || Math.Abs(pitchAngle) > 0.03f)
                     return false;
             }
             if (w.DirectionUp != Vector3.One && w.DirectionUp != Vector3.Zero)
             {
                 var projectedTargetUp = targetUp - reference.WorldMatrix.Forward.Dot(targetUp) * reference.WorldMatrix.Forward;
                 var spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
-                if (Math.Abs(spinAngle) > 0.01f)
+                if (Math.Abs(spinAngle) > 0.03f)
                     return false;
             }
 
