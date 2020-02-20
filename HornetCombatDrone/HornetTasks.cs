@@ -103,38 +103,21 @@ namespace IngameScript
 
                 var CurrentAccelerationPreviousFrame = Vector3D.TransformNormal(Acceleration, MatrixD.Transpose(LastReference));
 
-                //var localAcceleration = Vector3D.TransformNormal(Acceleration, MatrixD.Transpose(controller.WorldMatrix));
-                //var localLastAcceleration = Vector3D.TransformNormal(LastAcceleration, MatrixD.Transpose(controller.WorldMatrix));
-
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
                 var velocityAdjust = linearVelocity + (accelerationAdjust + Acceleration) * 0.5;
 
                 Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(combatIntel.GetVelocity() - velocityAdjust, targetPosition + combatIntel.GetVelocity() * 0.08 - (controller.WorldMatrix.Translation + velocityAdjust * 0.08), 400);
 
                 LastAcceleration = linearVelocity - LastLinearVelocity;
-                //relativeAttackPoint.Normalize();
-                //
-                //var localAttackDir = Vector3D.TransformNormal(relativeAttackPoint, MatrixD.Transpose(controller.WorldMatrix));
-                //var localAttackDirError = localAttackDir - MatrixD.Identity.Forward;
-                //
-                //if (LocalAttackDirD == Vector3D.Zero) LocalAttackDirD = localAttackDirError;
-                //
-                //var localAttackPointAdjust = localAttackDir + LocalAttackDirD * 0 + LocalAttackDirI * 0.2;
-                //
-                //LocalAttackDirI += localAttackDirError;
-                //LocalAttackDirD = localAttackDirError;
-                //
                 LeadTask.Destination.Direction = relativeAttackPoint;
-                //LastLocalAcceleration = localAcceleration;
-
-                if (VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < 0.05) CombatSystem.Fire();
+                if ((controller.WorldMatrix.Translation - targetPosition).Length() < 800 && VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < 0.05) CombatSystem.Fire();
 
                 Vector3D dirTargetToMe = controller.WorldMatrix.Translation - targetPosition;
                 Vector3D dirTargetToOrbitTarget = Vector3D.Cross(dirTargetToMe, controller.WorldMatrix.Up);
                 dirTargetToOrbitTarget.Normalize();
                 dirTargetToMe.Normalize();
                 LeadTask.Destination.DirectionUp = Math.Sin(kRotateTheta) * controller.WorldMatrix.Right + Math.Cos(kRotateTheta) * controller.WorldMatrix.Up;
-                LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 6 + dirTargetToMe * HornetCombatSubsystem.kEngageRange + dirTargetToOrbitTarget * 200;
+                LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 2 + dirTargetToMe * HornetCombatSubsystem.kEngageRange + dirTargetToOrbitTarget * 200;
             }
 
             LastLinearVelocity = linearVelocity;

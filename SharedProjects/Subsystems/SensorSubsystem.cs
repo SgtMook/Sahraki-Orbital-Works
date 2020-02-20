@@ -855,7 +855,18 @@ namespace IngameScript
                     if (i == TargetSelection_TargetIndex + 1) RightHUDBuilder.Append(">> ");
                     else RightHUDBuilder.Append("   ");
                     var intel = TargetSelection_Targets[i - specialCount - 1];
-                    AppendPaddedLine(kRowLength - 3, intel.DisplayName, RightHUDBuilder);
+
+                    if (intel is DockIntel)
+                    {
+                        var dockIntel = (DockIntel)intel;
+                        RightHUDBuilder.Append(dockIntel.OwnerID != -1 ? "[C]" : "[ ]");
+                        AppendPaddedLine(kRowLength - 6, intel.DisplayName, RightHUDBuilder);
+                    }
+                    else
+                    {
+                        AppendPaddedLine(kRowLength - 3, intel.DisplayName, RightHUDBuilder);
+                    }
+
                 }
                 else
                 {

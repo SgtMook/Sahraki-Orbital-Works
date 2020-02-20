@@ -110,9 +110,9 @@ namespace IngameScript
                 }
             }
             // Dock
-            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int>, MyTuple<long, string>>>>)
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>)
             {
-                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int>, MyTuple<long, string>>>>)data;
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>)data;
                 if (masterID == unpacked.Item1)
                 {
                     var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
@@ -173,7 +173,7 @@ namespace IngameScript
         {
             var WaypointArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>>(kMaxIntelPerType); 
             var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>(kMaxIntelPerType); 
-            var DockIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int>, MyTuple<long, string>>>>>(kMaxIntelPerType); 
+            var DockIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>(kMaxIntelPerType); 
             var AsteroidIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>(kMaxIntelPerType);
             var EnemyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>>>>>(kMaxIntelPerType);
             
@@ -224,9 +224,9 @@ namespace IngameScript
                 }
             }
             // DockIntel
-            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int>, MyTuple<long, string>>>>>)
+            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>)
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int>, MyTuple<long, string>>>>>)data)
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
                     updatedScratchpad.Add(updatedKey);
@@ -582,23 +582,23 @@ namespace IngameScript
 
     public enum HangarStatus
     {
-        None,
-        Available,
-        Occupied,
-        Reserved,
+        None = 0,
+        Available = 1 << 0,
+        Reserved = 1 << 1,
+        Ready = 1 << 2,
     }
 
     [Flags]
     public enum HangarTags
     {
         None = 0,
-        Small = 1<<0,
-        Medium = 1<<1,
-        Large4 = 1<<2,
-        Large8 = 1<<3,
-        Large12 = 1<<4,
-        Repair = 1<<5,
-        Supply = 1<<6,
+        Small = 1 << 0,
+        Medium = 1 << 1,
+        Large4 = 1 << 2,
+        Large8 = 1 << 3,
+        Large12 = 1 << 4,
+        Repair = 1 << 5,
+        Supply = 1 << 6,
     }
 
     public class DockIntel : IFleetIntelligence
@@ -643,9 +643,10 @@ namespace IngameScript
         public long OwnerID;
         public HangarStatus Status;
         public HangarTags Tags;
+        public string HangarChannelTag;
 
         #region IGC Packing
-        static public MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int>, MyTuple<long, string>>> IGCPackGeneric(DockIntel di)
+        static public MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>> IGCPackGeneric(DockIntel di)
         {
             return MyTuple.Create
             (
@@ -666,7 +667,8 @@ namespace IngameScript
                     (
                          di.OwnerID,
                          (int)di.Status,
-                         (int)di.Tags
+                         (int)di.Tags,
+                         di.HangarChannelTag
                     ),
                      MyTuple.Create
                     (
@@ -678,13 +680,13 @@ namespace IngameScript
         }
         static public DockIntel IGCUnpack(object data)
         {
-            var unpacked = (MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int>, MyTuple<long, string>>)data;
+            var unpacked = (MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>)data;
             var di = new DockIntel();
             di.IGCUnpackInto(unpacked);
             return di;
         }
 
-        public void IGCUnpackInto(MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int>, MyTuple<long, string>> unpacked)
+        public void IGCUnpackInto(MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>> unpacked)
         {
             WorldMatrix = unpacked.Item1.Item1;
             UndockFar = unpacked.Item1.Item2;
@@ -695,6 +697,7 @@ namespace IngameScript
             OwnerID = unpacked.Item2.Item1;
             Status = (HangarStatus)unpacked.Item2.Item2;
             Tags = (HangarTags)unpacked.Item2.Item3;
+            HangarChannelTag = unpacked.Item2.Item4;
             ID = unpacked.Item3.Item1;
             DisplayName = unpacked.Item3.Item2;
         }

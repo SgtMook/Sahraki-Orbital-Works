@@ -73,9 +73,11 @@ namespace IngameScript
 
             if (hasPos || hasDir)
                 UpdateFrequency = UpdateFrequency.Update1;
-            else
+            else if (UpdateFrequency == UpdateFrequency.Update1)
             {
                 UpdateFrequency = UpdateFrequency.Update10;
+                SetThrusterPowers();
+                SetGyroPowers();
                 Clear();
             }
         }
@@ -317,9 +319,9 @@ namespace IngameScript
 
         void SetThrusterPowers()
         {
-            Vector3D AutopilotMoveIndicator;
+            Vector3D AutopilotMoveIndicator = Vector3.Zero;
 
-            GetMovementVectors(targetPosition, controller, reference, thrusts[0], maxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
+            if (targetPosition != Vector3.Zero) GetMovementVectors(targetPosition, controller, reference, thrusts[0], maxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
 
             if (AutopilotMoveIndicator == Vector3.Zero)
             {
@@ -343,30 +345,37 @@ namespace IngameScript
 
         void SetGyroPowers()
         {
-            if (targetDirection == Vector3.Zero && targetUp == Vector3.Zero) return;
-
             double yawAngle = 0, pitchAngle = 0, spinAngle = 0;
-            if (targetDirection != Vector3.Zero) GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
-            if (targetUp != Vector3.Zero)
+            if (targetDirection != Vector3.Zero || targetUp != Vector3.Zero)
             {
-                var projectedTargetUp = targetUp - reference.WorldMatrix.Forward.Dot(targetUp) * reference.WorldMatrix.Forward;
-                spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
+                if (targetDirection != Vector3.Zero) GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
+                if (targetUp != Vector3.Zero)
+                {
+                    var projectedTargetUp = targetUp - reference.WorldMatrix.Forward.Dot(targetUp) * reference.WorldMatrix.Forward;
+                    spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
+                }
+
+                IYaw += yawAngle;
+                IPitch += pitchAngle;
+                double kI = 0.01;
+
+                ApplyGyroOverride(pitchAngle * 5 + IPitch * kI, yawAngle * 5 + IYaw * kI, spinAngle * 5, gyros, reference);
             }
 
-            IYaw += yawAngle;
-            IPitch += pitchAngle;
-            double kI = 0.01;
-
-            ApplyGyroOverride(pitchAngle * 5 + IPitch * kI, yawAngle * 5 + IYaw * kI, spinAngle * 5, gyros, reference);
 
             if (Math.Abs(yawAngle) < 0.01f && Math.Abs(pitchAngle) < 0.01f && Math.Abs(spinAngle) < 0.01f)
             {
-                targetDirection = Vector3.Zero;
-                targetUp = Vector3.Zero;
-                foreach (var gyro in gyros)
-                {
-                    gyro.GyroOverride = false;
-                }
+                ClearGyros();
+            }
+        }
+
+        private void ClearGyros()
+        {
+            targetDirection = Vector3.Zero;
+            targetUp = Vector3.Zero;
+            foreach (var gyro in gyros)
+            {
+                gyro.GyroOverride = false;
             }
         }
 

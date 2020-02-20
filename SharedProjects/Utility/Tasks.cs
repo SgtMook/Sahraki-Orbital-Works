@@ -98,12 +98,13 @@ namespace IngameScript
             }
             var Dock = (DockIntel)IntelItems[intelKey];
 
+            var holdTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.Avoid, DockingSubsystem.Connector);
             var approachTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter, DockingSubsystem.Connector);
             var enterTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
             var closeTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
             var dockTask = new DockTask(DockingSubsystem);
 
-            return new MoveToAndDockTask(approachTask, enterTask, closeTask, dockTask, intelKey, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
+            return new MoveToAndDockTask(holdTask, approachTask, enterTask, closeTask, dockTask, intelKey, Program, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
         }
         #endregion
 
@@ -438,6 +439,21 @@ namespace IngameScript
             Undock = undock;
         }
     }
+    public class WaitTask : ITask
+    {
+        #region ITask
+        public TaskStatus Status { get; set; }
+
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        {
+        }
+        #endregion
+        public WaitTask()
+        {
+            Status = TaskStatus.Incomplete;
+        }
+    }
+
     public class CompoundTask : ITask
     {
         #region ITask
@@ -482,35 +498,43 @@ namespace IngameScript
     }
     public class MoveToAndDockTask : CompoundTask
     {
-        WaypointTask ApproachTask;
-        WaypointTask EnterTask;
-        WaypointTask CloseTask;
+        WaypointTask EnterHoldingPattern;
+        WaitTask WaitForClearance;
+        WaypointTask ApproachEntrance;
+        WaypointTask ApproachDock;
+        WaypointTask FinalAdjustToDock;
         DockTask DockTask;
         MyTuple<IntelItemType, long> IntelKey;
         MyCubeSize DockSize;
 
         IMyTerminalBlock Connector;
         IMyTerminalBlock Indicator;
-        public MoveToAndDockTask(WaypointTask approachTask, WaypointTask enterTask, WaypointTask closeTask, DockTask dockTask, MyTuple<IntelItemType, long> intelKey, MyCubeSize dockSize, IMyTerminalBlock connector, IMyTerminalBlock indicator = null) : base (false)
+        MyGridProgram Program;
+        public MoveToAndDockTask(WaypointTask holdTask, WaypointTask approachTask, WaypointTask enterTask, WaypointTask closeTask, DockTask dockTask, MyTuple<IntelItemType, long> intelKey, MyGridProgram program, MyCubeSize dockSize, IMyTerminalBlock connector, IMyTerminalBlock indicator = null) : base (false)
         {
             if (indicator != null)
             {
                 Indicator = indicator;
                 Connector = connector;
             }
-            ApproachTask = approachTask;
-            EnterTask = enterTask;
-            CloseTask = closeTask;
+            EnterHoldingPattern = holdTask;
+            WaitForClearance = new WaitTask();
+            ApproachEntrance = approachTask;
+            ApproachDock = enterTask;
+            FinalAdjustToDock = closeTask;
             DockTask = dockTask;
             IntelKey = intelKey;
             DockSize = dockSize;
+            Program = program;
 
             closeTask.Destination.MaxSpeed = 0.5f;
 
-            TaskQueue.Enqueue(approachTask);
-            TaskQueue.Enqueue(enterTask);
-            TaskQueue.Enqueue(closeTask);
-            TaskQueue.Enqueue(dockTask);
+            TaskQueue.Enqueue(EnterHoldingPattern);
+            TaskQueue.Enqueue(WaitForClearance);
+            TaskQueue.Enqueue(ApproachEntrance);
+            TaskQueue.Enqueue(ApproachDock);
+            TaskQueue.Enqueue(FinalAdjustToDock);
+            TaskQueue.Enqueue(DockTask);
         }
 
         public override void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
@@ -523,27 +547,49 @@ namespace IngameScript
 
             DockIntel dock = (DockIntel)IntelItems[IntelKey];
 
-            Vector3 approachPoint = dock.WorldMatrix.Forward * dock.UndockFar + dock.GetPositionFromCanonicalTime(canonicalTime);
-            Vector3 entryPoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f) + 1) + dock.GetPositionFromCanonicalTime(canonicalTime);
-            Vector3 closePoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f)) + dock.GetPositionFromCanonicalTime(canonicalTime);
+            Vector3D dockPosition = dock.GetPositionFromCanonicalTime(canonicalTime);
+
+            Vector3 approachPoint = dock.WorldMatrix.Forward * dock.UndockFar + dockPosition;
+            Vector3 entryPoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f) + 1) + dockPosition;
+            Vector3 closePoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f)) + dockPosition;
 
             Vector3 dockDirection = dock.WorldMatrix.Backward;
 
-            ApproachTask.Destination.Direction = dockDirection;
-            ApproachTask.Destination.Position = approachPoint;
+            Vector3D dockToMeDir = Program.Me.WorldMatrix.Translation - dockPosition;
+            double dockToMeDist = dockToMeDir.Length();
+            if (dockToMeDist < 250 && dockToMeDist > 150)
+            {
+                EnterHoldingPattern.Destination.Position = Vector3D.Zero;
+            }
+            else
+            {
+                dockToMeDir.Normalize();
+                Vector3 holdPoint = dockToMeDir * 200 + dockPosition;
+                EnterHoldingPattern.Destination.Position = holdPoint;
+            }
 
-            EnterTask.Destination.Direction = dockDirection;
-            EnterTask.Destination.Position = entryPoint;
+            ApproachEntrance.Destination.Direction = dockDirection;
+            ApproachEntrance.Destination.Position = approachPoint;
 
-            CloseTask.Destination.Direction = dockDirection;
-            CloseTask.Destination.Position = closePoint;
+            ApproachDock.Destination.Direction = dockDirection;
+            ApproachDock.Destination.Position = entryPoint;
+
+            FinalAdjustToDock.Destination.Direction = dockDirection;
+            FinalAdjustToDock.Destination.Position = closePoint;
 
             if (Indicator != null && dock.IndicatorDir != Vector3D.Zero)
             {
                 var tDir = Vector3D.TransformNormal(Vector3D.TransformNormal(dock.IndicatorDir, MatrixD.Transpose(MatrixD.CreateFromDir(Connector.WorldMatrix.Forward, Indicator.WorldMatrix.Forward))), Connector.WorldMatrix);
-                ApproachTask.Destination.DirectionUp = tDir;// Vector3D.Transform(dock.IndicatorDir, indicatorRot);
-                EnterTask.Destination.DirectionUp = tDir;// Vector3D.Transform(dock.IndicatorDir, indicatorRot);
-                CloseTask.Destination.DirectionUp = tDir;// Vector3D.Transform(dock.IndicatorDir, indicatorRot);
+                ApproachEntrance.Destination.DirectionUp = tDir;
+                ApproachDock.Destination.DirectionUp = tDir;
+                FinalAdjustToDock.Destination.DirectionUp = tDir;
+            }
+
+            if (TaskQueue.Peek() != (ITask)EnterHoldingPattern)
+            {
+                Program.IGC.SendBroadcastMessage(dock.HangarChannelTag, MyTuple.Create(Program.Me.CubeGrid.EntityId, dock.ID, (int)HangarRequest.Claim));
+                if (dock.OwnerID == Program.Me.CubeGrid.EntityId)
+                    WaitForClearance.Status = TaskStatus.Complete;
             }
 
             base.Do(IntelItems, canonicalTime);
