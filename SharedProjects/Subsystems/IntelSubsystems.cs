@@ -36,7 +36,8 @@ namespace IngameScript
         TimeSpan CanonicalTimeDiff { get; }
 
         void SetAgentSubsystem(IAgentSubsystem agentSubsystem);
-        void ReportCommand(FriendlyShipIntel agent, TaskType taskType, IFleetIntelligence target, TimeSpan LocalTime);
+        void SetDockingSubsystem(IDockingSubsystem dockingSubsystem);
+        void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan LocalTime);
     }
 
     // Handles tracking, updating, and transmitting fleet intelligence
@@ -125,11 +126,15 @@ namespace IngameScript
         {
             AgentSubsystem = agentSubsystem;
         }
+        public void SetDockingSubsystem(IDockingSubsystem dockingSubsystem)
+        {
+            DockingSubsystem = dockingSubsystem;
+        }
 
-        public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, IFleetIntelligence target, TimeSpan timestamp)
+        public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {
             SendSyncMessage(timestamp);
-            Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)target.IntelItemType, target.ID), (int)CommandType.Override, 0));
+            Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)targetKey.Item1, targetKey.Item2), (int)CommandType.Override, 0));
         }
         #endregion
 
@@ -143,6 +148,7 @@ namespace IngameScript
         IMyShipController controller;
 
         IAgentSubsystem AgentSubsystem;
+        IDockingSubsystem DockingSubsystem;
 
         List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
         TimeSpan kIntelTimeout = TimeSpan.FromSeconds(4);
@@ -187,6 +193,10 @@ namespace IngameScript
                 myIntel.AcceptedTaskTypes = AgentSubsystem.AvailableTasks;
                 myIntel.AgentClass = AgentSubsystem.AgentClass;
             }
+
+            myIntel.HomeID = -1;
+            if (DockingSubsystem != null)
+                myIntel.HomeID = DockingSubsystem.HomeID;
 
             ReportFleetIntelligence(myIntel, timestamp);
         }
@@ -311,7 +321,12 @@ namespace IngameScript
             AgentSubsystem = agentSubsystem;
         }
 
-        public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, IFleetIntelligence target, TimeSpan timestamp)
+        public void SetDockingSubsystem(IDockingSubsystem dockingSubsystem)
+        {
+            DockingSubsystem = dockingSubsystem;
+        }
+
+        public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {
             //TODO: Probably gets the master to send it?
         }
@@ -335,6 +350,7 @@ namespace IngameScript
         IMyShipController controller;
 
         IAgentSubsystem AgentSubsystem;
+        IDockingSubsystem DockingSubsystem;
 
         void GetParts()
         {
@@ -376,6 +392,10 @@ namespace IngameScript
                 myIntel.AcceptedTaskTypes = AgentSubsystem.AvailableTasks;
                 myIntel.AgentClass = AgentSubsystem.AgentClass;
             }
+
+            myIntel.HomeID = -1;
+            if (DockingSubsystem != null)
+                myIntel.HomeID = DockingSubsystem.HomeID;
 
             ReportFleetIntelligence(myIntel, timestamp);
         }

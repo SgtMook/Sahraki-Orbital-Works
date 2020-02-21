@@ -27,7 +27,8 @@ namespace IngameScript
         Move = 1,
         SmartMove = 2,
         Dock = 4,
-        Attack = 8,
+        SetHome = 8,
+        Attack = 16,
     }
 
     public enum TaskStatus
@@ -81,17 +82,24 @@ namespace IngameScript
         }
     }
 
+    // Special command - (None, 0) - Dock with home
     public class DockTaskGenerator : ITaskGenerator
     {
         #region ITaskGenerator
-        public TaskType AcceptedTypes => TaskType.Dock; // | TaskType.SmartMove;
+        public TaskType AcceptedTypes => TaskType.Dock;
 
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
+            if (intelKey.Item1 == IntelItemType.NONE && intelKey.Item1 == 0)
+            {
+                intelKey = MyTuple.Create(IntelItemType.Dock, DockingSubsystem.HomeID);
+            }
+
             if (intelKey.Item1 != IntelItemType.Dock)
             {
                 return new NullTask();
             }
+
             if (!IntelItems.ContainsKey(intelKey))
             {
                 return new NullTask();
@@ -119,6 +127,27 @@ namespace IngameScript
             DockingSubsystem = ds;
         }
     }
+
+    public class SetHomeTaskGenerator : ITaskGenerator
+    {
+        #region ITaskGenerator
+        public TaskType AcceptedTypes => TaskType.SetHome;
+        public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
+        {
+            if (type != TaskType.SetHome || intelKey.Item1 != IntelItemType.Dock) return new NullTask();
+            return new SetHomeTask(intelKey, myID, Program, DockingSubsystem);
+        }
+        #endregion
+
+        readonly MyGridProgram Program;
+        readonly IDockingSubsystem DockingSubsystem;
+        public SetHomeTaskGenerator(MyGridProgram program, IDockingSubsystem ds)
+        {
+            Program = program;
+            DockingSubsystem = ds;
+        }
+    }
+
 
     public class UndockFirstTaskGenerator : ITaskGenerator
     {
@@ -543,6 +572,7 @@ namespace IngameScript
             {
                 Aborted = true;
                 TaskQueue.Clear();
+                return;
             }
 
             DockIntel dock = (DockIntel)IntelItems[IntelKey];
@@ -557,6 +587,7 @@ namespace IngameScript
 
             Vector3D dockToMeDir = Program.Me.WorldMatrix.Translation - dockPosition;
             double dockToMeDist = dockToMeDir.Length();
+            ApproachEntrance.Destination.Direction = dockDirection;
             if (dockToMeDist < 250 && dockToMeDist > 150)
             {
                 EnterHoldingPattern.Destination.Position = Vector3D.Zero;
@@ -595,5 +626,46 @@ namespace IngameScript
             base.Do(IntelItems, canonicalTime);
         }
     }
+
+    public class SetHomeTask : ITask
+    {
+        #region ITask
+        public TaskStatus Status { get; private set; }
+
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        {
+            if (!IntelItems.ContainsKey(IntelKey))
+            {
+                Status = TaskStatus.Aborted;
+                return;
+            }
+
+            var dock = (DockIntel)IntelItems[IntelKey];
+            
+            if (dock.OwnerID == MyId && (dock.Status & HangarStatus.Reserved) != 0)
+            {
+                Status = TaskStatus.Complete;
+                DockingSubsystem.HomeID = dock.ID;
+                return;
+            }
+
+            Program.IGC.SendBroadcastMessage(dock.HangarChannelTag, MyTuple.Create(MyId, dock.ID, (int)HangarRequest.Reserve));
+        }
+        #endregion
+
+        readonly MyTuple<IntelItemType, long> IntelKey;
+        readonly long MyId;
+        readonly MyGridProgram Program;
+        readonly IDockingSubsystem DockingSubsystem;
+
+        public SetHomeTask(MyTuple<IntelItemType, long> intelKey, long myId, MyGridProgram program, IDockingSubsystem ds)
+        {
+            IntelKey = intelKey;
+            MyId = myId;
+            Program = program;
+            DockingSubsystem = ds;
+        }
+    }
+
     #endregion
 }

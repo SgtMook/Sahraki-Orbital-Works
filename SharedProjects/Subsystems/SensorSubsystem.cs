@@ -316,15 +316,20 @@ namespace IngameScript
                 if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count())
                 {
                     // Special handling
-                    if (TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex] == "CURSOR")
+                    string SpecialCommand = TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex];
+                    if (SpecialCommand == "CURSOR")
                     {
                         CurrentUIMode = UIMode.SelectWaypoint;
+                    }
+                    if (SpecialCommand == "HOME")
+                    {
+                        SendCommand(MyTuple.Create(IntelItemType.NONE, (long)0), timestamp);
+                        CurrentUIMode = UIMode.SelectAgent;
                     }
                 }
                 else if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count() + TargetSelection_Targets.Count())
                 {
                     SendCommand(TargetSelection_Targets[TargetSelection_TargetIndex - TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count()], timestamp);
-                    updateBuilder.AppendLine(((int)TargetSelection_Targets[TargetSelection_TargetIndex - TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count()].IntelItemType).ToString());
                     CurrentUIMode = UIMode.SelectAgent;
                 }
             }
@@ -772,7 +777,8 @@ namespace IngameScript
             { TaskType.Move, "MOV" },
             { TaskType.SmartMove, "SMV" },
             { TaskType.Attack, "ATK" },
-            { TaskType.Dock, "DOK" }
+            { TaskType.Dock, "DOK" },
+            { TaskType.SetHome, "HOM" }
         };
 
         Dictionary<TaskType, IntelItemType> TaskTypeToTargetTypes = new Dictionary<TaskType, IntelItemType>
@@ -781,7 +787,8 @@ namespace IngameScript
             { TaskType.Move, IntelItemType.Waypoint},
             { TaskType.SmartMove, IntelItemType.Waypoint },
             { TaskType.Attack, IntelItemType.Enemy | IntelItemType.Waypoint },
-            { TaskType.Dock, IntelItemType.Dock }
+            { TaskType.Dock, IntelItemType.Dock },
+            { TaskType.SetHome, IntelItemType.Dock }
         };
 
         Dictionary<TaskType, string[]> TaskTypeToSpecialTargets = new Dictionary<TaskType, string[]>
@@ -790,7 +797,8 @@ namespace IngameScript
             { TaskType.Move, new string[1] { "CURSOR" }},
             { TaskType.SmartMove, new string[1] { "CURSOR" }},
             { TaskType.Attack, new string[2] { "CURSOR", "NEAREST" }},
-            { TaskType.Dock, new string[2] { "NEAREST", "HOME" }}
+            { TaskType.Dock, new string[2] { "NEAREST", "HOME" }},
+            { TaskType.SetHome, new string[0]}
         };
 
         List<TaskType> TargetSelection_TaskTypes = new List<TaskType>();
@@ -859,7 +867,7 @@ namespace IngameScript
                     if (intel is DockIntel)
                     {
                         var dockIntel = (DockIntel)intel;
-                        RightHUDBuilder.Append(dockIntel.OwnerID != -1 ? "[C]" : "[ ]");
+                        RightHUDBuilder.Append(dockIntel.OwnerID != -1 ? ((dockIntel.Status & HangarStatus.Reserved) != 0 ? "[R]" : "[C]") : "[ ]");
                         AppendPaddedLine(kRowLength - 6, intel.DisplayName, RightHUDBuilder);
                     }
                     else
@@ -999,10 +1007,15 @@ namespace IngameScript
 
         void SendCommand(IFleetIntelligence target, TimeSpan timestamp)
         {
+            SendCommand(MyTuple.Create(target.IntelItemType, target.ID), timestamp);
+        }
+
+        void SendCommand(MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
+        {
             FriendlyShipIntel agent = AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex];
             TaskType taskType = TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex];
 
-            IntelProvider.ReportCommand(agent, taskType, target, timestamp);
+            IntelProvider.ReportCommand(agent, taskType, targetKey, timestamp);
 
             CurrentUIMode = UIMode.SelectAgent;
         }

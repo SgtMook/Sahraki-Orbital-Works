@@ -94,33 +94,59 @@ namespace IngameScript
             return Connector != null;
         }
 
-        public void Request(long requesterID, HangarRequest request, TimeSpan timestamp)
+        public void TakeRequest(long requesterID, HangarRequest request, TimeSpan timestamp)
         {
             if (request == HangarRequest.Claim)
             {
                 if (OwnerID != -1 && OwnerID != requesterID) return;
-                OwnerID = requesterID;
-                lastClaimTime = timestamp;
+                Claim(requesterID, timestamp);
             }
             else if (request == HangarRequest.Reserve)
             {
-                if (OwnerID != requesterID) return;
+                if (OwnerID != -1 && OwnerID != requesterID) return;
+                Claim(requesterID, timestamp);
                 hangarStatus |= HangarStatus.Reserved;
             }
             else if (request == HangarRequest.Unclaim)
             {
                 if (OwnerID != requesterID) return;
-                hangarStatus &= ~HangarStatus.Reserved;
+                Unclaim();
             }
         }
 
-        public void Update(TimeSpan timestamp)
+        private void Claim(long requesterID, TimeSpan timestamp)
+        {
+            OwnerID = requesterID;
+            lastClaimTime = timestamp;
+        }
+
+        private void Unclaim()
+        {
+            OwnerID = -1;
+            hangarStatus &= ~HangarStatus.Reserved;
+        }
+
+        public void Update(TimeSpan timestamp, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems)
         {
             if (Connector == null) return;
             if ((hangarStatus & HangarStatus.Reserved) == 0)
             {
                 if (lastClaimTime + kClaimTimeout < timestamp && Connector.Status != MyShipConnectorStatus.Connected)
                     OwnerID = -1;
+            }
+            else
+            {
+                if (OwnerID == -1) Unclaim();
+                else if (lastClaimTime + kClaimTimeout < timestamp)
+                {
+                    var intelKey = MyTuple.Create(IntelItemType.Friendly, OwnerID);
+                    if (!intelItems.ContainsKey(intelKey))
+                    {
+                        Unclaim();
+                        return;
+                    }
+                    if (((FriendlyShipIntel)intelItems[intelKey]).HomeID != Connector.EntityId) Unclaim();
+                }
             }
             docked = Connector.Status == MyShipConnectorStatus.Connected;
         }
@@ -251,12 +277,13 @@ namespace IngameScript
 
         private void ReportAndUpdateHangars(TimeSpan timestamp)
         {
+            var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
             for (int i = 0; i < Hangars.Count(); i++)
             {
                 if (Hangars[i] != null && Hangars[i].OK())
                 {
                     IntelProvider.ReportFleetIntelligence(GetHangarIntel(Hangars[i], timestamp), timestamp);
-                    Hangars[i].Update(timestamp);
+                    Hangars[i].Update(timestamp, intelItems);
                 }
             }
         }
@@ -269,7 +296,7 @@ namespace IngameScript
                 if (!(msg.Data is MyTuple<long, long, int>)) return;
                 var unpacked = (MyTuple<long, long, int>)msg.Data;
                 if (!HangarsDict.ContainsKey(unpacked.Item2)) return;
-                HangarsDict[unpacked.Item2].Request(unpacked.Item1, (HangarRequest)unpacked.Item3, timestamp);
+                HangarsDict[unpacked.Item2].TakeRequest(unpacked.Item1, (HangarRequest)unpacked.Item3, timestamp);
             }
         }
     }

@@ -31,15 +31,13 @@ namespace IngameScript
 
             // Add subsystems
             AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
-            subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
-
-            DockingSubsystem dockingSubsystem = new DockingSubsystem();
-            subsystemManager.AddSubsystem("docking", dockingSubsystem);
-
             IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
-            subsystemManager.AddSubsystem("intel", intelSubsystem);
-
+            DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             HornetCombatSubsystem combatSubsystem = new HornetCombatSubsystem(intelSubsystem);
+
+            subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
+            subsystemManager.AddSubsystem("docking", dockingSubsystem);
+            subsystemManager.AddSubsystem("intel", intelSubsystem);
             subsystemManager.AddSubsystem("combat", combatSubsystem);
 
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Fighter);
@@ -50,6 +48,7 @@ namespace IngameScript
             undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(this, combatSubsystem, autopilotSubsystem));
 
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
+            agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));
             subsystemManager.AddSubsystem("agent", agentSubsystem);
 
             subsystemManager.DeserializeManager(Storage);

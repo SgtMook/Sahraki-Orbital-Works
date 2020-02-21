@@ -103,7 +103,7 @@ namespace IngameScript
 
         StringBuilder DebugBuilder = new StringBuilder();
 
-        public AgentSubsystem(IIntelProvider intelProvider, AgentClass agentClass, IDockingSubsystem dockingSubsystem = null)
+        public AgentSubsystem(IIntelProvider intelProvider, AgentClass agentClass)
         {
             IntelProvider = intelProvider;
             IntelProvider.SetAgentSubsystem(this);

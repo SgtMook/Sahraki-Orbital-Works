@@ -67,17 +67,23 @@ namespace IngameScript
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             bool hasPos = targetPosition != Vector3D.Zero;
-            if (hasPos) SetThrusterPowers();
+            if (hasPos || tActive)
+            {
+                tActive = hasPos;
+                SetThrusterPowers();
+            }
             bool hasDir = targetDirection != Vector3D.Zero || targetUp != Vector3D.Zero;
-            if (hasDir) SetGyroPowers();
+            if (hasDir || rActive)
+            {
+                rActive = hasDir;
+                SetGyroPowers();
+            }
 
             if (hasPos || hasDir)
                 UpdateFrequency = UpdateFrequency.Update1;
             else if (UpdateFrequency == UpdateFrequency.Update1)
             {
                 UpdateFrequency = UpdateFrequency.Update10;
-                SetThrusterPowers();
-                SetGyroPowers();
                 Clear();
             }
         }
@@ -258,6 +264,9 @@ namespace IngameScript
 
         string Status = string.Empty;
 
+        bool tActive = true;
+        bool rActive = true;
+
         Dictionary<Base6Directions.Direction, Vector3I> DirectionMap = new Dictionary<Base6Directions.Direction, Vector3I>()
         {
             { Base6Directions.Direction.Up, Vector3I.Up },
@@ -365,14 +374,14 @@ namespace IngameScript
 
             if (Math.Abs(yawAngle) < 0.01f && Math.Abs(pitchAngle) < 0.01f && Math.Abs(spinAngle) < 0.01f)
             {
+                targetDirection = Vector3.Zero;
+                targetUp = Vector3.Zero;
                 ClearGyros();
             }
         }
 
         private void ClearGyros()
         {
-            targetDirection = Vector3.Zero;
-            targetUp = Vector3.Zero;
             foreach (var gyro in gyros)
             {
                 gyro.GyroOverride = false;

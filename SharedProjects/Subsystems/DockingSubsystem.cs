@@ -26,6 +26,8 @@ namespace IngameScript
 
         IMyShipConnector Connector { get; }
         IMyInteriorLight DirectionIndicator { get; }
+
+        long HomeID { get; set; }
     }
     public class DockingSubsystem : ISubsystem, IDockingSubsystem
     {
@@ -36,9 +38,6 @@ namespace IngameScript
         {
             if (command == "dock") Dock();
             if (command == "undock") Undock();
-            if (command == "requestextend") RequestExtend();
-            if (command == "requestretract") RequestRetract();
-            if (command == "requestcalibrate") RequestCalibrate();
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -47,9 +46,10 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            if (Connector == null) return "NO CONNECTOR";
-            else if (DirectionIndicator == null) return "NO INDICATOR";
-            return "AOK";
+            //if (Connector == null) return "NO CONNECTOR";
+            //else if (DirectionIndicator == null) return "NO INDICATOR";
+            //return "AOK";
+            return HomeID.ToString();
         }
 
         public string SerializeSubsystem()
@@ -61,16 +61,31 @@ namespace IngameScript
         {
             Program = program;
             GetParts();
+            IntelProvider.SetDockingSubsystem(this);
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
+            if (IntelProvider != null && HomeID != -1)
+            {
+                var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+                var intelKey = MyTuple.Create(IntelItemType.Dock, HomeID);
+                if (!intelItems.ContainsKey(intelKey))
+                {
+                    HomeID = -1;
+                    return;
+                }
+                var dock = (DockIntel)intelItems[intelKey];
+                if (dock.OwnerID != Program.Me.CubeGrid.EntityId) HomeID = -1;
+            }
         }
         #endregion
 
         #region IDockingSubsystem
         public IMyShipConnector Connector { get; set; }
         public IMyInteriorLight DirectionIndicator { get; set; }
+
+        public long HomeID { get; set; }
 
         public void Dock()
         {
@@ -89,22 +104,11 @@ namespace IngameScript
         MyGridProgram Program;
         List<IMyTerminalBlock> getBlocksScratchPad = new List<IMyTerminalBlock>();
 
-        void RequestExtend()
-        {
-            if (Connector.Status == MyShipConnectorStatus.Connected)
-                Connector.OtherConnector.CustomData = "Extend";
-        }
+        IIntelProvider IntelProvider;
 
-        void RequestRetract()
+        public DockingSubsystem(IIntelProvider intelProvider = null)
         {
-            if (Connector.Status == MyShipConnectorStatus.Connected)
-                Connector.OtherConnector.CustomData = "Retract";
-        }
-
-        void RequestCalibrate()
-        {
-            if (Connector.Status == MyShipConnectorStatus.Connected)
-                Connector.OtherConnector.CustomData = "Calibrate";
+            IntelProvider = intelProvider;
         }
 
         bool SetBlockToDock(IMyTerminalBlock block)
@@ -112,7 +116,7 @@ namespace IngameScript
             if (!Program.Me.IsSameConstructAs(block)) return false;
             if (block is IMyThrust) ((IMyThrust)block).Enabled = false;
             if (block is IMyGasTank) ((IMyGasTank)block).Stockpile = true;
-            if (block.BlockDefinition.SubtypeId == "SmallBlockBatteryBlock") ((IMyBatteryBlock)block).ChargeMode = ChargeMode.Recharge;
+            if (block is IMyBatteryBlock) ((IMyBatteryBlock)block).ChargeMode = ChargeMode.Recharge;
             if (block is IMyShipConnector) return true;
             if (block is IMyRadioAntenna) ((IMyRadioAntenna)block).Enabled = false;
             if (block is IMyGyro) ((IMyGyro)block).Enabled = false;
@@ -125,7 +129,7 @@ namespace IngameScript
             if (!Program.Me.IsSameConstructAs(block)) return false;
             if (block is IMyThrust) ((IMyThrust)block).Enabled = true;
             if (block is IMyGasTank) ((IMyGasTank)block).Stockpile = false;
-            if (block.BlockDefinition.SubtypeId == "SmallBlockBatteryBlock") ((IMyBatteryBlock)block).ChargeMode = ChargeMode.Discharge;
+            if (block is IMyBatteryBlock) ((IMyBatteryBlock)block).ChargeMode = ChargeMode.Discharge;
             if (block is IMyShipConnector) return true;
             if (block is IMyRadioAntenna) ((IMyRadioAntenna)block).Enabled = true;
             if (block is IMyGyro) ((IMyGyro)block).Enabled = true;
