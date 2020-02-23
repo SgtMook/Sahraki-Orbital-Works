@@ -19,15 +19,15 @@ using VRageMath;
 
 namespace IngameScript
 {
-    // Configuration: Forward cannons and turrets
-    // Condor compatible
-    public class HornetCombatSubsystem : ISubsystem
+    // Gatling cannon based ordinance dispersal system
+    public class LocustCombatSystem : ISubsystem
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10;
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
+            if (command == "deploy") Deploy();
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -52,33 +52,23 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            TargetIntel = null;
-
-            foreach (var turret in Turrets)
+            if (deploying > 0)
             {
-                if (!turret.HasTarget) continue;
-                var target = turret.GetTargetedEntity();
-                if (target.IsEmpty()) continue;
-                if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid) continue;
-                if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) continue;
+                deploying--;
 
-                var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
-                var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
-                TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-                TargetIntel.FromDetectedInfo(target, timestamp + IntelProvider.CanonicalTimeDiff);
-                IntelProvider.ReportFleetIntelligence(TargetIntel, timestamp);
-
-                break;
+                if (deploying <= 0)
+                {
+                    foreach (var gun in Guns)
+                    {
+                        TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
+                    }
+                }
             }
-
-            if (fireCounter > 0) fireCounter--;
-            if (fireCounter == 0) HoldFire();
         }
         #endregion
         MyGridProgram Program;
 
         List<IMySmallGatlingGun> Guns = new List<IMySmallGatlingGun>();
-        List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
         IMyRadioAntenna Antenna;
 
         StringBuilder updateBuilder = new StringBuilder();
@@ -87,9 +77,9 @@ namespace IngameScript
 
         public EnemyShipIntel TargetIntel;
 
-        int fireCounter;
+        int deploying;
 
-        public HornetCombatSubsystem(IIntelProvider provider)
+        public LocustCombatSystem(IIntelProvider provider)
         {
             IntelProvider = provider;
         }
@@ -97,7 +87,6 @@ namespace IngameScript
         void GetParts()
         {
             Guns.Clear();
-            Turrets.Clear();
             Antenna = null;
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
@@ -112,40 +101,21 @@ namespace IngameScript
             if (block is IMySmallGatlingGun)
                 Guns.Add((IMySmallGatlingGun)block);
 
-            if (block is IMyLargeTurretBase)
-            {
-                IMyLargeTurretBase turret = (IMyLargeTurretBase)block;
-                Turrets.Add(turret);
-                turret.EnableIdleRotation = false;
-                turret.SyncEnableIdleRotation();
-            }
-
             return false;
         }
 
         #region Public accessors
-        public void Fire()
-        {
-            if (fireCounter == -1)
-            {
-                foreach (var gun in Guns)
-                {
-                    TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
-                }
-            }
-            fireCounter = 6;
-        }
 
-        public void HoldFire()
+        public void Deploy()
         {
             foreach (var gun in Guns)
             {
-                TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
+                TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
             }
-            fireCounter = -1;
+            deploying = 18;
         }
 
-        public const int kEngageRange = 500;
+        public const int kEngageRange = 1000;
         #endregion
     }
 }

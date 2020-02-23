@@ -27,19 +27,21 @@ namespace IngameScript
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
             if (type != TaskType.Attack) return new NullTask();
-            return new HornetAttackTask(Program, CombatSystem, Autopilot, intelKey);
+            return new HornetAttackTask(Program, CombatSystem, Autopilot, AgentSubsystem, intelKey);
         }
         #endregion
 
         MyGridProgram Program;
         HornetCombatSubsystem CombatSystem;
         IAutopilot Autopilot;
+        IAgentSubsystem AgentSubsystem;
 
-        public HornetAttackTaskGenerator(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot)
+        public HornetAttackTaskGenerator(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem)
         {
             Program = program;
             CombatSystem = combatSystem;
             Autopilot = autopilot;
+            AgentSubsystem = agentSubsystem;
         }
     }
 
@@ -53,6 +55,7 @@ namespace IngameScript
         {
             IMyShipController controller = Autopilot.Controller;
             Vector3D linearVelocity = controller.GetShipVelocities().LinearVelocity;
+            var currentPosition = controller.WorldMatrix.Translation;
 
             if (!TargetPositionSet)
             {
@@ -81,9 +84,19 @@ namespace IngameScript
             if (combatIntel == null)
             {
                 if (IntelItems.ContainsKey(IntelKey))
-                    LeadTask.Destination.Position = IntelItems[IntelKey].GetPositionFromCanonicalTime(canonicalTime);
-                else if (TargetPosition != Vector3.Zero)
+                {
+                    var target = IntelItems[IntelKey];
+                    LeadTask.Destination.Position = currentPosition + AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, 98);
+                }
+                else if (TargetPosition != Vector3.Zero && (currentPosition - TargetPosition).Length() > 500)
+                {
                     LeadTask.Destination.Position = TargetPosition;
+                }
+                else
+                {
+                    AgentSubsystem.AddTask(TaskType.Dock, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Enqueue, 0, canonicalTime);
+                    Status = TaskStatus.Complete;
+                }
 
                 Vector3D toTarget = LeadTask.Destination.Position - Program.Me.WorldMatrix.Translation;
                 LeadTask.Destination.Direction = toTarget;
@@ -91,8 +104,8 @@ namespace IngameScript
                 LastAcceleration = Vector3D.Zero;
                 LastReference = MatrixD.Zero;
 
-                LastSwapTime = TimeSpan.Zero;
-                NextSwapTime = TimeSpan.Zero;
+                //LastSwapTime = TimeSpan.Zero;
+                //NextSwapTime = TimeSpan.Zero;
             }
             else
             {
@@ -120,11 +133,11 @@ namespace IngameScript
                 LeadTask.Destination.DirectionUp = Math.Sin(kRotateTheta) * controller.WorldMatrix.Right + Math.Cos(kRotateTheta) * controller.WorldMatrix.Up;
                 LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 2 + dirTargetToMe * HornetCombatSubsystem.kEngageRange + dirTargetToOrbitTarget * 200;
 
-                if (NextSwapTime < canonicalTime)
-                {
-                    NextSwapTime = canonicalTime + kSwapTimeMin + TimeSpan.FromSeconds(random.Next(0, kSwapTimeDelta));
-                    kRotateTheta *= -1;
-                }
+                //if (NextSwapTime < canonicalTime)
+                //{
+                //    NextSwapTime = canonicalTime + kSwapTimeMin + TimeSpan.FromSeconds(random.Next(0, kSwapTimeDelta));
+                //    kRotateTheta *= -1;
+                //}
             }
 
             LastLinearVelocity = linearVelocity;
@@ -136,6 +149,7 @@ namespace IngameScript
         MyGridProgram Program;
         HornetCombatSubsystem CombatSystem;
         IAutopilot Autopilot;
+        IAgentSubsystem AgentSubsystem;
         MyTuple<IntelItemType, long> IntelKey;
         Vector3D TargetPosition;
         bool TargetPositionSet = false;
@@ -144,7 +158,7 @@ namespace IngameScript
         Vector3D LastAcceleration = Vector3D.Zero;
         MatrixD LastReference = MatrixD.Zero;
 
-        double kRotateTheta = 0.07;
+        double kRotateTheta = 0.1;
 
         TimeSpan kSwapTimeMin = TimeSpan.FromSeconds(15);
         int kSwapTimeDelta = 30;
@@ -152,12 +166,13 @@ namespace IngameScript
         TimeSpan NextSwapTime;
         Random random = new Random();
 
-        public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, MyTuple<IntelItemType, long> intelKey)
+        public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, MyTuple<IntelItemType, long> intelKey)
         {
             Program = program;
             CombatSystem = combatSystem;
             Autopilot = autopilot;
             IntelKey = intelKey;
+            AgentSubsystem = agentSubsystem;
 
             Status = TaskStatus.Incomplete;
 

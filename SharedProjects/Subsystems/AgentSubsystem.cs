@@ -44,6 +44,8 @@ namespace IngameScript
         TaskType AvailableTasks { get; }
 
         AgentClass AgentClass { get; }
+
+        void AddTask(TaskType taskType, MyTuple<IntelItemType, long> intelKey, CommandType commandType, int arguments, TimeSpan canonicalTime);
     }
 
     public class AgentSubsystem : ISubsystem, IAgentSubsystem
@@ -86,9 +88,24 @@ namespace IngameScript
         }
         #endregion
 
+        #region IAgentSubsystem
         public string CommandChannelTag { get; set; }
         public TaskType AvailableTasks { get; set; }
         public AgentClass AgentClass { get; set; }
+
+        public void AddTask(TaskType taskType, MyTuple<IntelItemType, long> intelKey, CommandType commandType, int arguments, TimeSpan canonicalTime)
+        {
+            if (commandType == CommandType.Override)
+            {
+                TaskQueue.Clear();
+            }
+            if (TaskGenerators.ContainsKey(taskType))
+            {
+                TaskQueue.Enqueue(TaskGenerators[taskType].GenerateTask(taskType, intelKey, IntelProvider.GetFleetIntelligences(canonicalTime - IntelProvider.CanonicalTimeDiff), canonicalTime, Program.Me.CubeGrid.EntityId));
+            }
+        }
+
+        #endregion
 
         public IDockingSubsystem DockingSubsystem { get; set; }
 
@@ -147,14 +164,7 @@ namespace IngameScript
 
         private void AddTaskFromCommand(TimeSpan timestamp, MyTuple<int, MyTuple<int, long>, int, int> command)
         {
-            if ((CommandType)command.Item3 == CommandType.Override)
-            {
-                TaskQueue.Clear();
-            }
-            if (TaskGenerators.ContainsKey((TaskType)command.Item1))
-            {
-                TaskQueue.Enqueue(TaskGenerators[(TaskType)command.Item1].GenerateTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff, Program.Me.CubeGrid.EntityId));
-            }
+            AddTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), (CommandType)command.Item3, command.Item4, timestamp + IntelProvider.CanonicalTimeDiff);
         }
     }
 }

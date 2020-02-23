@@ -33,19 +33,21 @@ namespace IngameScript
             AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
             IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
-            HornetCombatSubsystem combatSubsystem = new HornetCombatSubsystem(intelSubsystem);
+
+            LocustCombatSystem combatSubsystem = new LocustCombatSystem(intelSubsystem);
 
             subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
             subsystemManager.AddSubsystem("docking", dockingSubsystem);
             subsystemManager.AddSubsystem("intel", intelSubsystem);
             subsystemManager.AddSubsystem("combat", combatSubsystem);
 
-            AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Fighter);
+            AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Bomber);
             UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(this, autopilotSubsystem, dockingSubsystem);
 
             undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
             undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
-            undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(this, combatSubsystem, autopilotSubsystem, agentSubsystem));
+
+            undockingTaskGenerator.AddTaskGenerator(new LocustAttackTaskGenerator(this, combatSubsystem, autopilotSubsystem, agentSubsystem));
 
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));

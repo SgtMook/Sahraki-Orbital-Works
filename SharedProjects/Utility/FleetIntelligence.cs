@@ -810,7 +810,7 @@ namespace IngameScript
             if (info.Type != MyDetectedEntityType.SmallGrid && info.Type != MyDetectedEntityType.LargeGrid) return;
             if (info.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) return;
 
-            CurrentPosition = info.Position;
+            CurrentPosition = info.BoundingBox.Center;
             CurrentVelocity = info.Velocity;
             CurrentCanonicalTime = canonicalTime;
             DisplayName = (info.Type == MyDetectedEntityType.SmallGrid ? "SM" : "LG") + info.EntityId.ToString();
