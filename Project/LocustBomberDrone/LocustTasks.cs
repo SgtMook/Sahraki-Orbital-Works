@@ -98,7 +98,7 @@ namespace IngameScript
 
             if (deployTime != TimeSpan.Zero)
             {
-                if (deployTime + TimeSpan.FromSeconds(3) < canonicalTime)
+                if (deployTime + TimeSpan.FromSeconds(2) < canonicalTime)
                 {
                     AgentSubsystem.AddTask(TaskType.Dock, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Enqueue, 0, canonicalTime);
                     Status = TaskStatus.Aborted;
@@ -106,7 +106,7 @@ namespace IngameScript
                 }
                 else
                 {
-                    //LeadTask.Destination.DirectionUp = Math.Sin(kRotateTheta) * controller.WorldMatrix.Right + Math.Cos(kRotateTheta) * controller.WorldMatrix.Up;
+                    LeadTask.Destination.DirectionUp = Math.Sin(kRotateTheta) * controller.WorldMatrix.Right + Math.Cos(kRotateTheta) * controller.WorldMatrix.Up;
                 }
             }
 
@@ -129,7 +129,7 @@ namespace IngameScript
         Vector3D LastAcceleration = Vector3D.Zero;
         MatrixD LastReference = MatrixD.Zero;
 
-        double kRotateTheta = 0;
+        double kRotateTheta = 1;
 
         public LocustAttackTask(MyGridProgram program, LocustCombatSystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, MyTuple<IntelItemType, long> intelKey)
         {

@@ -163,9 +163,9 @@ namespace IngameScript
             }
 
             // Enemy
-            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>>>>)
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>>>>)
             {
-                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>>>>)data;
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>>>>)data;
                 if (masterID == unpacked.Item1)
                 {
                     var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
@@ -195,7 +195,7 @@ namespace IngameScript
             var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>(kMaxIntelPerType); 
             var DockIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>(kMaxIntelPerType); 
             var AsteroidIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>(kMaxIntelPerType);
-            var EnemyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>>>>>(kMaxIntelPerType);
+            var EnemyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>>>>>(kMaxIntelPerType);
             
             foreach (KeyValuePair<MyTuple<IntelItemType, long>, IFleetIntelligence> kvp in intelItems)
             {
@@ -262,9 +262,9 @@ namespace IngameScript
                 }
             }
             // EnemyShipIntel
-            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>>>>>)
+            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>>>>>)
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>>>>>)data)
+                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
                     if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
@@ -761,9 +761,10 @@ namespace IngameScript
         public Vector3D CurrentVelocity;
         public Vector3D CurrentPosition;
         public TimeSpan CurrentCanonicalTime;
+        public MyCubeSize CubeSize;
 
         #region IGC Packing
-        static public MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>>> IGCPackGeneric(EnemyShipIntel esi)
+        static public MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>>> IGCPackGeneric(EnemyShipIntel esi)
         {
             return MyTuple.Create
             (
@@ -781,20 +782,21 @@ namespace IngameScript
                     (
                         esi.DisplayName,
                         esi.ID,
-                        esi.Radius
+                        esi.Radius,
+                        (int)esi.CubeSize
                     )
                 )
             );
         }
         static public EnemyShipIntel IGCUnpack(object data)
         {
-            var unpacked = (MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>>)data;
+            var unpacked = (MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>>)data;
             var esi = new EnemyShipIntel();
             esi.IGCUnpackInto(unpacked);
             return esi;
         }
 
-        public void IGCUnpackInto(MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>> unpacked)
+        public void IGCUnpackInto(MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>> unpacked)
         {
             CurrentPosition = unpacked.Item1.Item1;
             CurrentVelocity = unpacked.Item1.Item2;
@@ -802,22 +804,31 @@ namespace IngameScript
             DisplayName = unpacked.Item2.Item1;
             ID = unpacked.Item2.Item2;
             Radius = unpacked.Item2.Item3;
+            CubeSize = (MyCubeSize)unpacked.Item2.Item4;
         }
         #endregion
 
-        public void FromDetectedInfo(MyDetectedEntityInfo info, TimeSpan canonicalTime)
+        public void FromDetectedInfo(MyDetectedEntityInfo info, TimeSpan canonicalTime, bool updateSize = false)
         {
             if (info.Type != MyDetectedEntityType.SmallGrid && info.Type != MyDetectedEntityType.LargeGrid) return;
             if (info.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) return;
 
+            if (ID != info.EntityId)
+            {
+                CubeSize = info.Type == MyDetectedEntityType.SmallGrid ? MyCubeSize.Small : MyCubeSize.Large;
+                ID = info.EntityId;
+            }
+
+            if (updateSize || DisplayName == null)
+            {
+                Radius = (float)info.BoundingBox.Size.Length() * 0.5f;
+                DisplayName = (info.Type == MyDetectedEntityType.SmallGrid ? "SM-" : "LG-") + ((int)Radius).ToString() + " " + info.EntityId.ToString();
+            }
+
             CurrentPosition = info.BoundingBox.Center;
             CurrentVelocity = info.Velocity;
             CurrentCanonicalTime = canonicalTime;
-            DisplayName = (info.Type == MyDetectedEntityType.SmallGrid ? "SM" : "LG") + info.EntityId.ToString();
-            ID = info.EntityId;
-            Radius = (float)(info.BoundingBox.Max - info.BoundingBox.Center).Length();
         }
-
     }
     #endregion
 

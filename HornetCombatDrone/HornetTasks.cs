@@ -68,13 +68,31 @@ namespace IngameScript
             double closestIntelDist = 1500;
             foreach (var intel in IntelItems)
             {
-                if (intel.Key.Item1 == IntelItemType.Enemy)
+                if (intel.Key.Item1 != IntelItemType.Enemy) continue;
+                var enemyIntel = (EnemyShipIntel)intel.Value;
+
+                if (!PrioritizeTarget(enemyIntel)) continue;
+
+                double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
+                if (dist < closestIntelDist)
                 {
-                    double dist = (intel.Value.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
+                    closestIntelDist = dist;
+                    combatIntel = enemyIntel;
+                }
+            }
+
+            if (combatIntel == null)
+            {
+                foreach (var intel in IntelItems)
+                {
+                    if (intel.Key.Item1 != IntelItemType.Enemy) continue;
+                    var enemyIntel = (EnemyShipIntel)intel.Value;
+
+                    double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
                     if (dist < closestIntelDist)
                     {
                         closestIntelDist = dist;
-                        combatIntel = (EnemyShipIntel)intel.Value;
+                        combatIntel = enemyIntel;
                     }
                 }
             }
@@ -83,7 +101,7 @@ namespace IngameScript
 
             if (combatIntel == null)
             {
-                if (IntelItems.ContainsKey(IntelKey))
+                if (IntelKey.Item1 == IntelItemType.Enemy && IntelItems.ContainsKey(IntelKey) && PrioritizeTarget((EnemyShipIntel)IntelItems[IntelKey]))
                 {
                     var target = IntelItems[IntelKey];
                     LeadTask.Destination.Position = currentPosition + AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, 98);
@@ -179,6 +197,13 @@ namespace IngameScript
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.Avoid);
 
             if (random.Next(2) == 1) kRotateTheta *= -1;
+        }
+
+        private bool PrioritizeTarget(EnemyShipIntel target)
+        {
+            if (target.CubeSize == MyCubeSize.Small && target.Radius < 4) return false;
+            if (target.CubeSize == MyCubeSize.Large && target.Radius < 12) return false;
+            return true;
         }
     }
 }

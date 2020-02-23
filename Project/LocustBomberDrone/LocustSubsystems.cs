@@ -112,10 +112,10 @@ namespace IngameScript
             {
                 TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
             }
-            deploying = 18;
+            deploying = 12;
         }
 
-        public const int kEngageRange = 1000;
+        public const int kEngageRange = 600;
         #endregion
     }
 }

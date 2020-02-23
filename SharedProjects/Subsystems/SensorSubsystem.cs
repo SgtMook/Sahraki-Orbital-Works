@@ -387,7 +387,7 @@ namespace IngameScript
                 var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
                 var key = MyTuple.Create(IntelItemType.Enemy, lastDetectedInfo.EntityId);
                 var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-                TargetIntel.FromDetectedInfo(lastDetectedInfo, timestamp + IntelProvider.CanonicalTimeDiff);
+                TargetIntel.FromDetectedInfo(lastDetectedInfo, timestamp + IntelProvider.CanonicalTimeDiff, true);
                 ReportIntel(TargetIntel, timestamp);
             }
 

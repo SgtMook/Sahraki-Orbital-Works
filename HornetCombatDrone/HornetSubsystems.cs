@@ -62,13 +62,20 @@ namespace IngameScript
                 if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid) continue;
                 if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) continue;
 
-                var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
-                var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
-                TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-                TargetIntel.FromDetectedInfo(target, timestamp + IntelProvider.CanonicalTimeDiff);
-                IntelProvider.ReportFleetIntelligence(TargetIntel, timestamp);
+                foreach (var camera in Scanners)
+                {
+                    if (camera.CanScan(target.Position))
+                    {
+                        var validatedTarget = camera.Raycast(target.Position);
+                        if (validatedTarget.EntityId != target.EntityId) break;
 
-                break;
+                        var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
+                        var key = MyTuple.Create(IntelItemType.Enemy, validatedTarget.EntityId);
+                        TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
+                        TargetIntel.FromDetectedInfo(validatedTarget, timestamp + IntelProvider.CanonicalTimeDiff, true);
+                        IntelProvider.ReportFleetIntelligence(TargetIntel, timestamp);
+                    }
+                }
             }
 
             if (fireCounter > 0) fireCounter--;
@@ -79,6 +86,7 @@ namespace IngameScript
 
         List<IMySmallGatlingGun> Guns = new List<IMySmallGatlingGun>();
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
+        List<IMyCameraBlock> Scanners = new List<IMyCameraBlock>();
         IMyRadioAntenna Antenna;
 
         StringBuilder updateBuilder = new StringBuilder();
@@ -98,6 +106,7 @@ namespace IngameScript
         {
             Guns.Clear();
             Turrets.Clear();
+            Scanners.Clear();
             Antenna = null;
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
@@ -118,6 +127,13 @@ namespace IngameScript
                 Turrets.Add(turret);
                 turret.EnableIdleRotation = false;
                 turret.SyncEnableIdleRotation();
+            }
+
+            if (block is IMyCameraBlock)
+            {
+                IMyCameraBlock camera = (IMyCameraBlock)block;
+                Scanners.Add(camera);
+                camera.EnableRaycast = true;
             }
 
             return false;
