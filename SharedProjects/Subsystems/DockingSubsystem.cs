@@ -42,6 +42,7 @@ namespace IngameScript
 
         public void DeserializeSubsystem(string serialized)
         {
+            HomeID = long.Parse(serialized);
         }
 
         public string GetStatus()
@@ -54,7 +55,7 @@ namespace IngameScript
 
         public string SerializeSubsystem()
         {
-            return string.Empty;
+            return HomeID.ToString();
         }
 
         public void Setup(MyGridProgram program, string name)
@@ -66,6 +67,7 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
+            if (timestamp.TotalSeconds < 1) return; // We just started up, wait up to one second to receive intel
             if (IntelProvider != null && HomeID != -1)
             {
                 var intelItems = IntelProvider.GetFleetIntelligences(timestamp);

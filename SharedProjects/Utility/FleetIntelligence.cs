@@ -89,6 +89,10 @@ namespace IngameScript
                         return key;
                     }
                 }
+                else
+                {
+                    return MyTuple.Create(IntelItemType.NONE, (long)0);
+                }
             }
 
             // Friendly
@@ -108,6 +112,10 @@ namespace IngameScript
                         return key;
                     }
                 }
+                else
+                {
+                    return MyTuple.Create(IntelItemType.NONE, (long)0);
+                }
             }
             // Dock
             if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>)
@@ -125,6 +133,10 @@ namespace IngameScript
 
                         return key;
                     }
+                }
+                else
+                {
+                    return MyTuple.Create(IntelItemType.NONE, (long)0);
                 }
             }
             // Asteroid
@@ -144,6 +156,10 @@ namespace IngameScript
                         return key;
                     }
                 }
+                else
+                {
+                    return MyTuple.Create(IntelItemType.NONE, (long)0);
+                }
             }
 
             // Enemy
@@ -162,6 +178,10 @@ namespace IngameScript
 
                         return key;
                     }
+                }
+                else
+                {
+                    return MyTuple.Create(IntelItemType.NONE, (long)0);
                 }
             }
 
@@ -211,7 +231,7 @@ namespace IngameScript
                 foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    updatedScratchpad.Add(updatedKey);
+                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
                 }
             }
             // FriendlyShipIntel
@@ -220,7 +240,7 @@ namespace IngameScript
                 foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    updatedScratchpad.Add(updatedKey);
+                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
                 }
             }
             // DockIntel
@@ -229,7 +249,7 @@ namespace IngameScript
                 foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    updatedScratchpad.Add(updatedKey);
+                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
                 }
             }
             // AsteroidIntel
@@ -238,7 +258,7 @@ namespace IngameScript
                 foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    updatedScratchpad.Add(updatedKey);
+                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
                 }
             }
             // EnemyShipIntel
@@ -247,7 +267,7 @@ namespace IngameScript
                 foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>>>>>)data)
                 {
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    updatedScratchpad.Add(updatedKey);
+                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
                 }
             }
             else

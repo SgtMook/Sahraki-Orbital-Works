@@ -44,7 +44,6 @@ namespace IngameScript
 
         public int Index = 0;
 
-        bool docked;
         TimeSpan lastClaimTime;
         TimeSpan kClaimTimeout = TimeSpan.FromSeconds(1);
 
@@ -148,7 +147,17 @@ namespace IngameScript
                     if (((FriendlyShipIntel)intelItems[intelKey]).HomeID != Connector.EntityId) Unclaim();
                 }
             }
-            docked = Connector.Status == MyShipConnectorStatus.Connected;
+        }
+
+        public string Serialize()
+        {
+            return $"{(int)hangarStatus}|{OwnerID}";
+        }
+        public void Deserialize(string serialized)
+        {
+            var split = serialized.Split('|');
+            hangarStatus = (HangarStatus)int.Parse(split[0]);
+            OwnerID = long.Parse(split[1]);
         }
     }
 
@@ -163,7 +172,16 @@ namespace IngameScript
 
         public void DeserializeSubsystem(string serialized)
         {
-            // TODO: Save... probably owner states?
+            var reader = new MyStringReader(serialized);
+
+            while (reader.HasNextLine)
+            {
+                var split = reader.NextLine().Split('-');
+                if (split.Length != 2) continue;
+                var n = int.Parse(split[0]);
+                if (Hangars[n] == null) continue;
+                Hangars[n].Deserialize(split[1]);
+            }
         }
 
         public string GetStatus()
@@ -173,8 +191,15 @@ namespace IngameScript
 
         public string SerializeSubsystem()
         {
-            // TODO: Save... probably owner states?
-            return string.Empty;
+            StringBuilder saveBuilder = new StringBuilder();
+            for (int i = 0; i < Hangars.Count(); i++)
+            {
+                if (Hangars[i] != null)
+                {
+                    saveBuilder.AppendLine($"{i}-{Hangars[i].Serialize()}");
+                }
+            }
+            return saveBuilder.ToString();
         }
 
         public void Setup(MyGridProgram program, string name)

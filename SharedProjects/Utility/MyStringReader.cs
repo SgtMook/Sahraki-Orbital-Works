@@ -9,6 +9,13 @@ namespace IngameScript
         int _currentLine = 0;
         string[] a;
 
+        public bool HasNextLine { 
+            get
+            {
+                return a.Length > _currentLine;
+            }
+        }
+
         public string NextLine()
         {
             _currentLine += 1;

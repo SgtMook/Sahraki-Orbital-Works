@@ -90,8 +90,9 @@ namespace IngameScript
 
                 LastAcceleration = Vector3D.Zero;
                 LastReference = MatrixD.Zero;
-                // LocalAttackDirD = Vector3D.Zero;
-                // LocalAttackDirI = Vector3D.Zero;
+
+                LastSwapTime = TimeSpan.Zero;
+                NextSwapTime = TimeSpan.Zero;
             }
             else
             {
@@ -118,6 +119,12 @@ namespace IngameScript
                 dirTargetToMe.Normalize();
                 LeadTask.Destination.DirectionUp = Math.Sin(kRotateTheta) * controller.WorldMatrix.Right + Math.Cos(kRotateTheta) * controller.WorldMatrix.Up;
                 LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 2 + dirTargetToMe * HornetCombatSubsystem.kEngageRange + dirTargetToOrbitTarget * 200;
+
+                if (NextSwapTime < canonicalTime)
+                {
+                    NextSwapTime = canonicalTime + kSwapTimeMin + TimeSpan.FromSeconds(random.Next(0, kSwapTimeDelta));
+                    kRotateTheta *= -1;
+                }
             }
 
             LastLinearVelocity = linearVelocity;
@@ -137,7 +144,13 @@ namespace IngameScript
         Vector3D LastAcceleration = Vector3D.Zero;
         MatrixD LastReference = MatrixD.Zero;
 
-        double kRotateTheta = 0.1;
+        double kRotateTheta = 0.07;
+
+        TimeSpan kSwapTimeMin = TimeSpan.FromSeconds(15);
+        int kSwapTimeDelta = 30;
+        TimeSpan LastSwapTime;
+        TimeSpan NextSwapTime;
+        Random random = new Random();
 
         public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, MyTuple<IntelItemType, long> intelKey)
         {
@@ -149,6 +162,8 @@ namespace IngameScript
             Status = TaskStatus.Incomplete;
 
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.Avoid);
+
+            if (random.Next(2) == 1) kRotateTheta *= -1;
         }
     }
 }
