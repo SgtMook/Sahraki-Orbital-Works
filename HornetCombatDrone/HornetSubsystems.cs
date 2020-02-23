@@ -21,7 +21,7 @@ namespace IngameScript
 {
     // Configuration: Forward cannons and turrets
     // Condor compatible
-    public class HornetCombatSubsystem : ISubsystem
+    public class HornetCombatSubsystem : ISubsystem, IOwnIntelMutator
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10;
@@ -47,12 +47,14 @@ namespace IngameScript
         public void Setup(MyGridProgram program, string name)
         {
             Program = program;
+            IntelProvider.AddIntelMutator(this);
             GetParts();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             TargetIntel = null;
+            var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
 
             foreach (var turret in Turrets)
             {
@@ -62,24 +64,35 @@ namespace IngameScript
                 if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid) continue;
                 if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) continue;
 
-                foreach (var camera in Scanners)
-                {
-                    if (camera.CanScan(target.Position))
-                    {
-                        var validatedTarget = camera.Raycast(target.Position);
-                        if (validatedTarget.EntityId != target.EntityId) break;
+                var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
+                var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
+                TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
+                bool validated = false;
 
-                        var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
-                        var key = MyTuple.Create(IntelItemType.Enemy, validatedTarget.EntityId);
-                        TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-                        TargetIntel.FromDetectedInfo(validatedTarget, timestamp + IntelProvider.CanonicalTimeDiff, true);
-                        IntelProvider.ReportFleetIntelligence(TargetIntel, timestamp);
+                if (TargetIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(1) < canonicalTime)
+                {
+                    foreach (var camera in Scanners)
+                    {
+                        if (camera.CanScan(target.Position))
+                        {
+                            var validatedTarget = camera.Raycast(target.Position);
+                            if (validatedTarget.EntityId != target.EntityId) break;
+                            validated = true;
+                            TargetIntel.FromDetectedInfo(validatedTarget, timestamp + IntelProvider.CanonicalTimeDiff, true);
+                        }
                     }
                 }
+
+                if (!validated)
+                    TargetIntel.FromDetectedInfo(target, timestamp + IntelProvider.CanonicalTimeDiff, false);
+
+                IntelProvider.ReportFleetIntelligence(TargetIntel, timestamp);
             }
 
             if (fireCounter > 0) fireCounter--;
             if (fireCounter == 0) HoldFire();
+
+            if (engageCounter > 0) engageCounter--;
         }
         #endregion
         MyGridProgram Program;
@@ -96,6 +109,8 @@ namespace IngameScript
         public EnemyShipIntel TargetIntel;
 
         int fireCounter;
+
+        int engageCounter;
 
         public HornetCombatSubsystem(IIntelProvider provider)
         {
@@ -161,7 +176,20 @@ namespace IngameScript
             fireCounter = -1;
         }
 
+        public void MarkEngaged()
+        {
+            engageCounter = 6;
+        }
+        #endregion
         public const int kEngageRange = 500;
+
+        #region IOwnIntelMutator
+        public void ProcessIntel(FriendlyShipIntel intel)
+        {
+            if (engageCounter > 0)
+                intel.Radius = (float)Program.Me.CubeGrid.WorldAABB.Size.Length() * 10;
+        }
+
         #endregion
     }
 }

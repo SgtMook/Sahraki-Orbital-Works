@@ -29,7 +29,7 @@ namespace IngameScript
 
         long HomeID { get; set; }
     }
-    public class DockingSubsystem : ISubsystem, IDockingSubsystem
+    public class DockingSubsystem : ISubsystem, IDockingSubsystem, IOwnIntelMutator
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update100;
@@ -62,7 +62,7 @@ namespace IngameScript
         {
             Program = program;
             GetParts();
-            IntelProvider.SetDockingSubsystem(this);
+            IntelProvider.AddIntelMutator(this);
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -122,6 +122,7 @@ namespace IngameScript
             if (block is IMyShipConnector) return true;
             if (block is IMyRadioAntenna) ((IMyRadioAntenna)block).Enabled = false;
             if (block is IMyGyro) ((IMyGyro)block).Enabled = false;
+            if (block is IMyCameraBlock) ((IMyCameraBlock)block).Enabled = false;
 
             return false;
         }
@@ -135,6 +136,7 @@ namespace IngameScript
             if (block is IMyShipConnector) return true;
             if (block is IMyRadioAntenna) ((IMyRadioAntenna)block).Enabled = true;
             if (block is IMyGyro) ((IMyGyro)block).Enabled = true;
+            if (block is IMyCameraBlock) ((IMyCameraBlock)block).Enabled = true;
             return false;
         }
 
@@ -154,5 +156,12 @@ namespace IngameScript
 
             return false;
         }
+
+        #region IOwnIntelMutator
+        public void ProcessIntel(FriendlyShipIntel myIntel)
+        {
+            myIntel.HomeID = HomeID;
+        }
+        #endregion
     }
 }

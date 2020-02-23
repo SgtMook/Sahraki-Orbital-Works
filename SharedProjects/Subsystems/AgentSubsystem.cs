@@ -48,7 +48,7 @@ namespace IngameScript
         void AddTask(TaskType taskType, MyTuple<IntelItemType, long> intelKey, CommandType commandType, int arguments, TimeSpan canonicalTime);
     }
 
-    public class AgentSubsystem : ISubsystem, IAgentSubsystem
+    public class AgentSubsystem : ISubsystem, IAgentSubsystem, IOwnIntelMutator
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10;
@@ -107,7 +107,17 @@ namespace IngameScript
 
         #endregion
 
-        public IDockingSubsystem DockingSubsystem { get; set; }
+        #region IOwnIntelMutator
+        public void ProcessIntel(FriendlyShipIntel myIntel)
+        {
+            if (AvailableTasks != TaskType.None)
+            {
+                myIntel.CommandChannelTag = CommandChannelTag;
+                myIntel.AcceptedTaskTypes = AvailableTasks;
+                myIntel.AgentClass = AgentClass;
+            }
+        }
+        #endregion
 
         MyGridProgram Program;
         IMyBroadcastListener CommandListener;
@@ -123,7 +133,7 @@ namespace IngameScript
         public AgentSubsystem(IIntelProvider intelProvider, AgentClass agentClass)
         {
             IntelProvider = intelProvider;
-            IntelProvider.SetAgentSubsystem(this);
+            IntelProvider.AddIntelMutator(this);
             AgentClass = agentClass;
         }
 

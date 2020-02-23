@@ -22,6 +22,11 @@ using System.Collections.Immutable;
 
 namespace IngameScript
 {
+    public interface IOwnIntelMutator
+    {
+        void ProcessIntel(FriendlyShipIntel intel);
+    }
+
     /// <summary>
     /// This subsystem is capable of producing a dictionary of intel items
     /// </summary>
@@ -35,8 +40,7 @@ namespace IngameScript
 
         TimeSpan CanonicalTimeDiff { get; }
 
-        void SetAgentSubsystem(IAgentSubsystem agentSubsystem);
-        void SetDockingSubsystem(IDockingSubsystem dockingSubsystem);
+        void AddIntelMutator(IOwnIntelMutator processor);
         void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan LocalTime);
     }
 
@@ -116,25 +120,21 @@ namespace IngameScript
         public void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp)
         {
             MyTuple<IntelItemType, long> key = MyTuple.Create(item.IntelItemType, item.ID);
-            IntelItems[key] = item;
+            if (!IntelItems.ContainsKey(key) || IntelItems[key] != item) IntelItems[key] = item;
             Timestamps[key] = timestamp;
         }
 
         public TimeSpan CanonicalTimeDiff => TimeSpan.Zero;
 
-        public void SetAgentSubsystem(IAgentSubsystem agentSubsystem)
-        {
-            AgentSubsystem = agentSubsystem;
-        }
-        public void SetDockingSubsystem(IDockingSubsystem dockingSubsystem)
-        {
-            DockingSubsystem = dockingSubsystem;
-        }
-
         public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {
             SendSyncMessage(timestamp);
             Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)targetKey.Item1, targetKey.Item2), (int)CommandType.Override, 0));
+        }
+
+        public void AddIntelMutator(IOwnIntelMutator processor)
+        {
+            intelProcessors.Add(processor);
         }
         #endregion
 
@@ -147,11 +147,10 @@ namespace IngameScript
 
         IMyShipController controller;
 
-        IAgentSubsystem AgentSubsystem;
-        IDockingSubsystem DockingSubsystem;
-
         List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
         TimeSpan kIntelTimeout = TimeSpan.FromSeconds(4);
+
+        List<IOwnIntelMutator> intelProcessors = new List<IOwnIntelMutator>();
 
         void GetParts()
         {
@@ -186,17 +185,10 @@ namespace IngameScript
             myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length();
             myIntel.CurrentCanonicalTime = timestamp;
             myIntel.ID = cubeGrid.EntityId;
-
-            if (AgentSubsystem != null && AgentSubsystem.AvailableTasks != TaskType.None)
-            {
-                myIntel.CommandChannelTag = AgentSubsystem.CommandChannelTag;
-                myIntel.AcceptedTaskTypes = AgentSubsystem.AvailableTasks;
-                myIntel.AgentClass = AgentSubsystem.AgentClass;
-            }
-
             myIntel.HomeID = -1;
-            if (DockingSubsystem != null)
-                myIntel.HomeID = DockingSubsystem.HomeID;
+
+            foreach (var processor in intelProcessors)
+                processor.ProcessIntel(myIntel);
 
             ReportFleetIntelligence(myIntel, timestamp);
         }
@@ -310,25 +302,20 @@ namespace IngameScript
         {
             if (CanonicalTimeSourceID == 0) return;
             FleetIntelligenceUtil.PackAndBroadcastFleetIntelligence(Program.IGC, item, CanonicalTimeSourceID);
-            Timestamps[FleetIntelligenceUtil.GetIntelItemKey(item)] = timestamp;
-            IntelItems[FleetIntelligenceUtil.GetIntelItemKey(item)] = item;
+            MyTuple<IntelItemType, long> intelKey = FleetIntelligenceUtil.GetIntelItemKey(item);
+            Timestamps[intelKey] = timestamp;
+            if (!IntelItems.ContainsKey(intelKey) || IntelItems[intelKey] != item) IntelItems[intelKey] = item;
         }
 
         public TimeSpan CanonicalTimeDiff { get; set; } // Add this to timestamp to get canonical time
 
-        public void SetAgentSubsystem(IAgentSubsystem agentSubsystem)
-        {
-            AgentSubsystem = agentSubsystem;
-        }
-
-        public void SetDockingSubsystem(IDockingSubsystem dockingSubsystem)
-        {
-            DockingSubsystem = dockingSubsystem;
-        }
-
         public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {
             //TODO: Probably gets the master to send it?
+        }
+        public void AddIntelMutator(IOwnIntelMutator processor)
+        {
+            intelProcessors.Add(processor);
         }
         #endregion
 
@@ -349,8 +336,7 @@ namespace IngameScript
 
         IMyShipController controller;
 
-        IAgentSubsystem AgentSubsystem;
-        IDockingSubsystem DockingSubsystem;
+        List<IOwnIntelMutator> intelProcessors = new List<IOwnIntelMutator>();
 
         void GetParts()
         {
@@ -386,16 +372,8 @@ namespace IngameScript
             myIntel.CurrentCanonicalTime = timestamp + CanonicalTimeDiff;
             myIntel.ID = cubeGrid.EntityId;
 
-            if (AgentSubsystem != null && AgentSubsystem.AvailableTasks != TaskType.None)
-            {
-                myIntel.CommandChannelTag = AgentSubsystem.CommandChannelTag;
-                myIntel.AcceptedTaskTypes = AgentSubsystem.AvailableTasks;
-                myIntel.AgentClass = AgentSubsystem.AgentClass;
-            }
-
-            myIntel.HomeID = -1;
-            if (DockingSubsystem != null)
-                myIntel.HomeID = DockingSubsystem.HomeID;
+            foreach (var processor in intelProcessors)
+                processor.ProcessIntel(myIntel);
 
             ReportFleetIntelligence(myIntel, timestamp);
         }

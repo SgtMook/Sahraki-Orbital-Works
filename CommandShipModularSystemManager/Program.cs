@@ -43,6 +43,9 @@ namespace IngameScript
 
             subsystemManager.AddSubsystem("hangar", new HangarSubsystem(intelSubsystem));
 
+            subsystemManager.AddSubsystem("scanner", new ScannerSubsystem(intelSubsystem, "SCN"));
+            subsystemManager.AddSubsystem("scanner2", new ScannerSubsystem(intelSubsystem, "SCN2"));
+
             subsystemManager.DeserializeManager(Storage);
         }
 

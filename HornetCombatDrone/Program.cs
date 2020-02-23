@@ -51,6 +51,8 @@ namespace IngameScript
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));
             subsystemManager.AddSubsystem("agent", agentSubsystem);
 
+            //subsystemManager.AddSubsystem("scanner", new ScannerSubsystem(intelSubsystem)); // Shares cameras with combat subsystem but :shrug:
+
             subsystemManager.DeserializeManager(Storage);
         }
 
