@@ -20,20 +20,24 @@ using VRageMath;
 namespace IngameScript
 {
     // Canonical hangar request format is (long requesterID, long hangarID, int hangarRequest)
+    // Sample Config:
+    // [Hangar]
+    // Mutex = 1,2,3,4,5
     public enum HangarRequest
     {
-        Claim,
+        RequestDock,
         Unclaim,
         Reserve,
         Open,
     }
 
-    class Hangar
+    public class Hangar
     {
         private List<IMyAirtightHangarDoor> gates = new List<IMyAirtightHangarDoor>();
         private List<IMyInteriorLight> lights = new List<IMyInteriorLight>();
         private IMyTextPanel display;
         StringBuilder statusBuilder = new StringBuilder();
+        StringBuilder debugBuilder = new StringBuilder();
 
         public IMyShipConnector Connector;
         public IMyInteriorLight DirectionIndicator;
@@ -44,17 +48,26 @@ namespace IngameScript
 
         public int Index = 0;
 
+        public HangarSubsystem Host;
+
         TimeSpan lastClaimTime;
         TimeSpan kClaimTimeout = TimeSpan.FromSeconds(1);
 
-        public Hangar(int index)
+        List<int> MutexHangars = new List<int>();
+
+        public Hangar(int index, HangarSubsystem host)
         {
             Index = index;
+            Host = host;
         }
 
         public void AddPart(IMyTerminalBlock part)
         {
-            if (part is IMyShipConnector) Connector = (IMyShipConnector)part;
+            if (part is IMyShipConnector)
+            {
+                Connector = (IMyShipConnector)part;
+                ParseConfigs();
+            }
             if (part is IMyAirtightHangarDoor) gates.Add((IMyAirtightHangarDoor)part);
             if (part is IMyTextPanel) display = (IMyTextPanel)part;
             if (part is IMyInteriorLight)
@@ -77,6 +90,24 @@ namespace IngameScript
             }
         }
 
+        private void ParseConfigs()
+        {
+            MutexHangars.Clear();
+
+            MyIniParseResult result;
+            if (!Host.IniParser.TryParse(Connector.CustomData, out result))
+                return;
+            string mutexes = Host.IniParser.Get("Hangar", "Mutex").ToString();
+            if (mutexes == string.Empty) return;
+
+            var split = mutexes.Split(',');
+            foreach (var i in split)
+            {
+                int index;
+                if (int.TryParse(i, out index)) MutexHangars.Add(index);
+            }
+        }
+
         public void Clear()
         {
             Connector = null;
@@ -95,10 +126,11 @@ namespace IngameScript
 
         public void TakeRequest(long requesterID, HangarRequest request, TimeSpan timestamp)
         {
-            if (request == HangarRequest.Claim)
+            if (request == HangarRequest.RequestDock)
             {
                 if (OwnerID != -1 && OwnerID != requesterID) return;
                 Claim(requesterID, timestamp);
+                MakeReady();
             }
             else if (request == HangarRequest.Reserve)
             {
@@ -111,6 +143,24 @@ namespace IngameScript
                 if (OwnerID != requesterID) return;
                 Unclaim();
             }
+        }
+
+        private bool CanDock()
+        {
+            bool ready = true;
+            foreach (var index in MutexHangars)
+            {
+                if (Host.Hangars[index] == null) continue;
+                if ((Host.Hangars[index].hangarStatus & HangarStatus.Docking) == 0) continue;
+                // Check gates here or something
+                ready = false;
+            }
+            return ready;
+        }
+
+        private void MakeReady()
+        {
+            if (CanDock()) hangarStatus |= HangarStatus.Docking;
         }
 
         private void Claim(long requesterID, TimeSpan timestamp)
@@ -128,25 +178,80 @@ namespace IngameScript
         public void Update(TimeSpan timestamp, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems)
         {
             if (Connector == null) return;
+            UpdateHangarStatus(timestamp, intelItems);
+        }
+
+        private void UpdateHangarStatus(TimeSpan timestamp, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems)
+        {
+            bool ClaimElapsed = lastClaimTime + kClaimTimeout < timestamp;
             if ((hangarStatus & HangarStatus.Reserved) == 0)
             {
-                if (lastClaimTime + kClaimTimeout < timestamp && Connector.Status != MyShipConnectorStatus.Connected)
-                    OwnerID = -1;
+                if (ClaimElapsed)
+                {
+                    if (Connector.Status != MyShipConnectorStatus.Connected)
+                        OwnerID = -1;
+                }
             }
             else
             {
-                if (OwnerID == -1) Unclaim();
+                if (OwnerID == -1)
+                {
+                    debugBuilder.AppendLine("Unclaimed due to no owner ID");
+                    Unclaim();
+                }
                 else if (lastClaimTime + kClaimTimeout < timestamp)
                 {
                     var intelKey = MyTuple.Create(IntelItemType.Friendly, OwnerID);
                     if (!intelItems.ContainsKey(intelKey))
                     {
+                        debugBuilder.AppendLine("Unclaimed due to owner ID not found in intel");
+                        debugBuilder.AppendLine($"{OwnerID}");
                         Unclaim();
                         return;
                     }
-                    if (((FriendlyShipIntel)intelItems[intelKey]).HomeID != Connector.EntityId) Unclaim();
+                    if (((FriendlyShipIntel)intelItems[intelKey]).HomeID != Connector.EntityId)
+                    {
+                        debugBuilder.AppendLine("Unclaimed due to abandoned by owner");
+                        debugBuilder.AppendLine($"{((FriendlyShipIntel)intelItems[intelKey]).HomeID} {Connector.EntityId}");
+                        Unclaim();
+                    }
                 }
             }
+            if (ClaimElapsed)
+            {
+                hangarStatus &= ~HangarStatus.Docking;
+            }
+
+            if (CanDock())
+            {
+                if ((hangarStatus & HangarStatus.Docking) == 0) SetLights(Color.Green);
+                else SetLights(Color.Yellow);
+            }
+            else
+            {
+                SetLights(Color.Red);
+            }
+        }
+
+        private void SetLights(Color color)
+        {
+            foreach (var light in lights)
+            {
+                light.Color = color;
+            }
+        }
+
+        public void UpdateDisplays()
+        {
+            if (display == null) return;
+            statusBuilder.Clear();
+            statusBuilder.AppendLine("Exclusive with:");
+            foreach (int i in MutexHangars)
+                statusBuilder.Append(i).Append(' ');
+
+            statusBuilder.AppendLine(((int)hangarStatus).ToString());
+
+            display.WriteText(debugBuilder.ToString());
         }
 
         public string Serialize()
@@ -164,7 +269,7 @@ namespace IngameScript
     public class HangarSubsystem : ISubsystem
     {
         #region ISubsystem
-        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10;
+        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10 | UpdateFrequency.Update100;
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
@@ -213,8 +318,15 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            ReportAndUpdateHangars(timestamp);
-            ProcessHangarRequests(timestamp);
+            if ((updateFlags & UpdateFrequency.Update10) != 0)
+            {
+                ReportAndUpdateHangars(timestamp);
+                ProcessHangarRequests(timestamp);
+            }
+            else if ((updateFlags & UpdateFrequency.Update100) != 0)
+            {
+                UpdateHangardisplays();
+            }
         }
         #endregion
 
@@ -231,8 +343,10 @@ namespace IngameScript
 
         IMyShipController controller;
 
-        Hangar[] Hangars = new Hangar[64];
         Dictionary<long, Hangar> HangarsDict = new Dictionary<long, Hangar>(64);
+
+        public Hangar[] Hangars = new Hangar[64];
+        public MyIni IniParser = new MyIni();
 
         // Hangars should be named $"[{tag}{#}] name"
         // For example "[H15] Connector"
@@ -274,7 +388,7 @@ namespace IngameScript
             var numString = block.CustomName.Substring(TagPrefix.Length, indexTagEnd - TagPrefix.Length);
             int hangarIndex;
             if (!int.TryParse(numString, out hangarIndex)) return false;
-            if (Hangars[hangarIndex] == null) Hangars[hangarIndex] = new Hangar(hangarIndex);
+            if (Hangars[hangarIndex] == null) Hangars[hangarIndex] = new Hangar(hangarIndex, this);
             Hangars[hangarIndex].AddPart(block);
 
             return false;
@@ -322,6 +436,17 @@ namespace IngameScript
                 var unpacked = (MyTuple<long, long, int>)msg.Data;
                 if (!HangarsDict.ContainsKey(unpacked.Item2)) return;
                 HangarsDict[unpacked.Item2].TakeRequest(unpacked.Item1, (HangarRequest)unpacked.Item3, timestamp);
+            }
+        }
+
+        private void UpdateHangardisplays()
+        {
+            for (int i = 0; i < Hangars.Count(); i++)
+            {
+                if (Hangars[i] != null && Hangars[i].OK())
+                {
+                    Hangars[i].UpdateDisplays();
+                }
             }
         }
     }

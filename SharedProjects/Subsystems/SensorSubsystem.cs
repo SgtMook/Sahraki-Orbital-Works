@@ -483,8 +483,8 @@ namespace IngameScript
 
             var indicatorText = "><";
 
-            if (intel.IntelItemType == IntelItemType.Enemy && intel.ID == TargetTracking_TrackID)
-                indicatorText = "[><]";
+            //if (intel.IntelItemType == IntelItemType.Enemy && intel.ID == TargetTracking_TrackID)
+            //    indicatorText = "[><]";
 
             var indicator = MySprite.CreateText(indicatorText, "Monospace", new Color(scale, scale, scale, 0.5f), scale, TextAlignment.CENTER);
             var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
@@ -547,7 +547,6 @@ namespace IngameScript
                 foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
                 {
                     if (intel.IntelItemType == IntelItemType.Friendly && (CurrentUIMode == UIMode.Scan || AgentSelection_FriendlyAgents.Count == 0 || AgentSelection_FriendlyAgents.Count <= AgentSelection_CurrentIndex || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
-                    if (intel.IntelItemType == IntelItemType.Enemy && intel.ID != TargetTracking_TrackID && (TargetTracking_TargetList.Count <= TargetTracking_SelectionIndex || intel != TargetTracking_TargetList[TargetTracking_SelectionIndex])) continue;
                     FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
                 }
 

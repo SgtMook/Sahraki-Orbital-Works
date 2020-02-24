@@ -34,7 +34,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return string.Empty;
+            return debugBuilder.ToString();
         }
 
         public string SerializeSubsystem()
@@ -61,6 +61,8 @@ namespace IngameScript
         IIntelProvider IntelProvider;
         string tagPrefix = string.Empty;
 
+        StringBuilder debugBuilder = new StringBuilder();
+
         public ScannerSubsystem(IIntelProvider intelProvider, string tag = "")
         {
             IntelProvider = intelProvider;
@@ -82,14 +84,16 @@ namespace IngameScript
 
                 Vector3D targetPosition = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
                 var toTarget = targetPosition - Program.Me.WorldMatrix.Translation;
-                if (BaseRotor != null && toTarget.Dot(BaseRotor.WorldMatrix.Up) < 0) continue;
+                var dist = toTarget.Length();
+                toTarget.Normalize();
+                if (BaseRotor != null && VectorHelpers.VectorAngleBetween(toTarget, BaseRotor.WorldMatrix.Up) > 0.55 * Math.PI) continue;
 
                 foreach (var camera in Scanners)
                 {
-                    if (!camera.CanScan(toTarget.Length())) continue;
+                    if (!camera.CanScan(dist)) continue;
                     if (!camera.CanScan(targetPosition)) continue;
                     var info = camera.Raycast(targetPosition);
-                    if (info.EntityId != kvp.Value.ID) continue;
+                    if (info.EntityId != kvp.Value.ID) break;
                     enemy.FromDetectedInfo(info, canonicalTime, true);
                     IntelProvider.ReportFleetIntelligence(enemy, localTime);
                     break;

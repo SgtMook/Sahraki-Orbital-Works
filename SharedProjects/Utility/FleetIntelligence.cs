@@ -605,7 +605,8 @@ namespace IngameScript
         None = 0,
         Available = 1 << 0,
         Reserved = 1 << 1,
-        Ready = 1 << 2,
+        ReadyToDock = 1 << 2,
+        Docking = 1 << 3,
     }
 
     [Flags]
@@ -813,7 +814,7 @@ namespace IngameScript
         static public bool PrioritizeTarget(EnemyShipIntel target)
         {
             if (target.CubeSize == MyCubeSize.Small && target.Radius < 4) return false;
-            if (target.CubeSize == MyCubeSize.Large && target.Radius < 16) return false;
+            if (target.CubeSize == MyCubeSize.Large && target.Radius < 18) return false;
             return true;
         }
         #endregion

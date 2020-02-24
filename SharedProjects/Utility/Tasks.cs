@@ -616,10 +616,10 @@ namespace IngameScript
                 FinalAdjustToDock.Destination.DirectionUp = tDir;
             }
 
-            if (TaskQueue.Peek() != (ITask)EnterHoldingPattern)
+            if (TaskQueue.Count < 6)
             {
-                Program.IGC.SendBroadcastMessage(dock.HangarChannelTag, MyTuple.Create(Program.Me.CubeGrid.EntityId, dock.ID, (int)HangarRequest.Claim));
-                if (dock.OwnerID == Program.Me.CubeGrid.EntityId)
+                Program.IGC.SendBroadcastMessage(dock.HangarChannelTag, MyTuple.Create(Program.Me.CubeGrid.EntityId, dock.ID, (int)HangarRequest.RequestDock));
+                if (dock.OwnerID == Program.Me.CubeGrid.EntityId && (dock.Status & HangarStatus.Docking) != 0)
                     WaitForClearance.Status = TaskStatus.Complete;
             }
 

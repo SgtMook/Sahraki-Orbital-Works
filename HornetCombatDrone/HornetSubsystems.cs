@@ -67,9 +67,8 @@ namespace IngameScript
                 var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
                 var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
                 TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-                bool validated = false;
 
-                if (TargetIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(1) < canonicalTime)
+                if (TargetIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) < canonicalTime)
                 {
                     foreach (var camera in Scanners)
                     {
@@ -77,16 +76,12 @@ namespace IngameScript
                         {
                             var validatedTarget = camera.Raycast(target.Position);
                             if (validatedTarget.EntityId != target.EntityId) break;
-                            validated = true;
                             TargetIntel.FromDetectedInfo(validatedTarget, timestamp + IntelProvider.CanonicalTimeDiff, true);
+                            IntelProvider.ReportFleetIntelligence(TargetIntel, timestamp);
+                            break;
                         }
                     }
                 }
-
-                if (!validated)
-                    TargetIntel.FromDetectedInfo(target, timestamp + IntelProvider.CanonicalTimeDiff, false);
-
-                IntelProvider.ReportFleetIntelligence(TargetIntel, timestamp);
             }
 
             if (fireCounter > 0) fireCounter--;
