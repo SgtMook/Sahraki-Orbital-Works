@@ -29,6 +29,7 @@ namespace IngameScript
         Dock = 4,
         SetHome = 8,
         Attack = 16,
+        Mine = 32
     }
 
     public enum TaskStatus
@@ -90,6 +91,23 @@ namespace IngameScript
 
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
+            return GenerateMoveToAndDockTask(intelKey, IntelItems);
+        }
+        #endregion
+
+        readonly IAutopilot Autopilot;
+        readonly MyGridProgram Program;
+        readonly IDockingSubsystem DockingSubsystem;
+
+        public DockTaskGenerator(MyGridProgram program, IAutopilot autopilot, IDockingSubsystem ds)
+        {
+            Program = program;
+            Autopilot = autopilot;
+            DockingSubsystem = ds;
+        }
+
+        public ITask GenerateMoveToAndDockTask(MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, float approachMaxSpeed = 100)
+        {
             if (intelKey.Item1 == IntelItemType.NONE && intelKey.Item1 == 0)
             {
                 intelKey = MyTuple.Create(IntelItemType.Dock, DockingSubsystem.HomeID);
@@ -107,24 +125,13 @@ namespace IngameScript
             var Dock = (DockIntel)IntelItems[intelKey];
 
             var holdTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.Avoid, DockingSubsystem.Connector);
+            holdTask.Destination.MaxSpeed = approachMaxSpeed;
             var approachTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter, DockingSubsystem.Connector);
             var enterTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
             var closeTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
             var dockTask = new DockTask(DockingSubsystem);
 
             return new MoveToAndDockTask(holdTask, approachTask, enterTask, closeTask, dockTask, intelKey, Program, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
-        }
-        #endregion
-
-        readonly IAutopilot Autopilot;
-        readonly MyGridProgram Program;
-        readonly IDockingSubsystem DockingSubsystem;
-
-        public DockTaskGenerator(MyGridProgram program, IAutopilot autopilot, IDockingSubsystem ds)
-        {
-            Program = program;
-            Autopilot = autopilot;
-            DockingSubsystem = ds;
         }
     }
 

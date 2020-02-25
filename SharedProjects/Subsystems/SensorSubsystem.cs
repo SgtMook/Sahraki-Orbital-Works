@@ -299,7 +299,7 @@ namespace IngameScript
             {
                 CurrentUIMode = UIMode.SelectAgent;
             }
-            else if(CurrentUIMode == UIMode.SelectWaypoint)
+            else if(CurrentUIMode == UIMode.SelectWaypoint || CurrentUIMode == UIMode.Designate)
             {
                 CurrentUIMode = UIMode.SelectTarget;
             }
@@ -326,6 +326,11 @@ namespace IngameScript
                         SendCommand(MyTuple.Create(IntelItemType.NONE, (long)0), timestamp);
                         CurrentUIMode = UIMode.SelectAgent;
                     }
+                    if (SpecialCommand == "DESIGNATE")
+                    {
+                        CurrentUIMode = UIMode.Designate;
+
+                    }
                 }
                 else if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count() + TargetSelection_Targets.Count())
                 {
@@ -337,7 +342,6 @@ namespace IngameScript
             {
                 Waypoint w = GetWaypoint();
                 w.MaxSpeed = 100;
-                w.Direction = new Vector3(0, -2, 3);
                 ReportIntel(w, timestamp);
                 SendCommand(w, timestamp);
             }
@@ -345,6 +349,18 @@ namespace IngameScript
             {
                 TargetTracking_TrackID = -1;
                 DoScan(timestamp);
+            }
+            else if (CurrentUIMode == UIMode.Designate)
+            {
+                DoScan(timestamp);
+                if (!lastDetectedInfo.IsEmpty() && lastDetectedInfo.Type == MyDetectedEntityType.Asteroid)
+                {
+                    var w = new Waypoint();
+                    w.Position = (Vector3D)lastDetectedInfo.HitPosition;
+                    ReportIntel(w, timestamp);
+                    SendCommand(w, timestamp);
+                }
+                CurrentUIMode = UIMode.SelectAgent;
             }
         }
         #endregion
@@ -462,6 +478,7 @@ namespace IngameScript
             SelectTarget,
             Scan,
             SelectWaypoint,
+            Designate,
         }
 
         void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan timestamp, ref List<MySprite> scratchpad)
@@ -777,7 +794,8 @@ namespace IngameScript
             { TaskType.SmartMove, "SMV" },
             { TaskType.Attack, "ATK" },
             { TaskType.Dock, "DOK" },
-            { TaskType.SetHome, "HOM" }
+            { TaskType.SetHome, "HOM" },
+            { TaskType.Mine, "MNE" }
         };
 
         Dictionary<TaskType, IntelItemType> TaskTypeToTargetTypes = new Dictionary<TaskType, IntelItemType>
@@ -787,7 +805,8 @@ namespace IngameScript
             { TaskType.SmartMove, IntelItemType.Waypoint },
             { TaskType.Attack, IntelItemType.Enemy | IntelItemType.Waypoint },
             { TaskType.Dock, IntelItemType.Dock },
-            { TaskType.SetHome, IntelItemType.Dock }
+            { TaskType.SetHome, IntelItemType.Dock },
+            { TaskType.Mine, IntelItemType.Waypoint }
         };
 
         Dictionary<TaskType, string[]> TaskTypeToSpecialTargets = new Dictionary<TaskType, string[]>
@@ -797,7 +816,8 @@ namespace IngameScript
             { TaskType.SmartMove, new string[1] { "CURSOR" }},
             { TaskType.Attack, new string[2] { "CURSOR", "NEAREST" }},
             { TaskType.Dock, new string[2] { "NEAREST", "HOME" }},
-            { TaskType.SetHome, new string[0]}
+            { TaskType.SetHome, new string[0]},
+            { TaskType.Mine, new string[1] { "DESIGNATE" }}
         };
 
         List<TaskType> TargetSelection_TaskTypes = new List<TaskType>();
