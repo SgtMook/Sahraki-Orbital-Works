@@ -27,71 +27,6 @@ namespace IngameScript
         public UpdateFrequency UpdateFrequency { get; set; }
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            throw new NotImplementedException();
-        }
-
-        public void DeserializeSubsystem(string serialized)
-        {
-            throw new NotImplementedException();
-        }
-
-        public string GetStatus()
-        {
-            throw new NotImplementedException();
-        }
-
-        public string SerializeSubsystem()
-        {
-            throw new NotImplementedException();
-        }
-
-        public void Setup(MyGridProgram program, string name)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
-        {
-            throw new NotImplementedException();
-        }
-        #endregion
-
-        public List<LookingGlassSubsystem> lookingGlasses = new List<LookingGlassSubsystem>();
-    }
-
-
-    public class LookingGlassSubsystem : ISubsystem, IControlIntercepter
-    {
-        #region IControlIntercepter
-        public bool InterceptControls
-        {
-            get
-            {
-                return interceptControls;
-            }
-            set
-            {
-                interceptControls = value;
-                controller.ControlThrusters = !interceptControls;
-                TerminalPropertiesHelper.SetValue(controller, "ControlGyros", !interceptControls);
-            }
-        }
-
-        public IMyShipController Controller
-        {
-            get
-            {
-                return controller;
-            }
-        }
-        #endregion
-
-        #region ISubsystem
-        public UpdateFrequency UpdateFrequency { get; set; }
-
-        public void Command(TimeSpan timestamp, string command, object argument)
-        {
-            if (command == "togglecontrol") InterceptControls = !InterceptControls;
             if (command == "activateplugin") ActivatePlugin((string)argument);
         }
 
@@ -101,9 +36,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            //updateBuilder.Clear();
-
-            return updateBuilder.ToString();
+            return string.Empty;
         }
 
         public string SerializeSubsystem()
@@ -115,8 +48,7 @@ namespace IngameScript
         {
             Program = program;
             GetParts();
-
-            LeftHUD.Alignment = TextAlignment.RIGHT;
+            UpdateFrequency = UpdateFrequency.Update10;
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -127,60 +59,51 @@ namespace IngameScript
             }
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
-                foreach (var kvp in Plugins)
-                {
-                    if (kvp.Value == ActivePlugin) kvp.Value.UpdateHUD(timestamp);
-                    kvp.Value.UpdateState(timestamp);
-                }
-
-                //UpdateRaytracing();
-                //DrawHUD(timestamp);
-                //DoTrack(timestamp);
+                UpdatePlugins(timestamp);
+                UpdateActiveLookingGlass();
+                UpdateUpdateFrequency();
             }
 
-            UpdateFrequency = UpdateFrequency.Update10;
-            if (InterceptControls) UpdateFrequency |= UpdateFrequency.Update1;
         }
 
         #endregion
 
-        IMyShipController controller;
+        public LookingGlassNetworkSubsystem(IIntelProvider intelProvider)
+        {
+            IntelProvider = intelProvider;
+        }
+
+        public IIntelProvider IntelProvider;
 
         MyGridProgram Program;
-
-        public IMyTextPanel LeftHUD;
-        public IMyTextPanel RightHUD;
-        public IMyTextPanel MiddleHUD;
-        public IIntelProvider IntelProvider;
-        public IMyCameraBlock PrimaryCamera;
 
         Dictionary<string, ILookingGlassPlugin> Plugins = new Dictionary<string, ILookingGlassPlugin>();
         ILookingGlassPlugin ActivePlugin = null;
 
-        List<IMyCameraBlock> secondaryCameras = new List<IMyCameraBlock>();
+        public List<LookingGlass> lookingGlasses = new List<LookingGlass>();
+        public LookingGlass ActiveLookingGlass = null;
 
-        StringBuilder updateBuilder = new StringBuilder();
+        public IMyShipController Controller;
 
-        string Tag;
-        bool interceptControls = false;
-
-        public LookingGlassSubsystem(IIntelProvider intelProvider, string tag = "")
+        public void AddLookingGlass(LookingGlass lookingGlass)
         {
-            IntelProvider = intelProvider;
-            UpdateFrequency = UpdateFrequency.Update10;
-            Tag = tag;
+            lookingGlasses.Add(lookingGlass);
+            lookingGlass.Network = this;
         }
 
         void GetParts()
         {
-            PrimaryCamera = null;
-            LeftHUD = null;
-            RightHUD = null;
-            MiddleHUD = null;
-            secondaryCameras.Clear();
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
+        private bool CollectParts(IMyTerminalBlock block)
+        {
+            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (block is IMyShipController)
+                Controller = (IMyShipController)block;
+            return false;
+        }
 
+        #region plugins
         public void AddPlugin(string name, ILookingGlassPlugin plugin)
         {
             Plugins[name] = plugin;
@@ -191,37 +114,7 @@ namespace IngameScript
         {
             if (Plugins.ContainsKey(name)) ActivePlugin = Plugins[name];
         }
-
-
-        private bool CollectParts(IMyTerminalBlock block)
-        {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
-
-            if (block is IMyShipController)
-                controller = (IMyShipController)block;
-
-            if (!block.CustomName.StartsWith(Tag)) return false;
-
-            if (block is IMyTextPanel)
-            {
-                if (block.CustomName.Contains("[SN-SM]"))
-                    MiddleHUD = (IMyTextPanel)block;
-                if (block.CustomName.Contains("[SN-SL]"))
-                    LeftHUD = (IMyTextPanel)block;
-                if (block.CustomName.Contains("[SN-SR]"))
-                    RightHUD = (IMyTextPanel)block;
-            }
-
-            if (block is IMyCameraBlock)
-            {
-                if (block.CustomName.Contains("[SN-C-S]"))
-                    secondaryCameras.Add((IMyCameraBlock)block);
-                else if (block.CustomName.Contains("[SN-C-P]"))
-                    PrimaryCamera = (IMyCameraBlock)block;
-            }
-
-            return false;
-        }
+        #endregion
 
         #region Inputs
         bool lastADown = false;
@@ -233,18 +126,13 @@ namespace IngameScript
 
         private void UpdateInputs(TimeSpan timestamp)
         {
-            if (InterceptControls)
-            {
-                if (!PrimaryCamera.IsActive)
-                    InterceptControls = false;
-                TriggerInputs(timestamp);
-            }
+            TriggerInputs(timestamp);
         }
 
         private void TriggerInputs(TimeSpan timestamp)
         {
-            if (controller == null) return;
-            var inputVecs = controller.MoveIndicator;
+            if (Controller == null) return;
+            var inputVecs = Controller.MoveIndicator;
             if (!lastADown && inputVecs.X < 0) DoA(timestamp);
             lastADown = inputVecs.X < 0;
             if (!lastSDown && inputVecs.Z > 0) DoS(timestamp);
@@ -308,6 +196,153 @@ namespace IngameScript
         }
         #endregion
 
+        #region utils
+        public void AppendPaddedLine(int TotalLength, string text, StringBuilder builder)
+        {
+            int length = text.Length;
+            if (length > TotalLength)
+                builder.AppendLine(text.Substring(0, TotalLength));
+            else if (length < TotalLength)
+                builder.Append(text).Append(' ', TotalLength - length).AppendLine();
+            else
+                builder.AppendLine(text);
+        }
+
+        public int CustomMod(int n, int d)
+        {
+            return (n % d + d) % d;
+        }
+
+        public int DeltaSelection(int current, int total, bool positive, int min = 0)
+        {
+            if (total == 0) return 0;
+            int newCurrent = current + (positive ? 1 : -1);
+            if (newCurrent >= total) newCurrent = 0;
+            if (newCurrent <= -1) newCurrent = total - 1;
+            return newCurrent;
+        }
+
+        #endregion
+
+        #region Intel
+        public void ReportIntel(IFleetIntelligence intel, TimeSpan timestamp)
+        {
+            IntelProvider.ReportFleetIntelligence(intel, timestamp);
+        }
+
+        #endregion
+
+        #region updates
+        private void UpdateUpdateFrequency()
+        {
+            UpdateFrequency = UpdateFrequency.Update10;
+            if (ActiveLookingGlass != null) UpdateFrequency |= UpdateFrequency.Update1;
+        }
+
+        private void UpdatePlugins(TimeSpan timestamp)
+        {
+            foreach (var kvp in Plugins)
+            {
+                if (ActiveLookingGlass != null && kvp.Value == ActivePlugin) kvp.Value.UpdateHUD(timestamp);
+                kvp.Value.UpdateState(timestamp);
+            }
+        }
+
+        private void UpdateActiveLookingGlass()
+        {
+            ActiveLookingGlass = null;
+            foreach (var lg in lookingGlasses)
+            {
+                if (lg.PrimaryCamera.IsActive)
+                {
+                    ActiveLookingGlass = lg;
+                    lg.InterceptControls = true;
+                }
+                else
+                {
+                    lg.InterceptControls = false;
+                }
+            }
+
+            Controller.ControlThrusters = ActiveLookingGlass == null;
+            TerminalPropertiesHelper.SetValue(Controller, "ControlGyros", ActiveLookingGlass == null);
+        }
+        #endregion
+    }
+
+
+    public class LookingGlass : IControlIntercepter
+    {
+        #region IControlIntercepter
+        public bool InterceptControls { get; set; }
+
+        public IMyShipController Controller
+        {
+            get
+            {
+                return Network.Controller;
+            }
+        }
+        #endregion
+
+        public IMyTextPanel LeftHUD;
+        public IMyTextPanel RightHUD;
+        public IMyTextPanel MiddleHUD;
+        public IMyCameraBlock PrimaryCamera;
+
+        public LookingGlassNetworkSubsystem Network;
+
+        List<IMyCameraBlock> secondaryCameras = new List<IMyCameraBlock>();
+
+        string Tag;
+        MyGridProgram Program;
+
+        public LookingGlass(MyGridProgram program, string tag = "")
+        {
+            Tag = tag;
+            Program = program;
+            GetParts();
+            LeftHUD.Alignment = TextAlignment.RIGHT;
+        }
+
+        void GetParts()
+        {
+            PrimaryCamera = null;
+            LeftHUD = null;
+            RightHUD = null;
+            MiddleHUD = null;
+            secondaryCameras.Clear();
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+        }
+
+
+        private bool CollectParts(IMyTerminalBlock block)
+        {
+            if (!Program.Me.IsSameConstructAs(block)) return false;
+
+            if (!block.CustomName.StartsWith(Tag)) return false;
+
+            if (block is IMyTextPanel)
+            {
+                if (block.CustomName.Contains("[SN-SM]"))
+                    MiddleHUD = (IMyTextPanel)block;
+                if (block.CustomName.Contains("[SN-SL]"))
+                    LeftHUD = (IMyTextPanel)block;
+                if (block.CustomName.Contains("[SN-SR]"))
+                    RightHUD = (IMyTextPanel)block;
+            }
+
+            if (block is IMyCameraBlock)
+            {
+                if (block.CustomName.Contains("[SN-C-S]"))
+                    secondaryCameras.Add((IMyCameraBlock)block);
+                else if (block.CustomName.Contains("[SN-C-P]"))
+                    PrimaryCamera = (IMyCameraBlock)block;
+            }
+
+            return false;
+        }
+
         #region Raycast
         private const int kScanDistance = 25000;
         int Lidar_CameraIndex = 0;
@@ -339,16 +374,16 @@ namespace IngameScript
                 astr.Radius = radius;
                 astr.ID = lastDetectedInfo.EntityId;
                 astr.Position = lastDetectedInfo.BoundingBox.Center;
-                ReportIntel(astr, timestamp);
+                Network.ReportIntel(astr, timestamp);
             }
             else if ((lastDetectedInfo.Type == MyDetectedEntityType.LargeGrid || lastDetectedInfo.Type == MyDetectedEntityType.SmallGrid)
                 && lastDetectedInfo.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies)
             {
-                var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
+                var intelDict = Network.IntelProvider.GetFleetIntelligences(timestamp);
                 var key = MyTuple.Create(IntelItemType.Enemy, lastDetectedInfo.EntityId);
                 var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-                TargetIntel.FromDetectedInfo(lastDetectedInfo, timestamp + IntelProvider.CanonicalTimeDiff, true);
-                ReportIntel(TargetIntel, timestamp);
+                TargetIntel.FromDetectedInfo(lastDetectedInfo, timestamp + Network.IntelProvider.CanonicalTimeDiff, true);
+                Network.ReportIntel(TargetIntel, timestamp);
             }
 
             return true;
@@ -385,13 +420,49 @@ namespace IngameScript
 
         #region Display
 
+        //private void DrawHUD(TimeSpan timestamp)
+        //{
+        //    UpdateCenterHUD(timestamp);
+        //    UpdateLeftHUD(timestamp);
+        //    UpdateRightHUD(timestamp);
+        //}
+
+        //private void UpdateCenterHUD(TimeSpan timestamp)
+        //{
+        //    if (MiddleHUD == null) return;
+        //    using (var frame = MiddleHUD.DrawFrame())
+        //    {
+        //        MiddleHUD.ScriptBackgroundColor = new Color(1, 0, 0, 0);
+        //
+        //        MySprite crosshairs = GetCrosshair();
+        //        frame.Add(crosshairs);
+        //
+        //        if (CurrentUIMode == UIMode.SelectWaypoint)
+        //        {
+        //            var distIndicator = MySprite.CreateText(CursorDist.ToString(), "Debug", Color.White, 0.5f);
+        //            distIndicator.Position = new Vector2(0, 5) + MiddleHUD.TextureSize / 2f;
+        //            frame.Add(distIndicator);
+        //        }
+        //
+        //        foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
+        //        {
+        //            if (intel.IntelItemType == IntelItemType.Friendly && (CurrentUIMode == UIMode.Scan || AgentSelection_FriendlyAgents.Count == 0 || AgentSelection_FriendlyAgents.Count <= AgentSelection_CurrentIndex || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
+        //            FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
+        //        }
+        //
+        //        foreach (var spr in SpriteScratchpad)
+        //        {
+        //            frame.Add(spr);
+        //        }
+        //        SpriteScratchpad.Clear();
+        //    }
+        //}
+
         public const float kCameraToScreen = 1.06f;
         public const int kScreenSize = 512;
 
         public readonly Vector2 kMonospaceConstant = new Vector2(18.68108f, 28.8f);
         public readonly Vector2 kDebugConstant = new Vector2(18.68108f, 28.8f);
-        public readonly Color kFocusedColor = new Color(0.5f, 0.5f, 1f);
-        public readonly Color kUnfocusedColor = new Color(0.2f, 0.2f, 0.5f, 0.5f);
 
         const float kMinScale = 0.25f;
         const float kMaxScale = 0.5f;
@@ -400,17 +471,6 @@ namespace IngameScript
         const float kMaxDist = 10000;
 
         List<MySprite> SpriteScratchpad = new List<MySprite>();
-
-        //UIMode CurrentUIMode = UIMode.SelectAgent;
-        //enum UIMode
-        //{
-        //    Debug,
-        //    SelectAgent,
-        //    SelectTarget,
-        //    Scan,
-        //    SelectWaypoint,
-        //    Designate,
-        //}
 
         [Flags]
         public enum IntelSpriteOptions
@@ -425,7 +485,7 @@ namespace IngameScript
         }
         public void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
         {
-            var worldDirection = intel.GetPositionFromCanonicalTime(localTime + IntelProvider.CanonicalTimeDiff) - PrimaryCamera.WorldMatrix.Translation;
+            var worldDirection = intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff) - PrimaryCamera.WorldMatrix.Translation;
             var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(PrimaryCamera.WorldMatrix));
             var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y / bodyPosition.Z));
 
@@ -467,50 +527,11 @@ namespace IngameScript
             if ((properties & IntelSpriteOptions.ShowName) != 0)
             {
                 var nameSprite = MySprite.CreateText(intel.DisplayName, "Debug", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
-                v.Y += kMonospaceConstant.Y * scale + 0.2f;
                 nameSprite.Position = v;
                 scratchpad.Add(nameSprite);
                 v.Y += kDebugConstant.Y * 0.4f + 0.1f;
             }
         }
-
-        //private void DrawHUD(TimeSpan timestamp)
-        //{
-        //    UpdateCenterHUD(timestamp);
-        //    UpdateLeftHUD(timestamp);
-        //    UpdateRightHUD(timestamp);
-        //}
-
-        //private void UpdateCenterHUD(TimeSpan timestamp)
-        //{
-        //    if (MiddleHUD == null) return;
-        //    using (var frame = MiddleHUD.DrawFrame())
-        //    {
-        //        MiddleHUD.ScriptBackgroundColor = new Color(1, 0, 0, 0);
-        //
-        //        MySprite crosshairs = GetCrosshair();
-        //        frame.Add(crosshairs);
-        //
-        //        if (CurrentUIMode == UIMode.SelectWaypoint)
-        //        {
-        //            var distIndicator = MySprite.CreateText(CursorDist.ToString(), "Debug", Color.White, 0.5f);
-        //            distIndicator.Position = new Vector2(0, 5) + MiddleHUD.TextureSize / 2f;
-        //            frame.Add(distIndicator);
-        //        }
-        //
-        //        foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
-        //        {
-        //            if (intel.IntelItemType == IntelItemType.Friendly && (CurrentUIMode == UIMode.Scan || AgentSelection_FriendlyAgents.Count == 0 || AgentSelection_FriendlyAgents.Count <= AgentSelection_CurrentIndex || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
-        //            FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
-        //        }
-        //
-        //        foreach (var spr in SpriteScratchpad)
-        //        {
-        //            frame.Add(spr);
-        //        }
-        //        SpriteScratchpad.Clear();
-        //    }
-        //}
 
         public MySprite GetCrosshair()
         {
@@ -652,39 +673,6 @@ namespace IngameScript
         //
         //}
 
-        public void AppendPaddedLine(int TotalLength, string text, StringBuilder builder)
-        {
-            int length = text.Length;
-            if (length > TotalLength)
-                builder.AppendLine(text.Substring(0, TotalLength));
-            else if (length < TotalLength)
-                builder.Append(text).Append(' ', TotalLength - length).AppendLine();
-            else
-                builder.AppendLine(text);
-        }
-
-        public int CustomMod(int n, int d)
-        {
-            return (n % d + d) % d;
-        }
-
-        public int DeltaSelection(int current, int total, bool positive, int min = 0)
-        {
-            if (total == 0) return 0;
-            int newCurrent = current + (positive ? 1 : -1);
-            if (newCurrent >= total) newCurrent = 0;
-            if (newCurrent <= -1) newCurrent = total - 1;
-            return newCurrent;
-        }
-
-        #endregion
-
-        #region Intel
-        public void ReportIntel(IFleetIntelligence intel, TimeSpan timestamp)
-        {
-            IntelProvider.ReportFleetIntelligence(intel, timestamp);
-        }
-
         #endregion
     }
 
@@ -702,13 +690,13 @@ namespace IngameScript
 
         void Setup();
 
-        LookingGlassSubsystem Host { get; set; }
+        LookingGlassNetworkSubsystem Host { get; set; }
     }
 
     public class LookingGlassPlugin_Command : ILookingGlassPlugin
     {
         #region ILookingGlassPlugin
-        public LookingGlassSubsystem Host { get; set; }
+        public LookingGlassNetworkSubsystem Host { get; set; }
         public void DoA(TimeSpan localTime)
         {
             if (CurrentUIMode == UIMode.SelectAgent)
@@ -819,11 +807,11 @@ namespace IngameScript
             }
             else if (CurrentUIMode == UIMode.Designate)
             {
-                Host.DoScan(localTime);
-                if (!Host.lastDetectedInfo.IsEmpty() && Host.lastDetectedInfo.Type == MyDetectedEntityType.Asteroid)
+                Host.ActiveLookingGlass.DoScan(localTime);
+                if (!Host.ActiveLookingGlass.lastDetectedInfo.IsEmpty() && Host.ActiveLookingGlass.lastDetectedInfo.Type == MyDetectedEntityType.Asteroid)
                 {
                     var w = new Waypoint();
-                    w.Position = (Vector3D)Host.lastDetectedInfo.HitPosition;
+                    w.Position = (Vector3D)Host.ActiveLookingGlass.lastDetectedInfo.HitPosition;
                     Host.ReportIntel(w, localTime);
                     SendCommand(w, localTime);
                 }
@@ -839,8 +827,8 @@ namespace IngameScript
         public void UpdateHUD(TimeSpan localTime)
         {
             DrawTargetSelectionUI(localTime);
-            DrawAgentSelectionUI(localTime);
             DrawMiddleHUD(localTime);
+            DrawAgentSelectionUI(localTime);
         }
 
         public void UpdateState(TimeSpan localTime)
@@ -861,12 +849,16 @@ namespace IngameScript
 
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
+        public readonly Color kFocusedColor = new Color(0.5f, 0.5f, 1f);
+        public readonly Color kUnfocusedColor = new Color(0.2f, 0.2f, 0.5f, 0.5f);
+
         #region SelectAgent
         private void DrawAgentSelectionUI(TimeSpan timestamp)
         {
             Builder.Clear();
-            Host.LeftHUD.FontSize = 0.55f;
-            Host.LeftHUD.TextPadding = 9;
+            Host.ActiveLookingGlass.LeftHUD.FontSize = 0.55f;
+            Host.ActiveLookingGlass.LeftHUD.TextPadding = 9;
+            Host.ActiveLookingGlass.LeftHUD.FontColor = CurrentUIMode == UIMode.SelectAgent ? kFocusedColor : kUnfocusedColor;
 
             int kRowLength = 19;
             int kMenuRows = 12;
@@ -915,7 +907,7 @@ namespace IngameScript
             {
                 Host.AppendPaddedLine(kRowLength, "NONE SELECTED", Builder);
             }
-            Host.LeftHUD.WriteText(Builder.ToString());
+            Host.ActiveLookingGlass.LeftHUD.WriteText(Builder.ToString());
         }
 
         AgentClass AgentSelection_CurrentClass = AgentClass.Drone;
@@ -981,8 +973,9 @@ namespace IngameScript
         {
             Builder.Clear();
 
-            Host.RightHUD.FontSize = 0.55f;
-            Host.RightHUD.TextPadding = 9;
+            Host.ActiveLookingGlass.RightHUD.FontSize = 0.55f;
+            Host.ActiveLookingGlass.RightHUD.TextPadding = 9;
+            Host.ActiveLookingGlass.RightHUD.FontColor = CurrentUIMode == UIMode.SelectTarget ? kFocusedColor : kUnfocusedColor;
 
             Builder.AppendLine("=== SELECT TASK ===");
 
@@ -1082,26 +1075,26 @@ namespace IngameScript
                 Host.AppendPaddedLine(kRowLength, "NONE SELECTED", Builder);
             }
 
-            Host.RightHUD.WriteText(Builder.ToString());
+            Host.ActiveLookingGlass.RightHUD.WriteText(Builder.ToString());
         }
         #endregion
 
         #region MiddleHUD
         void DrawMiddleHUD(TimeSpan localTime)
         {
-            if (Host.MiddleHUD == null) return;
-            using (var frame = Host.MiddleHUD.DrawFrame())
+            if (Host.ActiveLookingGlass.MiddleHUD == null) return;
+            using (var frame = Host.ActiveLookingGlass.MiddleHUD.DrawFrame())
             {
                 SpriteScratchpad.Clear();
-                Host.MiddleHUD.ScriptBackgroundColor = new Color(1, 0, 0, 0);
+                Host.ActiveLookingGlass.MiddleHUD.ScriptBackgroundColor = new Color(1, 0, 0, 0);
             
-                MySprite crosshairs = Host.GetCrosshair();
+                MySprite crosshairs = Host.ActiveLookingGlass.GetCrosshair();
                 frame.Add(crosshairs);
             
                 if (CurrentUIMode == UIMode.SelectWaypoint)
                 {
                     var distIndicator = MySprite.CreateText(CursorDist.ToString(), "Debug", Color.White, 0.5f);
-                    distIndicator.Position = new Vector2(0, 5) + Host.MiddleHUD.TextureSize / 2f;
+                    distIndicator.Position = new Vector2(0, 5) + Host.ActiveLookingGlass.MiddleHUD.TextureSize / 2f;
                     frame.Add(distIndicator);
                 }
             
@@ -1110,13 +1103,13 @@ namespace IngameScript
                     if (intel.IntelItemType == IntelItemType.Friendly)
                     {
                         if (AgentSelection_FriendlyAgents.Count > 0 && AgentSelection_FriendlyAgents.Count > AgentSelection_CurrentIndex && intel == AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])
-                            Host.FleetIntelItemToSprites(intel, localTime, Color.AliceBlue, ref SpriteScratchpad, LookingGlassSubsystem.IntelSpriteOptions.ShowName | LookingGlassSubsystem.IntelSpriteOptions.ShowDist | LookingGlassSubsystem.IntelSpriteOptions.EmphasizeWithDashes);
+                            Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Color.AliceBlue, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.ShowName | LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithDashes);
                         else
-                            Host.FleetIntelItemToSprites(intel, localTime, Color.AliceBlue, ref SpriteScratchpad, LookingGlassSubsystem.IntelSpriteOptions.Small);
+                            Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Color.AliceBlue, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.Small);
                     }
                     else if (intel.IntelItemType == IntelItemType.Enemy)
                     {
-                        Host.FleetIntelItemToSprites(intel, localTime, Color.LightPink, ref SpriteScratchpad, LookingGlassSubsystem.IntelSpriteOptions.Small);
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Color.LightPink, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.Small);
                     }
                 }
             
@@ -1150,7 +1143,7 @@ namespace IngameScript
         Waypoint GetWaypoint()
         {
             var w = new Waypoint();
-            w.Position = Vector3D.Transform(Vector3D.Forward * CursorDist, Host.PrimaryCamera.WorldMatrix);
+            w.Position = Vector3D.Transform(Vector3D.Forward * CursorDist, Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix);
         
             return w;
         }

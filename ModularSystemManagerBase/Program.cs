@@ -36,7 +36,7 @@ namespace IngameScript
 
             IntelSlaveSubsystem subsystem = new IntelSlaveSubsystem();
             subsystemManager.AddSubsystem("intel", subsystem);
-            subsystemManager.AddSubsystem("sensor", new LookingGlassSubsystem(subsystem));
+            subsystemManager.AddSubsystem("sensor", new LookingGlass(subsystem));
             subsystemManager.DeserializeManager(Storage);
         }
 

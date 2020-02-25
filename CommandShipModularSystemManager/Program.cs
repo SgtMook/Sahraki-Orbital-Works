@@ -33,16 +33,23 @@ namespace IngameScript
             IntelMasterSubsystem intelSubsystem = new IntelMasterSubsystem();
             subsystemManager.AddSubsystem("intel", intelSubsystem);
 
-            LookingGlassSubsystem lookingGlassSubsystem = new LookingGlassSubsystem(intelSubsystem, "[S1]");
-            LookingGlassPlugin_Command CommandPlugin = new LookingGlassPlugin_Command();
-            lookingGlassSubsystem.AddPlugin("command", CommandPlugin);
-            subsystemManager.AddSubsystem("lookingglass1", lookingGlassSubsystem);
-            subsystemManager.AddSubsystem("sensorswivel1", new SwivelSubsystem("[SN1]", lookingGlassSubsystem));
+            // Looking Glass Setup
+            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
 
-            LookingGlassSubsystem lookingGlassSubsystem2 = new LookingGlassSubsystem(intelSubsystem, "[S2]");
-            lookingGlassSubsystem2.AddPlugin("command", CommandPlugin);
-            subsystemManager.AddSubsystem("lookingglass2", lookingGlassSubsystem2);
-            subsystemManager.AddSubsystem("sensorswivel2", new SwivelSubsystem("[SN2]", lookingGlassSubsystem2));
+            LookingGlassPlugin_Command CommandPlugin = new LookingGlassPlugin_Command();
+            lookingGlassNetwork.AddPlugin("command", new LookingGlassPlugin_Command());
+
+            LookingGlass lookingGlass1 = new LookingGlass(this, "[S1]");
+            LookingGlass lookingGlass2 = new LookingGlass(this, "[S2]");
+
+            lookingGlassNetwork.AddLookingGlass(lookingGlass1);
+            lookingGlassNetwork.AddLookingGlass(lookingGlass2);
+
+            subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+
+
+            subsystemManager.AddSubsystem("sensorswivel1", new SwivelSubsystem("[SN1]", lookingGlass1));
+            subsystemManager.AddSubsystem("sensorswivel2", new SwivelSubsystem("[SN2]", lookingGlass2));
 
             subsystemManager.AddSubsystem("hangar", new HangarSubsystem(intelSubsystem));
 
