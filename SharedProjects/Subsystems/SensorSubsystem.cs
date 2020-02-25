@@ -21,7 +21,46 @@ using VRageMath;
 
 namespace IngameScript
 {
-    public class SensorSubsystem : ISubsystem, IControlIntercepter
+    public class LookingGlassNetworkSubsystem : ISubsystem
+    {
+        #region ISubsystem
+        public UpdateFrequency UpdateFrequency { get; set; }
+        public void Command(TimeSpan timestamp, string command, object argument)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void DeserializeSubsystem(string serialized)
+        {
+            throw new NotImplementedException();
+        }
+
+        public string GetStatus()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string SerializeSubsystem()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Setup(MyGridProgram program, string name)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
+        {
+            throw new NotImplementedException();
+        }
+        #endregion
+
+        public List<LookingGlassSubsystem> lookingGlasses = new List<LookingGlassSubsystem>();
+    }
+
+
+    public class LookingGlassSubsystem : ISubsystem, IControlIntercepter
     {
         #region IControlIntercepter
         public bool InterceptControls
@@ -53,6 +92,7 @@ namespace IngameScript
         public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "togglecontrol") InterceptControls = !InterceptControls;
+            if (command == "activateplugin") ActivatePlugin((string)argument);
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -76,7 +116,7 @@ namespace IngameScript
             Program = program;
             GetParts();
 
-            panelLeft.Alignment = TextAlignment.RIGHT;
+            LeftHUD.Alignment = TextAlignment.RIGHT;
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -87,9 +127,15 @@ namespace IngameScript
             }
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
-                UpdateRaytracing();
-                DrawHUD(timestamp);
-                DoTrack(timestamp);
+                foreach (var kvp in Plugins)
+                {
+                    if (kvp.Value == ActivePlugin) kvp.Value.UpdateHUD(timestamp);
+                    kvp.Value.UpdateState(timestamp);
+                }
+
+                //UpdateRaytracing();
+                //DrawHUD(timestamp);
+                //DoTrack(timestamp);
             }
 
             UpdateFrequency = UpdateFrequency.Update10;
@@ -102,23 +148,23 @@ namespace IngameScript
 
         MyGridProgram Program;
 
-        IMyTextPanel panelLeft;
-        IMyTextPanel panelRight;
-        IMyTextPanel panelMiddle;
+        public IMyTextPanel LeftHUD;
+        public IMyTextPanel RightHUD;
+        public IMyTextPanel MiddleHUD;
+        public IIntelProvider IntelProvider;
+        public IMyCameraBlock PrimaryCamera;
+
+        Dictionary<string, ILookingGlassPlugin> Plugins = new Dictionary<string, ILookingGlassPlugin>();
+        ILookingGlassPlugin ActivePlugin = null;
 
         List<IMyCameraBlock> secondaryCameras = new List<IMyCameraBlock>();
-        IMyCameraBlock primaryCamera;
 
         StringBuilder updateBuilder = new StringBuilder();
-        StringBuilder LeftHUDBuilder = new StringBuilder();
-        StringBuilder RightHUDBuilder = new StringBuilder();
-
-        IIntelProvider IntelProvider;
 
         string Tag;
         bool interceptControls = false;
 
-        public SensorSubsystem(IIntelProvider intelProvider, string tag = "")
+        public LookingGlassSubsystem(IIntelProvider intelProvider, string tag = "")
         {
             IntelProvider = intelProvider;
             UpdateFrequency = UpdateFrequency.Update10;
@@ -127,9 +173,25 @@ namespace IngameScript
 
         void GetParts()
         {
+            PrimaryCamera = null;
+            LeftHUD = null;
+            RightHUD = null;
+            MiddleHUD = null;
             secondaryCameras.Clear();
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
+
+        public void AddPlugin(string name, ILookingGlassPlugin plugin)
+        {
+            Plugins[name] = plugin;
+            plugin.Host = this;
+        }
+
+        void ActivatePlugin(string name)
+        {
+            if (Plugins.ContainsKey(name)) ActivePlugin = Plugins[name];
+        }
+
 
         private bool CollectParts(IMyTerminalBlock block)
         {
@@ -143,11 +205,11 @@ namespace IngameScript
             if (block is IMyTextPanel)
             {
                 if (block.CustomName.Contains("[SN-SM]"))
-                    panelMiddle = (IMyTextPanel)block;
+                    MiddleHUD = (IMyTextPanel)block;
                 if (block.CustomName.Contains("[SN-SL]"))
-                    panelLeft = (IMyTextPanel)block;
+                    LeftHUD = (IMyTextPanel)block;
                 if (block.CustomName.Contains("[SN-SR]"))
-                    panelRight = (IMyTextPanel)block;
+                    RightHUD = (IMyTextPanel)block;
             }
 
             if (block is IMyCameraBlock)
@@ -155,7 +217,7 @@ namespace IngameScript
                 if (block.CustomName.Contains("[SN-C-S]"))
                     secondaryCameras.Add((IMyCameraBlock)block);
                 else if (block.CustomName.Contains("[SN-C-P]"))
-                    primaryCamera = (IMyCameraBlock)block;
+                    PrimaryCamera = (IMyCameraBlock)block;
             }
 
             return false;
@@ -166,8 +228,6 @@ namespace IngameScript
         bool lastSDown = false;
         bool lastDDown = false;
         bool lastWDown = false;
-        bool lastQDown = false;
-        bool lastEDown = false;
         bool lastCDown = false;
         bool lastSpaceDown = false;
 
@@ -175,7 +235,7 @@ namespace IngameScript
         {
             if (InterceptControls)
             {
-                if (!primaryCamera.IsActive)
+                if (!PrimaryCamera.IsActive)
                     InterceptControls = false;
                 TriggerInputs(timestamp);
             }
@@ -185,7 +245,6 @@ namespace IngameScript
         {
             if (controller == null) return;
             var inputVecs = controller.MoveIndicator;
-            var inputRoll = controller.RollIndicator;
             if (!lastADown && inputVecs.X < 0) DoA(timestamp);
             lastADown = inputVecs.X < 0;
             if (!lastSDown && inputVecs.Z > 0) DoS(timestamp);
@@ -198,183 +257,68 @@ namespace IngameScript
             lastCDown = inputVecs.Y < 0;
             if (!lastSpaceDown && inputVecs.Y > 0) DoSpace(timestamp);
             lastSpaceDown = inputVecs.Y > 0;
-            if (!lastQDown && inputRoll < 0) DoQ(timestamp);
-            lastQDown = inputRoll < 0;
-            if (!lastEDown && inputRoll > 0) DoE(timestamp);
-            lastEDown = inputRoll > 0;
         }
 
         void DoA(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.SelectAgent)
-            {
-                AgentSelection_CurrentClass = AgentClassAdd(AgentSelection_CurrentClass, -1);
-                AgentSelection_CurrentIndex = 0;
-            }
-            else if (CurrentUIMode == UIMode.SelectTarget)
-            {
-                TargetSelection_TaskTypesIndex = DeltaSelection(TargetSelection_TaskTypesIndex, TargetSelection_TaskTypes.Count, false);
-            }
+            if (ActivePlugin != null) ActivePlugin.DoA(timestamp);
         }
 
         void DoS(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.SelectAgent)
-            {
-                AgentSelection_CurrentIndex = DeltaSelection(AgentSelection_CurrentIndex, AgentSelection_FriendlyAgents.Count, true);
-            }
-            else if (CurrentUIMode == UIMode.SelectTarget)
-            {
-                TargetSelection_TargetIndex = DeltaSelection(TargetSelection_TargetIndex, TargetSelection_Targets.Count + TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count(), true);
-            }
-            else if (CurrentUIMode == UIMode.SelectWaypoint)
-            {
-                CursorDist -= 200;
-            }
-            else if (CurrentUIMode == UIMode.Scan)
-            {
-                TargetTracking_SelectionIndex = DeltaSelection(TargetTracking_SelectionIndex, TargetTracking_TargetList.Count, true);
-            }
+            //else if (CurrentUIMode == UIMode.Scan)
+            //{
+            //    TargetTracking_SelectionIndex = DeltaSelection(TargetTracking_SelectionIndex, TargetTracking_TargetList.Count, true);
+            //}
+            if (ActivePlugin != null) ActivePlugin.DoS(timestamp);
         }
 
         void DoD(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.SelectAgent)
-            {
-                AgentSelection_CurrentClass = AgentClassAdd(AgentSelection_CurrentClass, 1);
-                AgentSelection_CurrentIndex = 0;
-            }
-            else if (CurrentUIMode == UIMode.SelectTarget)
-            {
-                TargetSelection_TaskTypesIndex = DeltaSelection(TargetSelection_TaskTypesIndex, TargetSelection_TaskTypes.Count, true);
-            }
-            else if (CurrentUIMode == UIMode.Scan)
-            {
-                if (TargetTracking_TargetList.Count > TargetTracking_SelectionIndex)
-                    TargetTracking_TrackID = TargetTracking_TargetList[TargetTracking_SelectionIndex].ID;
-            }
+            //else if (CurrentUIMode == UIMode.Scan)
+            //{
+            //    if (TargetTracking_TargetList.Count > TargetTracking_SelectionIndex)
+            //        TargetTracking_TrackID = TargetTracking_TargetList[TargetTracking_SelectionIndex].ID;
+            //}
+            if (ActivePlugin != null) ActivePlugin.DoD(timestamp);
         }
 
         void DoW(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.SelectAgent)
-            {
-                AgentSelection_CurrentIndex = DeltaSelection(AgentSelection_CurrentIndex, AgentSelection_FriendlyAgents.Count, false);
-            }
-            else if (CurrentUIMode == UIMode.SelectTarget)
-            {
-                TargetSelection_TargetIndex = DeltaSelection(TargetSelection_TargetIndex, TargetSelection_Targets.Count + TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count(), false);
-            }
-            else if (CurrentUIMode == UIMode.SelectWaypoint)
-            {
-                CursorDist += 200;
-            }
-            else if (CurrentUIMode == UIMode.Scan)
-            {
-                TargetTracking_SelectionIndex = DeltaSelection(TargetTracking_SelectionIndex, TargetTracking_TargetList.Count, false);
-            }
-        }
-
-        void DoQ(TimeSpan timestamp)
-        {
-            if (CurrentUIMode == UIMode.Scan)
-            {
-                CurrentUIMode = UIMode.SelectAgent;
-                AgentSelection_CurrentIndex = 0;
-            }
-            else if (CurrentUIMode == UIMode.SelectAgent || CurrentUIMode == UIMode.SelectTarget || CurrentUIMode == UIMode.SelectWaypoint)
-            {
-                CurrentUIMode = UIMode.Scan;
-            }
-        }
-
-        void DoE(TimeSpan timestamp)
-        {
-
+            //else if (CurrentUIMode == UIMode.Scan)
+            //{
+            //    TargetTracking_SelectionIndex = DeltaSelection(TargetTracking_SelectionIndex, TargetTracking_TargetList.Count, false);
+            //}
+            if (ActivePlugin != null) ActivePlugin.DoW(timestamp);
         }
 
         void DoC(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.SelectTarget)
-            {
-                CurrentUIMode = UIMode.SelectAgent;
-            }
-            else if(CurrentUIMode == UIMode.SelectWaypoint || CurrentUIMode == UIMode.Designate)
-            {
-                CurrentUIMode = UIMode.SelectTarget;
-            }
+            if (ActivePlugin != null) ActivePlugin.DoC(timestamp);
         }
 
         void DoSpace(TimeSpan timestamp)
         {
-            if (CurrentUIMode == UIMode.SelectAgent)
-            {
-                CurrentUIMode = UIMode.SelectTarget;
-            }
-            else if(CurrentUIMode == UIMode.SelectTarget)
-            {
-                if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count())
-                {
-                    // Special handling
-                    string SpecialCommand = TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex];
-                    if (SpecialCommand == "CURSOR")
-                    {
-                        CurrentUIMode = UIMode.SelectWaypoint;
-                    }
-                    if (SpecialCommand == "HOME")
-                    {
-                        SendCommand(MyTuple.Create(IntelItemType.NONE, (long)0), timestamp);
-                        CurrentUIMode = UIMode.SelectAgent;
-                    }
-                    if (SpecialCommand == "DESIGNATE")
-                    {
-                        CurrentUIMode = UIMode.Designate;
-
-                    }
-                }
-                else if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count() + TargetSelection_Targets.Count())
-                {
-                    SendCommand(TargetSelection_Targets[TargetSelection_TargetIndex - TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count()], timestamp);
-                    CurrentUIMode = UIMode.SelectAgent;
-                }
-            }
-            else if (CurrentUIMode == UIMode.SelectWaypoint)
-            {
-                Waypoint w = GetWaypoint();
-                w.MaxSpeed = 100;
-                ReportIntel(w, timestamp);
-                SendCommand(w, timestamp);
-            }
-            else if (CurrentUIMode == UIMode.Scan)
-            {
-                TargetTracking_TrackID = -1;
-                DoScan(timestamp);
-            }
-            else if (CurrentUIMode == UIMode.Designate)
-            {
-                DoScan(timestamp);
-                if (!lastDetectedInfo.IsEmpty() && lastDetectedInfo.Type == MyDetectedEntityType.Asteroid)
-                {
-                    var w = new Waypoint();
-                    w.Position = (Vector3D)lastDetectedInfo.HitPosition;
-                    ReportIntel(w, timestamp);
-                    SendCommand(w, timestamp);
-                }
-                CurrentUIMode = UIMode.SelectAgent;
-            }
+            //else if (CurrentUIMode == UIMode.Scan)
+            //{
+            //    TargetTracking_TrackID = -1;
+            //    DoScan(timestamp);
+            //}
+            if (ActivePlugin != null) ActivePlugin.DoSpace(timestamp);
         }
         #endregion
 
         #region Raycast
+        private const int kScanDistance = 25000;
         int Lidar_CameraIndex = 0;
-        MyDetectedEntityInfo lastDetectedInfo;
+        public MyDetectedEntityInfo lastDetectedInfo;
 
-        void DoScan(TimeSpan timestamp)
+        public void DoScan(TimeSpan timestamp)
         {
             DoScan(timestamp, Vector3D.Zero);
         }
 
-        bool DoScan(TimeSpan timestamp, Vector3D position)
+        public bool DoScan(TimeSpan timestamp, Vector3D position)
         {
             IMyCameraBlock usingCamera = secondaryCameras[Lidar_CameraIndex];
 
@@ -410,53 +354,44 @@ namespace IngameScript
             return true;
         }
 
-        private void UpdateRaytracing()
-        {
-            foreach (IMyCameraBlock camera in secondaryCameras)
-            {
-                camera.EnableRaycast = camera.AvailableScanRange < kScanDistance;
-            }
-        }
+        //private void UpdateRaytracing()
+        //{
+        //    foreach (IMyCameraBlock camera in secondaryCameras)
+        //    {
+        //        camera.EnableRaycast = camera.AvailableScanRange < kScanDistance;
+        //    }
+        //}
 
-        private void DoTrack(TimeSpan timestamp)
-        {
-            if (TargetTracking_TrackID == -1) return;
-
-            var intels = IntelProvider.GetFleetIntelligences(timestamp);
-            var intelKey = MyTuple.Create(IntelItemType.Enemy, TargetTracking_TrackID);
-
-            if (!intels.ContainsKey(intelKey)) return;
-
-            var position = intels[intelKey].GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff);
-            var disp = position - primaryCamera.WorldMatrix.Translation;
-
-            if ((timestamp - TargetTracking_LastScanLocalTime).TotalSeconds < disp.Length() * 1.05 / (secondaryCameras.Count * 2000)) return;
-
-            if (DoScan(timestamp, primaryCamera.WorldMatrix.Translation + disp * 1.05))
-            {
-                TargetTracking_LastScanLocalTime = timestamp;
-            }
-        }
-        #endregion
-
-        #region Waypoint Designation
-        int CursorDist = 1000;
-        Waypoint GetWaypoint()
-        {
-            var w = new Waypoint();
-
-            w.Position = Vector3D.Transform(Vector3D.Forward * CursorDist, primaryCamera.WorldMatrix);
-
-            return w;
-        }
+        //private void DoTrack(TimeSpan timestamp)
+        //{
+        //    if (TargetTracking_TrackID == -1) return;
+        //
+        //    var intels = IntelProvider.GetFleetIntelligences(timestamp);
+        //    var intelKey = MyTuple.Create(IntelItemType.Enemy, TargetTracking_TrackID);
+        //
+        //    if (!intels.ContainsKey(intelKey)) return;
+        //
+        //    var position = intels[intelKey].GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff);
+        //    var disp = position - primaryCamera.WorldMatrix.Translation;
+        //
+        //    if ((timestamp - TargetTracking_LastScanLocalTime).TotalSeconds < disp.Length() * 1.05 / (secondaryCameras.Count * 2000)) return;
+        //
+        //    if (DoScan(timestamp, primaryCamera.WorldMatrix.Translation + disp * 1.05))
+        //    {
+        //        TargetTracking_LastScanLocalTime = timestamp;
+        //    }
+        //}
         #endregion
 
         #region Display
 
-        const float kCameraToScreen = 1.06f;
-        const int kScreenSize = 512;
+        public const float kCameraToScreen = 1.06f;
+        public const int kScreenSize = 512;
 
-        Vector2 kMonospaceConstant = new Vector2(18.68108f, 28.8f);
+        public readonly Vector2 kMonospaceConstant = new Vector2(18.68108f, 28.8f);
+        public readonly Vector2 kDebugConstant = new Vector2(18.68108f, 28.8f);
+        public readonly Color kFocusedColor = new Color(0.5f, 0.5f, 1f);
+        public readonly Color kUnfocusedColor = new Color(0.2f, 0.2f, 0.5f, 0.5f);
 
         const float kMinScale = 0.25f;
         const float kMaxScale = 0.5f;
@@ -466,25 +401,32 @@ namespace IngameScript
 
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
-        UIMode CurrentUIMode = UIMode.SelectAgent;
+        //UIMode CurrentUIMode = UIMode.SelectAgent;
+        //enum UIMode
+        //{
+        //    Debug,
+        //    SelectAgent,
+        //    SelectTarget,
+        //    Scan,
+        //    SelectWaypoint,
+        //    Designate,
+        //}
 
-        readonly Color kFocusedColor = new Color(0.5f, 0.5f, 1f);
-        readonly Color kUnfocusedColor = new Color(0.2f, 0.2f, 0.5f, 0.5f);
-
-        enum UIMode
+        [Flags]
+        public enum IntelSpriteOptions
         {
-            Debug,
-            SelectAgent,
-            SelectTarget,
-            Scan,
-            SelectWaypoint,
-            Designate,
+            None = 0,
+            EmphasizeWithBrackets = 1 << 0,
+            EmphasizeWithDashes = 1 << 1,
+            ShowDist = 1 << 2,
+            ShowName = 1 << 3,
+            Large = 1 << 4,
+            Small = 1 << 5,
         }
-
-        void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan timestamp, ref List<MySprite> scratchpad)
+        public void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
         {
-            var worldDirection = intel.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff) - primaryCamera.WorldMatrix.Translation;
-            var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
+            var worldDirection = intel.GetPositionFromCanonicalTime(localTime + IntelProvider.CanonicalTimeDiff) - PrimaryCamera.WorldMatrix.Translation;
+            var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(PrimaryCamera.WorldMatrix));
             var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y / bodyPosition.Z));
 
             if (bodyPosition.Dot(Vector3D.Forward) < 0) return;
@@ -493,130 +435,487 @@ namespace IngameScript
             float scale = kMaxScale;
 
             if (dist > kMaxDist) scale = kMinScale;
-            else if (dist > kMinDist)
-            {
-                scale = kMinScale + (kMaxScale - kMinScale) * (kMaxDist - dist) / (kMaxDist - kMinDist);
-            }
+            else if (dist > kMinDist) scale = kMinScale + (kMaxScale - kMinScale) * (kMaxDist - dist) / (kMaxDist - kMinDist);
+            if ((properties & IntelSpriteOptions.Large) != 0) scale *= 1.5f;
+            else if ((properties & IntelSpriteOptions.Small) != 0) scale *= 0.5f;
 
-            var indicatorText = "><";
+            string indicatorText;
+            bool brackets = (properties & IntelSpriteOptions.EmphasizeWithBrackets) != 0;
+            bool dashes = (properties & IntelSpriteOptions.EmphasizeWithDashes) != 0;
+            if (brackets && dashes) indicatorText = "-[><]-";
+            else if (brackets) indicatorText = "[><]";
+            else if (dashes) indicatorText = "-><-";
+            else indicatorText = "><";
 
-            //if (intel.IntelItemType == IntelItemType.Enemy && intel.ID == TargetTracking_TrackID)
-            //    indicatorText = "[><]";
-
-            var indicator = MySprite.CreateText(indicatorText, "Monospace", new Color(scale, scale, scale, 0.5f), scale, TextAlignment.CENTER);
+            var indicator = MySprite.CreateText(indicatorText, "Monospace", color, scale, TextAlignment.CENTER);
             var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
-
             v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
             v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
-            v.Y -= 2 + scale * kMonospaceConstant.Y / 2;
+            v.Y -= scale * (kMonospaceConstant.Y + 2) / 2;
             indicator.Position = v;
             scratchpad.Add(indicator);
+            v.Y += kMonospaceConstant.Y * scale + 0.2f;
 
-            if (!(intel is AsteroidIntel))
+            if ((properties & IntelSpriteOptions.ShowDist) != 0)
             {
                 var distSprite = MySprite.CreateText($"{((int)dist).ToString()} m", "Debug", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
-                v.Y += kMonospaceConstant.Y * kMaxScale + 0.2f;
                 distSprite.Position = v;
                 scratchpad.Add(distSprite);
+                v.Y += kDebugConstant.Y * 0.4f + 0.1f;
             }
 
-            if (intel is FriendlyShipIntel)
+            if ((properties & IntelSpriteOptions.ShowName) != 0)
             {
                 var nameSprite = MySprite.CreateText(intel.DisplayName, "Debug", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
-                v.Y += kMonospaceConstant.Y * 0.3f;
+                v.Y += kMonospaceConstant.Y * scale + 0.2f;
                 nameSprite.Position = v;
                 scratchpad.Add(nameSprite);
-            }
-            //if (intel is AsteroidIntel)
-            //{
-            //    var sizeSprite = MySprite.CreateText(((int)intel.Radius).ToString(), "Debug", new Color(1, 1, 1, 0.5f), 0.4f, TextAlignment.CENTER);
-            //    v.Y += kMonospaceConstant.Y * 0.3f;
-            //    sizeSprite.Position = v;
-            //    scratchpad.Add(sizeSprite);
-            //}
-        }
-
-        private void DrawHUD(TimeSpan timestamp)
-        {
-            UpdateCenterHUD(timestamp);
-            UpdateLeftHUD(timestamp);
-            UpdateRightHUD(timestamp);
-        }
-
-        private void UpdateCenterHUD(TimeSpan timestamp)
-        {
-            if (panelMiddle == null) return;
-            using (var frame = panelMiddle.DrawFrame())
-            {
-                panelMiddle.ScriptBackgroundColor = new Color(1, 0, 0, 0);
-
-                var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.1f));
-                crosshairs.Position = new Vector2(0, -2) + panelMiddle.TextureSize / 2f;
-                frame.Add(crosshairs);
-
-                if (CurrentUIMode == UIMode.SelectWaypoint)
-                {
-                    var distIndicator = MySprite.CreateText(CursorDist.ToString(), "Debug", Color.White, 0.5f);
-                    distIndicator.Position = new Vector2(0, 5) + panelMiddle.TextureSize / 2f;
-                    frame.Add(distIndicator);
-                }
-
-                foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
-                {
-                    if (intel.IntelItemType == IntelItemType.Friendly && (CurrentUIMode == UIMode.Scan || AgentSelection_FriendlyAgents.Count == 0 || AgentSelection_FriendlyAgents.Count <= AgentSelection_CurrentIndex || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
-                    FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
-                }
-
-                foreach (var spr in SpriteScratchpad)
-                {
-                    frame.Add(spr);
-                }
-                SpriteScratchpad.Clear();
+                v.Y += kDebugConstant.Y * 0.4f + 0.1f;
             }
         }
 
-        private void UpdateLeftHUD(TimeSpan timestamp)
+        //private void DrawHUD(TimeSpan timestamp)
+        //{
+        //    UpdateCenterHUD(timestamp);
+        //    UpdateLeftHUD(timestamp);
+        //    UpdateRightHUD(timestamp);
+        //}
+
+        //private void UpdateCenterHUD(TimeSpan timestamp)
+        //{
+        //    if (MiddleHUD == null) return;
+        //    using (var frame = MiddleHUD.DrawFrame())
+        //    {
+        //        MiddleHUD.ScriptBackgroundColor = new Color(1, 0, 0, 0);
+        //
+        //        MySprite crosshairs = GetCrosshair();
+        //        frame.Add(crosshairs);
+        //
+        //        if (CurrentUIMode == UIMode.SelectWaypoint)
+        //        {
+        //            var distIndicator = MySprite.CreateText(CursorDist.ToString(), "Debug", Color.White, 0.5f);
+        //            distIndicator.Position = new Vector2(0, 5) + MiddleHUD.TextureSize / 2f;
+        //            frame.Add(distIndicator);
+        //        }
+        //
+        //        foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
+        //        {
+        //            if (intel.IntelItemType == IntelItemType.Friendly && (CurrentUIMode == UIMode.Scan || AgentSelection_FriendlyAgents.Count == 0 || AgentSelection_FriendlyAgents.Count <= AgentSelection_CurrentIndex || intel != AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])) continue;
+        //            FleetIntelItemToSprites(intel, timestamp, ref SpriteScratchpad);
+        //        }
+        //
+        //        foreach (var spr in SpriteScratchpad)
+        //        {
+        //            frame.Add(spr);
+        //        }
+        //        SpriteScratchpad.Clear();
+        //    }
+        //}
+
+        public MySprite GetCrosshair()
         {
-            if (panelLeft == null) return;
-
-            LeftHUDBuilder.Clear();
-
-            if (CurrentUIMode == UIMode.Debug)
-            {
-                DrawDebugLeftUI(timestamp);
-            }
-            else if (CurrentUIMode == UIMode.SelectAgent || CurrentUIMode == UIMode.SelectTarget || CurrentUIMode == UIMode.SelectWaypoint)
-            {
-                panelLeft.FontColor = CurrentUIMode == UIMode.SelectAgent ? kFocusedColor : kUnfocusedColor;
-                DrawAgentSelectionUI(timestamp);
-            }
-            else if (CurrentUIMode == UIMode.Scan)
-            {
-                panelLeft.FontColor = kFocusedColor;
-                DrawScanUI(timestamp);
-            }
-
-            panelLeft.WriteText(LeftHUDBuilder.ToString());
+            var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.1f));
+            crosshairs.Position = new Vector2(0, -2) + MiddleHUD.TextureSize / 2f;
+            return crosshairs;
         }
 
-        private void DrawDebugLeftUI(TimeSpan timestamp)
+
+        //private void DrawScanUI(TimeSpan timestamp)
+        //{
+        //    LeftHUD.FontSize = 0.55f;
+        //    LeftHUD.TextPadding = 9;
+        //    int kRowLength = 19;
+        //
+        //    LeftHUDBuilder.AppendLine("====== LIDAR ======");
+        //    LeftHUDBuilder.AppendLine();
+        //
+        //    if (secondaryCameras.Count == 0)
+        //    {
+        //        LeftHUDBuilder.AppendLine("=== UNAVAILABLE ===");
+        //        return;
+        //    }
+        //
+        //    AppendPaddedLine(kRowLength, "SCANNERS:", LeftHUDBuilder);
+        //
+        //    LeftHUDBuilder.AppendLine();
+        //
+        //    for (int i = 0; i < 8; i++)
+        //    {
+        //        if (i < secondaryCameras.Count)
+        //        {
+        //            LeftHUDBuilder.Append(i == Lidar_CameraIndex ? "> " : "  ");
+        //            LeftHUDBuilder.Append((i + 1).ToString()).Append(": ");
+        //
+        //            if (secondaryCameras[i].IsWorking)
+        //            {
+        //                if (secondaryCameras[i].AvailableScanRange >= kScanDistance)
+        //                {
+        //                    AppendPaddedLine(kRowLength - 5, "READY", LeftHUDBuilder);
+        //                }
+        //                else
+        //                {
+        //                    AppendPaddedLine(kRowLength - 5, "CHARGING", LeftHUDBuilder);
+        //                }
+        //
+        //                int p = (int)(secondaryCameras[i].AvailableScanRange * 10 / kScanDistance);
+        //                LeftHUDBuilder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", secondaryCameras[i].AvailableScanRange / 1000)).AppendLine("km");
+        //            }
+        //            else
+        //            {
+        //                AppendPaddedLine(kRowLength - 5, "UNAVAILABLE", LeftHUDBuilder);
+        //                LeftHUDBuilder.AppendLine();
+        //            }
+        //        }
+        //        else
+        //        {
+        //            LeftHUDBuilder.AppendLine();
+        //            LeftHUDBuilder.AppendLine();
+        //        }
+        //    }
+        //
+        //    LeftHUDBuilder.AppendLine();
+        //    LeftHUDBuilder.AppendLine("===================");
+        //
+        //    if (secondaryCameras[Lidar_CameraIndex].IsWorking)
+        //    {
+        //        AppendPaddedLine(kRowLength, "STATUS: AVAILABLE", LeftHUDBuilder);
+        //        int p = (int)(secondaryCameras[Lidar_CameraIndex].AvailableScanRange * 10 / kScanDistance);
+        //        LeftHUDBuilder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", secondaryCameras[Lidar_CameraIndex].AvailableScanRange / 1000)).AppendLine("km");
+        //        AppendPaddedLine(kRowLength, "[SPACE] SCAN", LeftHUDBuilder);
+        //        AppendPaddedLine(kRowLength, lastDetectedInfo.Type.ToString(), LeftHUDBuilder);
+        //    }
+        //    else
+        //    {
+        //        AppendPaddedLine(kRowLength, "STATUS: UNAVAILABLE", LeftHUDBuilder);
+        //        AppendPaddedLine(kRowLength, "[SPACE] CYCLE", LeftHUDBuilder);
+        //    }
+        //}
+
+        //List<EnemyShipIntel> TargetTracking_TargetList = new List<EnemyShipIntel>();
+        //int TargetTracking_SelectionIndex = 0;
+        //long TargetTracking_TrackID = -1;
+        //
+        //TimeSpan TargetTracking_LastScanLocalTime;
+        //
+        //private void DrawTrackingUI(TimeSpan timestamp)
+        //{
+        //    RightHUD.FontSize = 0.55f;
+        //    RightHUD.TextPadding = 9;
+        //
+        //    RightHUDBuilder.AppendLine("= TARGET TRACKING =");
+        //
+        //    RightHUDBuilder.AppendLine();
+        //
+        //    var intels = IntelProvider.GetFleetIntelligences(timestamp);
+        //    var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
+        //    TargetTracking_TargetList.Clear();
+        //
+        //    bool hasTarget = false;
+        //
+        //    foreach (var intel in intels)
+        //    {
+        //        if (intel.Key.Item1 == IntelItemType.Enemy)
+        //        {
+        //            if (!hasTarget && intel.Key.Item2 == TargetTracking_TrackID) hasTarget = true;
+        //            TargetTracking_TargetList.Add((EnemyShipIntel)intel.Value);
+        //        }
+        //    }
+        //
+        //    if (!hasTarget) TargetTracking_TrackID = -1;
+        //    if (TargetTracking_TargetList.Count <= TargetTracking_SelectionIndex) TargetTracking_SelectionIndex = 0;
+        //
+        //
+        //    if (TargetTracking_TargetList.Count == 0)
+        //    {
+        //        RightHUDBuilder.AppendLine("NO TARGETS");
+        //        return;
+        //    }
+        //
+        //    RightHUDBuilder.AppendLine("WS SELECT | D TRACK");
+        //    RightHUDBuilder.AppendLine();
+        //
+        //    for (int i = 0; i < 20; i++)
+        //    {
+        //        if (i < TargetTracking_TargetList.Count)
+        //        {
+        //            RightHUDBuilder.Append(TargetTracking_TargetList[i].ID == TargetTracking_TrackID ? '-' : ' ');
+        //            RightHUDBuilder.Append(i == TargetTracking_SelectionIndex ? '>' : ' ');
+        //            AppendPaddedLine(17, TargetTracking_TargetList[i].DisplayName, RightHUDBuilder);
+        //        }
+        //        else
+        //        {
+        //            RightHUDBuilder.AppendLine();
+        //        }
+        //    }
+        //
+        //    RightHUDBuilder.AppendLine();
+        //
+        //}
+
+        public void AppendPaddedLine(int TotalLength, string text, StringBuilder builder)
         {
-            LeftHUDBuilder.AppendLine(CursorDist.ToString());
-            LeftHUDBuilder.AppendLine();
+            int length = text.Length;
+            if (length > TotalLength)
+                builder.AppendLine(text.Substring(0, TotalLength));
+            else if (length < TotalLength)
+                builder.Append(text).Append(' ', TotalLength - length).AppendLine();
+            else
+                builder.AppendLine(text);
+        }
 
-            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
+        public int CustomMod(int n, int d)
+        {
+            return (n % d + d) % d;
+        }
+
+        public int DeltaSelection(int current, int total, bool positive, int min = 0)
+        {
+            if (total == 0) return 0;
+            int newCurrent = current + (positive ? 1 : -1);
+            if (newCurrent >= total) newCurrent = 0;
+            if (newCurrent <= -1) newCurrent = total - 1;
+            return newCurrent;
+        }
+
+        #endregion
+
+        #region Intel
+        public void ReportIntel(IFleetIntelligence intel, TimeSpan timestamp)
+        {
+            IntelProvider.ReportFleetIntelligence(intel, timestamp);
+        }
+
+        #endregion
+    }
+
+    public interface ILookingGlassPlugin
+    {
+        void DoA(TimeSpan localTime);
+        void DoS(TimeSpan localTime);
+        void DoD(TimeSpan localTime);
+        void DoW(TimeSpan localTime);
+        void DoC(TimeSpan localTime);
+        void DoSpace(TimeSpan localTime);
+
+        void UpdateHUD(TimeSpan localTime);
+        void UpdateState(TimeSpan localTime);
+
+        void Setup();
+
+        LookingGlassSubsystem Host { get; set; }
+    }
+
+    public class LookingGlassPlugin_Command : ILookingGlassPlugin
+    {
+        #region ILookingGlassPlugin
+        public LookingGlassSubsystem Host { get; set; }
+        public void DoA(TimeSpan localTime)
+        {
+            if (CurrentUIMode == UIMode.SelectAgent)
             {
-                LeftHUDBuilder.AppendLine(intel.DisplayName);
-                LeftHUDBuilder.AppendLine(intel.ID.ToString());
-                LeftHUDBuilder.AppendLine(((Vector3I)intel.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff)).ToString());
+                AgentSelection_CurrentClass = AgentClassAdd(AgentSelection_CurrentClass, -1);
+                AgentSelection_CurrentIndex = 0;
+            }
+            else if (CurrentUIMode == UIMode.SelectTarget)
+            {
+                TargetSelection_TaskTypesIndex = Host.DeltaSelection(TargetSelection_TaskTypesIndex, TargetSelection_TaskTypes.Count, false);
+            }
+        }
 
-                if (intel is FriendlyShipIntel && ((FriendlyShipIntel)intel).AgentClass != AgentClass.None)
+        public void DoS(TimeSpan localTime)
+        {
+            if (CurrentUIMode == UIMode.SelectAgent)
+            {
+                AgentSelection_CurrentIndex = Host.DeltaSelection(AgentSelection_CurrentIndex, AgentSelection_FriendlyAgents.Count, true);
+            }
+            else if (CurrentUIMode == UIMode.SelectTarget)
+            {
+                TargetSelection_TargetIndex = Host.DeltaSelection(TargetSelection_TargetIndex, TargetSelection_Targets.Count + TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count(), true);
+            }
+            else if (CurrentUIMode == UIMode.SelectWaypoint)
+            {
+                CursorDist -= 200;
+            }
+        }
+
+        public void DoD(TimeSpan localTime)
+        {
+            if (CurrentUIMode == UIMode.SelectAgent)
+            {
+                AgentSelection_CurrentClass = AgentClassAdd(AgentSelection_CurrentClass, 1);
+                AgentSelection_CurrentIndex = 0;
+            }
+            else if (CurrentUIMode == UIMode.SelectTarget)
+            {
+                TargetSelection_TaskTypesIndex = Host.DeltaSelection(TargetSelection_TaskTypesIndex, TargetSelection_TaskTypes.Count, true);
+            }
+        }
+        public void DoW(TimeSpan localTime)
+        {
+            if (CurrentUIMode == UIMode.SelectAgent)
+            {
+                AgentSelection_CurrentIndex = Host.DeltaSelection(AgentSelection_CurrentIndex, AgentSelection_FriendlyAgents.Count, false);
+            }
+            else if (CurrentUIMode == UIMode.SelectTarget)
+            {
+                TargetSelection_TargetIndex = Host.DeltaSelection(TargetSelection_TargetIndex, TargetSelection_Targets.Count + TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count(), false);
+            }
+            else if (CurrentUIMode == UIMode.SelectWaypoint)
+            {
+                CursorDist += 200;
+            }
+        }
+
+        public void DoC(TimeSpan localTime)
+        {
+            if (CurrentUIMode == UIMode.SelectTarget)
+            {
+                CurrentUIMode = UIMode.SelectAgent;
+            }
+            else if(CurrentUIMode == UIMode.SelectWaypoint || CurrentUIMode == UIMode.Designate)
+            {
+                CurrentUIMode = UIMode.SelectTarget;
+            }
+        }
+
+        public void DoSpace(TimeSpan localTime)
+        {
+            if (CurrentUIMode == UIMode.SelectAgent)
+            {
+                CurrentUIMode = UIMode.SelectTarget;
+            }
+            else if(CurrentUIMode == UIMode.SelectTarget)
+            {
+                if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count())
                 {
-                    var fsi = (FriendlyShipIntel)intel;
-                    LeftHUDBuilder.AppendLine(fsi.AgentClass.ToString());
-                    LeftHUDBuilder.AppendLine(fsi.AcceptedTaskTypes.ToString());
+                    // Special handling
+                    string SpecialCommand = TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex];
+                    if (SpecialCommand == "CURSOR")
+                    {
+                        CurrentUIMode = UIMode.SelectWaypoint;
+                    }
+                    if (SpecialCommand == "HOME")
+                    {
+                        SendCommand(MyTuple.Create(IntelItemType.NONE, (long)0), localTime);
+                        CurrentUIMode = UIMode.SelectAgent;
+                    }
+                    if (SpecialCommand == "DESIGNATE")
+                    {
+                        CurrentUIMode = UIMode.Designate;
+                    }
+                }
+                else if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count() + TargetSelection_Targets.Count())
+                {
+                    SendCommand(TargetSelection_Targets[TargetSelection_TargetIndex - TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count()], localTime);
+                    CurrentUIMode = UIMode.SelectAgent;
                 }
             }
+            else if (CurrentUIMode == UIMode.SelectWaypoint)
+            {
+                Waypoint w = GetWaypoint();
+                w.MaxSpeed = 100;
+                Host.ReportIntel(w, localTime);
+                SendCommand(w, localTime);
+            }
+            else if (CurrentUIMode == UIMode.Designate)
+            {
+                Host.DoScan(localTime);
+                if (!Host.lastDetectedInfo.IsEmpty() && Host.lastDetectedInfo.Type == MyDetectedEntityType.Asteroid)
+                {
+                    var w = new Waypoint();
+                    w.Position = (Vector3D)Host.lastDetectedInfo.HitPosition;
+                    Host.ReportIntel(w, localTime);
+                    SendCommand(w, localTime);
+                }
+                CurrentUIMode = UIMode.SelectAgent;
+            }
+        }
+
+
+        public void Setup()
+        {
+        }
+
+        public void UpdateHUD(TimeSpan localTime)
+        {
+            DrawTargetSelectionUI(localTime);
+            DrawAgentSelectionUI(localTime);
+            DrawMiddleHUD(localTime);
+        }
+
+        public void UpdateState(TimeSpan localTime)
+        {
+        }
+        #endregion
+
+        StringBuilder Builder = new StringBuilder();
+
+        enum UIMode
+        {
+            SelectAgent,
+            SelectTarget,
+            SelectWaypoint,
+            Designate,
+        }
+        UIMode CurrentUIMode = UIMode.SelectAgent;
+
+        List<MySprite> SpriteScratchpad = new List<MySprite>();
+
+        #region SelectAgent
+        private void DrawAgentSelectionUI(TimeSpan timestamp)
+        {
+            Builder.Clear();
+            Host.LeftHUD.FontSize = 0.55f;
+            Host.LeftHUD.TextPadding = 9;
+
+            int kRowLength = 19;
+            int kMenuRows = 12;
+
+            Builder.AppendLine("===== COMMAND =====");
+            Builder.AppendLine();
+            Builder.Append(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, -1)]).Append("    [").Append(AgentClassTags[AgentSelection_CurrentClass]).Append("]    ").AppendLine(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, +1)]);
+            if (CurrentUIMode == UIMode.SelectAgent) Builder.AppendLine("[<A]           [D>]");
+            else Builder.AppendLine();
+
+            Builder.AppendLine();
+
+            AgentSelection_FriendlyAgents.Clear();
+
+            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(timestamp).Values)
+            {
+                if (intel is FriendlyShipIntel && ((FriendlyShipIntel)intel).AgentClass == AgentSelection_CurrentClass)
+                    AgentSelection_FriendlyAgents.Add((FriendlyShipIntel)intel);
+            }
+            AgentSelection_FriendlyAgents.Sort(FleetIntelligenceUtil.CompareName);
+
+            for (int i = 0; i < kMenuRows; i++)
+            {
+                if (i < AgentSelection_FriendlyAgents.Count)
+                {
+                    var intel = AgentSelection_FriendlyAgents[i];
+                    if (i == AgentSelection_CurrentIndex) Builder.Append(">> ");
+                    else Builder.Append("   ");
+
+                    Host.AppendPaddedLine(kRowLength - 3, intel.DisplayName, Builder);
+                }
+                else
+                {
+                    Builder.AppendLine();
+                }
+            }
+
+            Builder.AppendLine("==== SELECTION ====");
+
+            if (AgentSelection_CurrentIndex < AgentSelection_FriendlyAgents.Count)
+            {
+                Host.AppendPaddedLine(kRowLength, AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex].DisplayName, Builder);
+                if (CurrentUIMode == UIMode.SelectAgent) Host.AppendPaddedLine(kRowLength, "[SPACE] SELECT TGT", Builder);
+            }
+            else
+            {
+                Host.AppendPaddedLine(kRowLength, "NONE SELECTED", Builder);
+            }
+            Host.LeftHUD.WriteText(Builder.ToString());
         }
 
         AgentClass AgentSelection_CurrentClass = AgentClass.Drone;
@@ -635,158 +934,11 @@ namespace IngameScript
 
         AgentClass AgentClassAdd(AgentClass agentClass, int places = 1)
         {
-            return (AgentClass)CustomMod((int)agentClass + places, (int)AgentClass.Last);
+            return (AgentClass)Host.CustomMod((int)agentClass + places, (int)AgentClass.Last);
         }
+        #endregion
 
-        private void DrawAgentSelectionUI(TimeSpan timestamp)
-        {
-            panelLeft.FontSize = 0.55f;
-            panelLeft.TextPadding = 9;
-
-            int kRowLength = 19;
-            int kMenuRows = 12;
-
-            LeftHUDBuilder.AppendLine("===== COMMAND =====");
-            LeftHUDBuilder.AppendLine();
-            LeftHUDBuilder.Append(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, -1)]).Append("    [").Append(AgentClassTags[AgentSelection_CurrentClass]).Append("]    ").AppendLine(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, +1)]);
-            if (CurrentUIMode == UIMode.SelectAgent) LeftHUDBuilder.AppendLine("[<A]           [D>]");
-            else LeftHUDBuilder.AppendLine();
-
-            LeftHUDBuilder.AppendLine();
-
-            AgentSelection_FriendlyAgents.Clear();
-
-            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
-            {
-                if (intel is FriendlyShipIntel && ((FriendlyShipIntel)intel).AgentClass == AgentSelection_CurrentClass)
-                    AgentSelection_FriendlyAgents.Add((FriendlyShipIntel)intel);
-            }
-            AgentSelection_FriendlyAgents.Sort(FleetIntelligenceUtil.CompareName);
-
-            for (int i = 0; i < kMenuRows; i++)
-            {
-                if (i < AgentSelection_FriendlyAgents.Count)
-                {
-                    var intel = AgentSelection_FriendlyAgents[i];
-                    if (i == AgentSelection_CurrentIndex) LeftHUDBuilder.Append(">> ");
-                    else LeftHUDBuilder.Append("   ");
-
-                    AppendPaddedLine(kRowLength - 3, intel.DisplayName, LeftHUDBuilder);
-                }
-                else
-                {
-                    LeftHUDBuilder.AppendLine();
-                }
-            }
-
-            LeftHUDBuilder.AppendLine("==== SELECTION ====");
-
-            if (AgentSelection_CurrentIndex < AgentSelection_FriendlyAgents.Count)
-            {
-                AppendPaddedLine(kRowLength, AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex].DisplayName, LeftHUDBuilder);
-                if (CurrentUIMode == UIMode.SelectAgent) AppendPaddedLine(kRowLength, "[SPACE] SELECT TGT", LeftHUDBuilder);
-            }
-            else
-            {
-                AppendPaddedLine(kRowLength, "NONE SELECTED", LeftHUDBuilder);
-            }
-        }
-
-        private void DrawScanUI(TimeSpan timestamp)
-        {
-            panelLeft.FontSize = 0.55f;
-            panelLeft.TextPadding = 9;
-            int kRowLength = 19;
-
-            LeftHUDBuilder.AppendLine("====== LIDAR ======");
-            LeftHUDBuilder.AppendLine();
-
-            if (secondaryCameras.Count == 0)
-            {
-                LeftHUDBuilder.AppendLine("=== UNAVAILABLE ===");
-                return;
-            }
-
-            AppendPaddedLine(kRowLength, "SCANNERS:", LeftHUDBuilder);
-
-            LeftHUDBuilder.AppendLine();
-
-            for (int i = 0; i < 8; i++)
-            {
-                if (i < secondaryCameras.Count)
-                {
-                    LeftHUDBuilder.Append(i == Lidar_CameraIndex ? "> " : "  ");
-                    LeftHUDBuilder.Append((i + 1).ToString()).Append(": ");
-
-                    if (secondaryCameras[i].IsWorking)
-                    {
-                        if (secondaryCameras[i].AvailableScanRange >= kScanDistance)
-                        {
-                            AppendPaddedLine(kRowLength - 5, "READY", LeftHUDBuilder);
-                        }
-                        else
-                        {
-                            AppendPaddedLine(kRowLength - 5, "CHARGING", LeftHUDBuilder);
-                        }
-
-                        int p = (int)(secondaryCameras[i].AvailableScanRange * 10 / kScanDistance);
-                        LeftHUDBuilder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", secondaryCameras[i].AvailableScanRange / 1000)).AppendLine("km");
-                    }
-                    else
-                    {
-                        AppendPaddedLine(kRowLength - 5, "UNAVAILABLE", LeftHUDBuilder);
-                        LeftHUDBuilder.AppendLine();
-                    }
-                }
-                else
-                {
-                    LeftHUDBuilder.AppendLine();
-                    LeftHUDBuilder.AppendLine();
-                }
-            }
-
-            LeftHUDBuilder.AppendLine();
-            LeftHUDBuilder.AppendLine("===================");
-
-            if (secondaryCameras[Lidar_CameraIndex].IsWorking)
-            {
-                AppendPaddedLine(kRowLength, "STATUS: AVAILABLE", LeftHUDBuilder);
-                int p = (int)(secondaryCameras[Lidar_CameraIndex].AvailableScanRange * 10 / kScanDistance);
-                LeftHUDBuilder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", secondaryCameras[Lidar_CameraIndex].AvailableScanRange / 1000)).AppendLine("km");
-                AppendPaddedLine(kRowLength, "[SPACE] SCAN", LeftHUDBuilder);
-                AppendPaddedLine(kRowLength, lastDetectedInfo.Type.ToString(), LeftHUDBuilder);
-            }
-            else
-            {
-                AppendPaddedLine(kRowLength, "STATUS: UNAVAILABLE", LeftHUDBuilder);
-                AppendPaddedLine(kRowLength, "[SPACE] CYCLE", LeftHUDBuilder);
-            }
-        }
-
-        private void UpdateRightHUD(TimeSpan timestamp)
-        {
-            if (panelRight == null) return;
-
-            RightHUDBuilder.Clear();
-
-            if (CurrentUIMode == UIMode.Debug)
-            {
-                // Do debug?
-            }
-            else if (CurrentUIMode == UIMode.SelectAgent || CurrentUIMode == UIMode.SelectTarget || CurrentUIMode == UIMode.SelectWaypoint)
-            {
-                panelRight.FontColor = CurrentUIMode == UIMode.SelectTarget ? kFocusedColor : kUnfocusedColor;
-                DrawTargetSelectionUI(timestamp);
-            }
-            else if (CurrentUIMode == UIMode.Scan)
-            {
-                panelRight.FontColor = kFocusedColor;
-                DrawTrackingUI(timestamp);
-            }
-
-            panelRight.WriteText(RightHUDBuilder.ToString());
-        }
-
+        #region SelectTarget
         Dictionary<TaskType, string> TaskTypeTags = new Dictionary<TaskType, string>
         {
             { TaskType.None, "N/A" },
@@ -827,12 +979,14 @@ namespace IngameScript
 
         private void DrawTargetSelectionUI(TimeSpan timestamp)
         {
-            panelRight.FontSize = 0.55f;
-            panelRight.TextPadding = 9;
+            Builder.Clear();
 
-            RightHUDBuilder.AppendLine("=== SELECT TASK ===");
+            Host.RightHUD.FontSize = 0.55f;
+            Host.RightHUD.TextPadding = 9;
 
-            RightHUDBuilder.AppendLine();
+            Builder.AppendLine("=== SELECT TASK ===");
+
+            Builder.AppendLine();
 
             if (AgentSelection_CurrentIndex >= AgentSelection_FriendlyAgents.Count) return;
 
@@ -849,16 +1003,16 @@ namespace IngameScript
 
             if (TargetSelection_TaskTypesIndex >= TargetSelection_TaskTypes.Count) TargetSelection_TaskTypesIndex = 0;
 
-            RightHUDBuilder.Append(TaskTypeTags[TargetSelection_TaskTypes[CustomMod(TargetSelection_TaskTypesIndex - 1, TargetSelection_TaskTypes.Count)]]).
+            Builder.Append(TaskTypeTags[TargetSelection_TaskTypes[Host.CustomMod(TargetSelection_TaskTypesIndex - 1, TargetSelection_TaskTypes.Count)]]).
                 Append("    [").Append(TaskTypeTags[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]).Append("]    ").
-                AppendLine(TaskTypeTags[TargetSelection_TaskTypes[CustomMod(TargetSelection_TaskTypesIndex + 1, TargetSelection_TaskTypes.Count)]]);
+                AppendLine(TaskTypeTags[TargetSelection_TaskTypes[Host.CustomMod(TargetSelection_TaskTypesIndex + 1, TargetSelection_TaskTypes.Count)]]);
 
-            if (CurrentUIMode == UIMode.SelectTarget) RightHUDBuilder.AppendLine("[<A]           [D>]");
-            else RightHUDBuilder.AppendLine();
-            RightHUDBuilder.AppendLine();
+            if (CurrentUIMode == UIMode.SelectTarget) Builder.AppendLine("[<A]           [D>]");
+            else Builder.AppendLine();
+            Builder.AppendLine();
 
             TargetSelection_Targets.Clear();
-            foreach (IFleetIntelligence intel in IntelProvider.GetFleetIntelligences(timestamp).Values)
+            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(timestamp).Values)
             {
                 if ((intel.IntelItemType & TaskTypeToTargetTypes[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]) != 0)
                     TargetSelection_Targets.Add(intel);
@@ -873,205 +1027,132 @@ namespace IngameScript
             {
                 if (i < specialCount)
                 {
-                    if (i == TargetSelection_TargetIndex) RightHUDBuilder.Append(">> ");
-                    else RightHUDBuilder.Append("   ");
-                    AppendPaddedLine(kRowLength - 3, TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][i], RightHUDBuilder);
+                    if (i == TargetSelection_TargetIndex) Builder.Append(">> ");
+                    else Builder.Append("   ");
+                    Host.AppendPaddedLine(kRowLength - 3, TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][i], Builder);
                 }
                 else if (specialCount < i && i < TargetSelection_Targets.Count + specialCount + 1)
                 {
-                    if (i == TargetSelection_TargetIndex + 1) RightHUDBuilder.Append(">> ");
-                    else RightHUDBuilder.Append("   ");
+                    if (i == TargetSelection_TargetIndex + 1) Builder.Append(">> ");
+                    else Builder.Append("   ");
                     var intel = TargetSelection_Targets[i - specialCount - 1];
 
                     if (intel is DockIntel)
                     {
                         var dockIntel = (DockIntel)intel;
-                        RightHUDBuilder.Append(dockIntel.OwnerID != -1 ? ((dockIntel.Status & HangarStatus.Reserved) != 0 ? "[R]" : "[C]") : "[ ]");
-                        AppendPaddedLine(kRowLength - 6, intel.DisplayName, RightHUDBuilder);
+                        Builder.Append(dockIntel.OwnerID != -1 ? ((dockIntel.Status & HangarStatus.Reserved) != 0 ? "[R]" : "[C]") : "[ ]");
+                        Host.AppendPaddedLine(kRowLength - 6, intel.DisplayName, Builder);
                     }
                     else
                     {
-                        AppendPaddedLine(kRowLength - 3, intel.DisplayName, RightHUDBuilder);
+                        Host.AppendPaddedLine(kRowLength - 3, intel.DisplayName, Builder);
                     }
 
                 }
                 else
                 {
-                    RightHUDBuilder.AppendLine();
+                    Builder.AppendLine();
                 }
             }
 
-            RightHUDBuilder.AppendLine();
+            Builder.AppendLine();
 
-            RightHUDBuilder.AppendLine("==== SELECTION ====");
+            Builder.AppendLine("==== SELECTION ====");
 
             if (TargetSelection_TargetIndex < specialCount)
             {
-                AppendPaddedLine(kRowLength, TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex], RightHUDBuilder);
+                Host.AppendPaddedLine(kRowLength, TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex], Builder);
                 if (CurrentUIMode == UIMode.SelectTarget)
                 {
-                    AppendPaddedLine(kRowLength, "[SPACE] SELECT", RightHUDBuilder);
-                    AppendPaddedLine(kRowLength, "[C] CANCLE CMD", RightHUDBuilder);
+                    Host.AppendPaddedLine(kRowLength, "[SPACE] SELECT", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[C] CANCLE CMD", Builder);
                 }
             }
             else if (specialCount <= TargetSelection_TargetIndex && TargetSelection_TargetIndex < TargetSelection_Targets.Count + specialCount)
             {
-                AppendPaddedLine(kRowLength, TargetSelection_Targets[TargetSelection_TargetIndex - specialCount].ID.ToString(), RightHUDBuilder);
+                Host.AppendPaddedLine(kRowLength, TargetSelection_Targets[TargetSelection_TargetIndex - specialCount].ID.ToString(), Builder);
                 if (CurrentUIMode == UIMode.SelectTarget)
                 {
-                    AppendPaddedLine(kRowLength, "[SPACE] SEND CMD", RightHUDBuilder);
-                    AppendPaddedLine(kRowLength, "[C] CANCLE CMD", RightHUDBuilder);
+                    Host.AppendPaddedLine(kRowLength, "[SPACE] SEND CMD", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[C] CANCLE CMD", Builder);
                 }
             }
             else
             {
-                AppendPaddedLine(kRowLength, "NONE SELECTED", RightHUDBuilder);
+                Host.AppendPaddedLine(kRowLength, "NONE SELECTED", Builder);
             }
 
+            Host.RightHUD.WriteText(Builder.ToString());
         }
-
-        List<EnemyShipIntel> TargetTracking_TargetList = new List<EnemyShipIntel>();
-        int TargetTracking_SelectionIndex = 0;
-        long TargetTracking_TrackID = -1;
-
-        TimeSpan TargetTracking_LastScanLocalTime;
-
-        private void DrawTrackingUI(TimeSpan timestamp)
-        {
-            panelRight.FontSize = 0.55f;
-            panelRight.TextPadding = 9;
-
-            RightHUDBuilder.AppendLine("= TARGET TRACKING =");
-
-            RightHUDBuilder.AppendLine();
-
-            var intels = IntelProvider.GetFleetIntelligences(timestamp);
-            var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
-            TargetTracking_TargetList.Clear();
-
-            bool hasTarget = false;
-
-            foreach (var intel in intels)
-            {
-                if (intel.Key.Item1 == IntelItemType.Enemy)
-                {
-                    if (!hasTarget && intel.Key.Item2 == TargetTracking_TrackID) hasTarget = true;
-                    TargetTracking_TargetList.Add((EnemyShipIntel)intel.Value);
-                }
-            }
-
-            if (!hasTarget) TargetTracking_TrackID = -1;
-            if (TargetTracking_TargetList.Count <= TargetTracking_SelectionIndex) TargetTracking_SelectionIndex = 0;
-
-
-            if (TargetTracking_TargetList.Count == 0)
-            {
-                RightHUDBuilder.AppendLine("NO TARGETS");
-                return;
-            }
-
-            RightHUDBuilder.AppendLine("WS SELECT | D TRACK");
-            RightHUDBuilder.AppendLine();
-
-            for (int i = 0; i < 20; i++)
-            {
-                if (i < TargetTracking_TargetList.Count)
-                {
-                    RightHUDBuilder.Append(TargetTracking_TargetList[i].ID == TargetTracking_TrackID ? '-' : ' ');
-                    RightHUDBuilder.Append(i == TargetTracking_SelectionIndex ? '>' : ' ');
-                    AppendPaddedLine(17, TargetTracking_TargetList[i].DisplayName, RightHUDBuilder);
-                }
-                else
-                {
-                    RightHUDBuilder.AppendLine();
-                }
-            }
-
-            RightHUDBuilder.AppendLine();
-
-        }
-
-        private void AppendPaddedLine(int TotalLength, string text, StringBuilder builder)
-        {
-            int length = text.Length;
-            if (length > TotalLength)
-                builder.AppendLine(text.Substring(0, TotalLength));
-            else if (length < TotalLength)
-                builder.Append(text).Append(' ', TotalLength - length).AppendLine();
-            else
-                builder.AppendLine(text);
-        }
-
-        int CustomMod(int n, int d)
-        {
-            return (n % d + d) % d;
-        }
-
-        int DeltaSelection(int current, int total, bool positive, int min = 0)
-        {
-            if (total == 0) return 0;
-            int newCurrent = current + (positive ? 1 : -1);
-            if (newCurrent >= total) newCurrent = 0;
-            if (newCurrent <= -1) newCurrent = total - 1;
-            return newCurrent;
-        }
-
         #endregion
 
-        #region Intel
-        void ReportIntel(IFleetIntelligence intel, TimeSpan timestamp)
+        #region MiddleHUD
+        void DrawMiddleHUD(TimeSpan localTime)
         {
-            IntelProvider.ReportFleetIntelligence(intel, timestamp);
+            if (Host.MiddleHUD == null) return;
+            using (var frame = Host.MiddleHUD.DrawFrame())
+            {
+                SpriteScratchpad.Clear();
+                Host.MiddleHUD.ScriptBackgroundColor = new Color(1, 0, 0, 0);
+            
+                MySprite crosshairs = Host.GetCrosshair();
+                frame.Add(crosshairs);
+            
+                if (CurrentUIMode == UIMode.SelectWaypoint)
+                {
+                    var distIndicator = MySprite.CreateText(CursorDist.ToString(), "Debug", Color.White, 0.5f);
+                    distIndicator.Position = new Vector2(0, 5) + Host.MiddleHUD.TextureSize / 2f;
+                    frame.Add(distIndicator);
+                }
+            
+                foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
+                {
+                    if (intel.IntelItemType == IntelItemType.Friendly)
+                    {
+                        if (AgentSelection_FriendlyAgents.Count > 0 && AgentSelection_FriendlyAgents.Count > AgentSelection_CurrentIndex && intel == AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])
+                            Host.FleetIntelItemToSprites(intel, localTime, Color.AliceBlue, ref SpriteScratchpad, LookingGlassSubsystem.IntelSpriteOptions.ShowName | LookingGlassSubsystem.IntelSpriteOptions.ShowDist | LookingGlassSubsystem.IntelSpriteOptions.EmphasizeWithDashes);
+                        else
+                            Host.FleetIntelItemToSprites(intel, localTime, Color.AliceBlue, ref SpriteScratchpad, LookingGlassSubsystem.IntelSpriteOptions.Small);
+                    }
+                    else if (intel.IntelItemType == IntelItemType.Enemy)
+                    {
+                        Host.FleetIntelItemToSprites(intel, localTime, Color.LightPink, ref SpriteScratchpad, LookingGlassSubsystem.IntelSpriteOptions.Small);
+                    }
+                }
+            
+                foreach (var spr in SpriteScratchpad)
+                {
+                    frame.Add(spr);
+                }
+            }
         }
+        #endregion
+
+        #region util
 
         void SendCommand(IFleetIntelligence target, TimeSpan timestamp)
         {
             SendCommand(MyTuple.Create(target.IntelItemType, target.ID), timestamp);
         }
-
         void SendCommand(MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {
             FriendlyShipIntel agent = AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex];
             TaskType taskType = TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex];
 
-            IntelProvider.ReportCommand(agent, taskType, targetKey, timestamp);
+            Host.IntelProvider.ReportCommand(agent, taskType, targetKey, timestamp);
 
             CurrentUIMode = UIMode.SelectAgent;
         }
         #endregion
 
-        #region Debug
-        private const int kScanDistance = 25000;
-        void GetRaycastDebug()
+        #region Waypoint Designation
+        int CursorDist = 1000;
+        Waypoint GetWaypoint()
         {
-            foreach (IMyCameraBlock camera in secondaryCameras)
-            {
-                updateBuilder.AppendLine($"{((int)(camera.AvailableScanRange / 1000)).ToString()} km");
-            }
-
-            updateBuilder.AppendLine(Lidar_CameraIndex.ToString());
-            updateBuilder.AppendLine();
-            updateBuilder.AppendLine("Last detected: ");
-            if (lastDetectedInfo.IsEmpty())
-            {
-                updateBuilder.AppendLine("None");
-            }
-            else
-            {
-                var distance = ((Vector3D)lastDetectedInfo.HitPosition - controller.WorldMatrix.Translation).Length();
-                updateBuilder.AppendLine($"{lastDetectedInfo.Name}");
-                updateBuilder.AppendLine($"Range: {(int)distance} m");
-                updateBuilder.AppendLine();
-
-                // Get direction
-                var worldDirection = lastDetectedInfo.Position - primaryCamera.WorldMatrix.Translation;
-                var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(primaryCamera.WorldMatrix));
-                updateBuilder.AppendLine($"{(int)bodyPosition.X} {(int)bodyPosition.Y} {(int)bodyPosition.Z}");
-                updateBuilder.AppendLine($"{Vector3D.Forward}");
-            }
-
-            updateBuilder.AppendLine();
-            updateBuilder.AppendLine(panelMiddle.TextureSize.ToString());
+            var w = new Waypoint();
+            w.Position = Vector3D.Transform(Vector3D.Forward * CursorDist, Host.PrimaryCamera.WorldMatrix);
+        
+            return w;
         }
         #endregion
     }

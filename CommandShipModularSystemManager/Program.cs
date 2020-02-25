@@ -33,18 +33,24 @@ namespace IngameScript
             IntelMasterSubsystem intelSubsystem = new IntelMasterSubsystem();
             subsystemManager.AddSubsystem("intel", intelSubsystem);
 
-            SensorSubsystem sensorSubsystem = new SensorSubsystem(intelSubsystem, "[S1]");
-            subsystemManager.AddSubsystem("sensor1", sensorSubsystem);
-            subsystemManager.AddSubsystem("sensorswivel1", new SwivelSubsystem("[SN1]", sensorSubsystem));
+            LookingGlassSubsystem lookingGlassSubsystem = new LookingGlassSubsystem(intelSubsystem, "[S1]");
+            LookingGlassPlugin_Command CommandPlugin = new LookingGlassPlugin_Command();
+            lookingGlassSubsystem.AddPlugin("command", CommandPlugin);
+            subsystemManager.AddSubsystem("lookingglass1", lookingGlassSubsystem);
+            subsystemManager.AddSubsystem("sensorswivel1", new SwivelSubsystem("[SN1]", lookingGlassSubsystem));
 
-            SensorSubsystem sensorSubsystem2 = new SensorSubsystem(intelSubsystem, "[S2]");
-            subsystemManager.AddSubsystem("sensor2", sensorSubsystem2);
-            subsystemManager.AddSubsystem("sensorswivel2", new SwivelSubsystem("[SN2]", sensorSubsystem2));
+            LookingGlassSubsystem lookingGlassSubsystem2 = new LookingGlassSubsystem(intelSubsystem, "[S2]");
+            lookingGlassSubsystem2.AddPlugin("command", CommandPlugin);
+            subsystemManager.AddSubsystem("lookingglass2", lookingGlassSubsystem2);
+            subsystemManager.AddSubsystem("sensorswivel2", new SwivelSubsystem("[SN2]", lookingGlassSubsystem2));
 
             subsystemManager.AddSubsystem("hangar", new HangarSubsystem(intelSubsystem));
 
             subsystemManager.AddSubsystem("scanner", new ScannerSubsystem(intelSubsystem, "SCN"));
             subsystemManager.AddSubsystem("scanner2", new ScannerSubsystem(intelSubsystem, "SCN2"));
+
+            subsystemManager.AddCommandMultiplexor("lookingglass", "lookingglass1");
+            subsystemManager.AddCommandMultiplexor("lookingglass", "lookingglass2");
 
             subsystemManager.DeserializeManager(Storage);
         }
