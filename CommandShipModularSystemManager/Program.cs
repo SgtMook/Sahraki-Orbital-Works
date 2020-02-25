@@ -36,8 +36,8 @@ namespace IngameScript
             // Looking Glass Setup
             LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
 
-            LookingGlassPlugin_Command CommandPlugin = new LookingGlassPlugin_Command();
             lookingGlassNetwork.AddPlugin("command", new LookingGlassPlugin_Command());
+            lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat());
 
             LookingGlass lookingGlass1 = new LookingGlass(this, "[S1]");
             LookingGlass lookingGlass2 = new LookingGlass(this, "[S2]");

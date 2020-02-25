@@ -90,8 +90,14 @@ namespace IngameScript
 
                 foreach (var camera in Scanners)
                 {
-                    if (!camera.CanScan(dist)) continue;
+                    var cameraToTarget = targetPosition - camera.WorldMatrix.Translation;
+                    var cameraDist = cameraToTarget.Length();
+                    cameraToTarget.Normalize();
+
+                    if (!camera.CanScan(cameraDist + 30)) continue;
+                    var cameraFinalPosition = cameraToTarget * (cameraDist + 30) + camera.WorldMatrix.Translation;
                     if (!camera.CanScan(targetPosition)) continue;
+
                     var info = camera.Raycast(targetPosition);
                     if (info.EntityId != kvp.Value.ID) break;
                     enemy.FromDetectedInfo(info, canonicalTime, true);
