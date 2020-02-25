@@ -27,7 +27,6 @@ namespace IngameScript
         void Turn(Vector3D targetPosition);
         void Spin(Vector3D targetUp);
         void SetMaxSpeed(float maxSpeed);
-        void SetMoveReference(IMyTerminalBlock block);
         void SetWaypoint(Waypoint w);
         bool AtWaypoint(Waypoint w);
         void Clear();
@@ -35,6 +34,7 @@ namespace IngameScript
         float GetBrakingDistance();
 
         IMyShipController Controller { get; }
+        IMyTerminalBlock Reference { get; set; }
 
         void SetStatus(string s);
 
@@ -170,13 +170,6 @@ namespace IngameScript
             if (maxSpeed != -1f)
                 this.maxSpeed = maxSpeed;
         }
-        public void SetMoveReference(IMyTerminalBlock block)
-        {
-            if (block != null && Program.Me.IsSameConstructAs(block))
-                reference = block;
-            else
-                reference = controller;
-        }
         public void SetWaypoint(Waypoint w)
         {
             Move(w.Position);
@@ -234,6 +227,21 @@ namespace IngameScript
         }
 
         public IMyShipController Controller => controller;
+
+        public IMyTerminalBlock Reference
+        {
+            get
+            {
+                return reference;
+            }
+            set
+            {
+                if (value != null && Program.Me.IsSameConstructAs(value))
+                    reference = value;
+                else
+                    reference = controller;
+            }
+        }
 
         public void SetStatus(string s)
         {
@@ -366,6 +374,10 @@ namespace IngameScript
 
                 IYaw += yawAngle;
                 IPitch += pitchAngle;
+                if (IYaw > 1) IYaw = 1;
+                if (IYaw < -1) IYaw = -1;
+                if (IPitch > 1) IPitch = 1;
+                if (IPitch < -1) IPitch = -1;
                 double kI = 0.01;
 
                 ApplyGyroOverride(pitchAngle * 5 + IPitch * kI, yawAngle * 5 + IYaw * kI, spinAngle * 5, gyros, reference);
@@ -441,15 +453,15 @@ namespace IngameScript
             Vector3D Error = (desiredVelocity - currentVelocity - adjustVector * 3) * 30 / aMax;
 
             float kP = 1f;
-            float kD = 2.5f;
             float kI = 0.2f;
+            float kD = 2.5f;
 
             if (Error.Length() > 1) Error.Normalize();
             else
             {
-                kD = 1;
-                kI = 0.1f;
                 kP = 0.2f;
+                kI = 0.1f;
+                kD = 1;
             }
 
             if (D == Vector3.Zero) D = Error;

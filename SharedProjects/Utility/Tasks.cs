@@ -237,7 +237,7 @@ namespace IngameScript
             Autopilot.Turn(Destination.Direction);
             Autopilot.Spin(Destination.DirectionUp);
             Autopilot.SetMaxSpeed(Destination.MaxSpeed);
-            Autopilot.SetMoveReference(MoveReference);
+            Autopilot.Reference = MoveReference;
         }
         #endregion
 
@@ -274,9 +274,9 @@ namespace IngameScript
 
         Vector3D PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
-            Vector3D o = Autopilot.Controller.CubeGrid.WorldMatrix.Translation;
+            Vector3D o = Autopilot.Reference.WorldMatrix.Translation;
             Vector3D targetPosition = Destination.Position;
-            float SafetyRadius = (float)(Autopilot.Controller.CubeGrid.WorldAABB.Max - Autopilot.Controller.CubeGrid.WorldAABB.Center).Length();
+            float SafetyRadius = (float)(Autopilot.Controller.CubeGrid.WorldAABB.Max - Autopilot.Controller.CubeGrid.WorldAABB.Min).Length();
             float brakingDist = Autopilot.GetBrakingDistance();
 
             IntelScratchpad.Clear();
@@ -405,7 +405,7 @@ namespace IngameScript
                             dirCenterToMe.Normalize();
                             var angle = Math.Acos(Vector3.Dot(dirCenterToDest, dirCenterToMe));
 
-                            if (angle < 0.1)
+                            if (angle < 0.2)
                             {
                                 target = Destination.Position;
                                 break;

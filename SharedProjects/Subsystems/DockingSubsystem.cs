@@ -108,7 +108,7 @@ namespace IngameScript
 
         IIntelProvider IntelProvider;
 
-        public DockingSubsystem(IIntelProvider intelProvider = null)
+        public DockingSubsystem(IIntelProvider intelProvider)
         {
             IntelProvider = intelProvider;
         }
