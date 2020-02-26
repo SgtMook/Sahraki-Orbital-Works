@@ -618,6 +618,11 @@ namespace IngameScript
                     {
                         CurrentUIMode = UIMode.Designate;
                     }
+                    if (SpecialCommand == "CLEAR")
+                    {
+                        SendCommand(MyTuple.Create(IntelItemType.NONE, (long)0), localTime);
+                        CurrentUIMode = UIMode.SelectAgent;
+                    }
                 }
                 else if (TargetSelection_TargetIndex < TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count() + TargetSelection_Targets.Count())
                 {
@@ -653,9 +658,9 @@ namespace IngameScript
 
         public void UpdateHUD(TimeSpan localTime)
         {
-            DrawTargetSelectionUI(localTime);
             DrawMiddleHUD(localTime);
             DrawAgentSelectionUI(localTime);
+            DrawTargetSelectionUI(localTime);
         }
 
         public void UpdateState(TimeSpan localTime)
@@ -780,9 +785,9 @@ namespace IngameScript
             { TaskType.None, new string[0]},
             { TaskType.Move, new string[1] { "CURSOR" }},
             { TaskType.SmartMove, new string[1] { "CURSOR" }},
-            { TaskType.Attack, new string[2] { "CURSOR", "NEAREST" }},
-            { TaskType.Dock, new string[2] { "NEAREST", "HOME" }},
-            { TaskType.SetHome, new string[0]},
+            { TaskType.Attack, new string[1] { "CURSOR" }},
+            { TaskType.Dock, new string[1] { "HOME" }},
+            { TaskType.SetHome, new string[1] { "CLEAR" }  },
             { TaskType.Mine, new string[1] { "DESIGNATE" }}
         };
 
@@ -812,7 +817,7 @@ namespace IngameScript
             }
 
             if (TargetSelection_TaskTypes.Count == 0) return;
-            if (TargetSelection_TaskTypesIndex > TargetSelection_TaskTypes.Count) TargetSelection_TaskTypesIndex = 0;
+            if (TargetSelection_TaskTypesIndex >= TargetSelection_TaskTypes.Count) TargetSelection_TaskTypesIndex = 0;
 
             Builder.Append(TaskTypeTags[TargetSelection_TaskTypes[Host.CustomMod(TargetSelection_TaskTypesIndex - 1, TargetSelection_TaskTypes.Count)]]).
                 Append("    [").Append(TaskTypeTags[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]).Append("]    ").
@@ -903,7 +908,7 @@ namespace IngameScript
             int realTargetIndex = -1;
             if (TargetSelection_TaskTypes.Count > 0)
             {
-                if (TargetSelection_TaskTypesIndex > TargetSelection_TaskTypes.Count) TargetSelection_TaskTypesIndex = 0;
+                if (TargetSelection_TaskTypesIndex >= TargetSelection_TaskTypes.Count) TargetSelection_TaskTypesIndex = 0;
                 realTargetIndex = TargetSelection_TargetIndex - TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]].Count();
             }
 
@@ -1182,6 +1187,7 @@ namespace IngameScript
             if (TargetTracking_TargetList.Count == 0)
             {
                 Builder.AppendLine("NO TARGETS");
+                Host.ActiveLookingGlass.RightHUD.WriteText(Builder.ToString());
                 return;
             }
         

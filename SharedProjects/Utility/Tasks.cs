@@ -135,13 +135,14 @@ namespace IngameScript
         }
     }
 
+    // Special command (None, 0) - unset home
     public class SetHomeTaskGenerator : ITaskGenerator
     {
         #region ITaskGenerator
         public TaskType AcceptedTypes => TaskType.SetHome;
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
-            if (type != TaskType.SetHome || intelKey.Item1 != IntelItemType.Dock) return new NullTask();
+            if (type != TaskType.SetHome || (intelKey.Item1 != IntelItemType.Dock && intelKey.Item1 != IntelItemType.NONE)) return new NullTask();
             return new SetHomeTask(intelKey, myID, Program, DockingSubsystem);
         }
         #endregion
@@ -641,6 +642,13 @@ namespace IngameScript
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
+            if (IntelKey.Item1 == IntelItemType.NONE && IntelKey.Item2 == 0)
+            {
+                DockingSubsystem.HomeID = -1;
+                Status = TaskStatus.Complete;
+                return;
+            }
+
             if (!IntelItems.ContainsKey(IntelKey))
             {
                 Status = TaskStatus.Aborted;

@@ -171,7 +171,6 @@ namespace IngameScript
 
         private void Unclaim()
         {
-            OwnerID = -1;
             hangarStatus &= ~HangarStatus.Reserved;
         }
 
@@ -186,33 +185,25 @@ namespace IngameScript
             bool ClaimElapsed = lastClaimTime + kClaimTimeout < timestamp;
             if ((hangarStatus & HangarStatus.Reserved) == 0)
             {
-                if (ClaimElapsed)
-                {
-                    if (Connector.Status != MyShipConnectorStatus.Connected)
-                        OwnerID = -1;
-                }
+                if (ClaimElapsed && Connector.Status != MyShipConnectorStatus.Connected)
+                    OwnerID = -1;
             }
             else
             {
                 if (OwnerID == -1)
                 {
-                    debugBuilder.AppendLine("Unclaimed due to no owner ID");
                     Unclaim();
                 }
-                else if (lastClaimTime + kClaimTimeout < timestamp)
+                else if (ClaimElapsed && Connector.Status != MyShipConnectorStatus.Connected)
                 {
                     var intelKey = MyTuple.Create(IntelItemType.Friendly, OwnerID);
                     if (!intelItems.ContainsKey(intelKey))
                     {
-                        debugBuilder.AppendLine("Unclaimed due to owner ID not found in intel");
-                        debugBuilder.AppendLine($"{OwnerID}");
                         Unclaim();
                         return;
                     }
                     if (((FriendlyShipIntel)intelItems[intelKey]).HomeID != Connector.EntityId)
                     {
-                        debugBuilder.AppendLine("Unclaimed due to abandoned by owner");
-                        debugBuilder.AppendLine($"{((FriendlyShipIntel)intelItems[intelKey]).HomeID} {Connector.EntityId}");
                         Unclaim();
                     }
                 }
