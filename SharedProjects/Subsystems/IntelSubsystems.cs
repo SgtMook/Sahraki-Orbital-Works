@@ -128,7 +128,6 @@ namespace IngameScript
 
         public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {
-            SendSyncMessage(timestamp);
             Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)targetKey.Item1, targetKey.Item2), (int)CommandType.Override, 0));
         }
 
@@ -234,7 +233,6 @@ namespace IngameScript
     }
 
     // TODO: Save/load serializations
-    // TODO: Send command, probably through master
     public class IntelSlaveSubsystem : ISubsystem, IIntelProvider
     {
 
@@ -311,7 +309,7 @@ namespace IngameScript
 
         public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {
-            //TODO: Probably gets the master to send it?
+            Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)targetKey.Item1, targetKey.Item2), (int)CommandType.Override, 0));
         }
         public void AddIntelMutator(IOwnIntelMutator processor)
         {

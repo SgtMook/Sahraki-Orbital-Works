@@ -27,6 +27,7 @@ namespace IngameScript
         public UpdateFrequency UpdateFrequency { get; set; }
         public void Command(TimeSpan timestamp, string command, object argument)
         {
+            if (command == "toggleactive") Active = !Active;
             if (command == "activateplugin") ActivatePlugin((string)argument);
             if (command == "cycleplugin") CyclePlugin();
         }
@@ -69,9 +70,10 @@ namespace IngameScript
 
         #endregion
 
-        public LookingGlassNetworkSubsystem(IIntelProvider intelProvider)
+        public LookingGlassNetworkSubsystem(IIntelProvider intelProvider, bool overrideGyros = true)
         {
             IntelProvider = intelProvider;
+            OverrideGyros = overrideGyros;
         }
 
         public IIntelProvider IntelProvider;
@@ -86,6 +88,10 @@ namespace IngameScript
         public LookingGlass ActiveLookingGlass = null;
 
         public IMyShipController Controller;
+
+        bool OverrideGyros;
+
+        bool Active = true;
 
         public void AddLookingGlass(LookingGlass lookingGlass)
         {
@@ -146,6 +152,7 @@ namespace IngameScript
         private void TriggerInputs(TimeSpan timestamp)
         {
             if (Controller == null) return;
+            if (!Active) return;
             var inputVecs = Controller.MoveIndicator;
             if (!lastADown && inputVecs.X < 0) DoA(timestamp);
             lastADown = inputVecs.X < 0;
@@ -247,6 +254,7 @@ namespace IngameScript
         private void UpdateActiveLookingGlass()
         {
             ActiveLookingGlass = null;
+
             foreach (var lg in LookingGlasses)
             {
                 if (lg.PrimaryCamera.IsActive)
@@ -260,8 +268,8 @@ namespace IngameScript
                 }
             }
 
-            Controller.ControlThrusters = ActiveLookingGlass == null;
-            TerminalPropertiesHelper.SetValue(Controller, "ControlGyros", ActiveLookingGlass == null);
+            Controller.ControlThrusters = ActiveLookingGlass == null || !Active;
+            if (OverrideGyros) TerminalPropertiesHelper.SetValue(Controller, "ControlGyros", ActiveLookingGlass == null || !Active);
         }
         #endregion
     }
@@ -289,7 +297,6 @@ namespace IngameScript
 
         public LookingGlassNetworkSubsystem Network;
 
-
         string Tag;
         MyGridProgram Program;
 
@@ -298,7 +305,19 @@ namespace IngameScript
             Tag = tag;
             Program = program;
             GetParts();
+
+            if (LeftHUD == null) return;
+            if (RightHUD == null) return;
+            if (MiddleHUD == null) return;
+
             LeftHUD.Alignment = TextAlignment.RIGHT;
+            LeftHUD.FontSize = 0.55f;
+            LeftHUD.TextPadding = 9;
+            LeftHUD.Font = "Monospace";
+            RightHUD.FontSize = 0.55f;
+            RightHUD.TextPadding = 9;
+            RightHUD.Font = "Monospace";
+            MiddleHUD.ScriptBackgroundColor = new Color(1, 0, 0, 0);
         }
 
         void GetParts()
@@ -661,8 +680,6 @@ namespace IngameScript
         private void DrawAgentSelectionUI(TimeSpan timestamp)
         {
             Builder.Clear();
-            Host.ActiveLookingGlass.LeftHUD.FontSize = 0.55f;
-            Host.ActiveLookingGlass.LeftHUD.TextPadding = 9;
             Host.ActiveLookingGlass.LeftHUD.FontColor = CurrentUIMode == UIMode.SelectAgent ? Host.ActiveLookingGlass.kFocusedColor : Host.ActiveLookingGlass.kUnfocusedColor;
 
             int kRowLength = 19;
@@ -777,9 +794,6 @@ namespace IngameScript
         private void DrawTargetSelectionUI(TimeSpan timestamp)
         {
             Builder.Clear();
-
-            Host.ActiveLookingGlass.RightHUD.FontSize = 0.55f;
-            Host.ActiveLookingGlass.RightHUD.TextPadding = 9;
             Host.ActiveLookingGlass.RightHUD.FontColor = CurrentUIMode == UIMode.SelectTarget ? Host.ActiveLookingGlass.kFocusedColor : Host.ActiveLookingGlass.kUnfocusedColor;
 
             Builder.AppendLine("=== SELECT TASK ===");
@@ -897,7 +911,6 @@ namespace IngameScript
             using (var frame = Host.ActiveLookingGlass.MiddleHUD.DrawFrame())
             {
                 SpriteScratchpad.Clear();
-                Host.ActiveLookingGlass.MiddleHUD.ScriptBackgroundColor = new Color(1, 0, 0, 0);
             
                 MySprite crosshairs = Host.ActiveLookingGlass.GetCrosshair();
                 frame.Add(crosshairs);
@@ -1068,9 +1081,6 @@ namespace IngameScript
         private void DrawScanUI(TimeSpan timestamp)
         {
             Builder.Clear();
-
-            Host.ActiveLookingGlass.LeftHUD.FontSize = 0.55f;
-            Host.ActiveLookingGlass.LeftHUD.TextPadding = 9;
             Host.ActiveLookingGlass.LeftHUD.FontColor = Host.ActiveLookingGlass.kFocusedColor;
             int kRowLength = 19;
         
@@ -1144,8 +1154,6 @@ namespace IngameScript
         private void DrawTrackingUI(TimeSpan timestamp)
         {
             Builder.Clear();
-            Host.ActiveLookingGlass.RightHUD.FontSize = 0.55f;
-            Host.ActiveLookingGlass.RightHUD.TextPadding = 9;
             Host.ActiveLookingGlass.RightHUD.FontColor = Host.ActiveLookingGlass.kFocusedColor;
 
             Builder.AppendLine("= TARGET TRACKING =");
@@ -1205,7 +1213,6 @@ namespace IngameScript
             using (var frame = Host.ActiveLookingGlass.MiddleHUD.DrawFrame())
             {
                 SpriteScratchpad.Clear();
-                Host.ActiveLookingGlass.MiddleHUD.ScriptBackgroundColor = new Color(1, 0, 0, 0);
 
                 MySprite crosshairs = Host.ActiveLookingGlass.GetCrosshair();
                 frame.Add(crosshairs);

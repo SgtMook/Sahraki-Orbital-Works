@@ -37,8 +37,6 @@ namespace IngameScript
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("docking", dockingSubsystem);
 
-            //subsystemManager.AddSubsystem("sensor", new SensorSubsystem(intelSubsystem));
-
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Drone);
             UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(this, autopilotSubsystem, dockingSubsystem);
             undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));

@@ -18,7 +18,7 @@ using VRage;
 using VRageMath;
 using VRage.Library;
 
-
+using System.Collections.Immutable;
 
 namespace IngameScript
 {
@@ -32,16 +32,36 @@ namespace IngameScript
             // Add subsystems
             IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
             subsystemManager.AddSubsystem("intel", intelSubsystem);
+            AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
+            subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
+            DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
+            subsystemManager.AddSubsystem("docking", dockingSubsystem);
 
-            LookingGlass sensorSubsystem = new LookingGlass(intelSubsystem, "[S1]");
-            subsystemManager.AddSubsystem("sensor1", sensorSubsystem);
-            subsystemManager.AddSubsystem("sensorswivel1", new SwivelSubsystem("[SN1]", sensorSubsystem));
 
-            LookingGlass sensorSubsystem2 = new LookingGlass(intelSubsystem, "[S2]");
-            subsystemManager.AddSubsystem("sensor2", sensorSubsystem2);
-            subsystemManager.AddSubsystem("sensorswivel2", new SwivelSubsystem("[SN2]", sensorSubsystem2));
+            // LookingGlass setup
+            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, false);
 
-            subsystemManager.AddSubsystem("hangar", new HangarSubsystem(intelSubsystem));
+            // Add plugins
+            lookingGlassNetwork.AddPlugin("command", new LookingGlassPlugin_Command());
+            lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat());
+
+            // Add hardware
+            lookingGlassNetwork.AddLookingGlass(new LookingGlass(this));
+
+            // Finalize
+            subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+
+            // Agent setup
+            AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Drone);
+            UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(this, autopilotSubsystem, dockingSubsystem);
+            undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
+            undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
+            agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
+            agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));
+
+            subsystemManager.AddSubsystem("agent", agentSubsystem);
+
+
 
             subsystemManager.DeserializeManager(Storage);
         }

@@ -84,6 +84,7 @@ namespace IngameScript
             {
                 GetCommands(timestamp);
                 DoTasks(timestamp);
+                TryAddTaskFromWaitingCommand(timestamp);
             }
         }
         #endregion
@@ -130,6 +131,10 @@ namespace IngameScript
 
         StringBuilder DebugBuilder = new StringBuilder();
 
+        MyTuple<int, MyTuple<int, long>, int, int>? WaitingCommand = null;
+        TimeSpan WaitingCommandTimestamp;
+        readonly TimeSpan kCommandWaitTimeout = TimeSpan.FromSeconds(0.6);
+
         public AgentSubsystem(IIntelProvider intelProvider, AgentClass agentClass)
         {
             IntelProvider = intelProvider;
@@ -168,8 +173,26 @@ namespace IngameScript
             {
                 var msg = CommandListener.AcceptMessage();
                 if (msg.Data is MyTuple<int, MyTuple<int, long>, int, int>)
-                    AddTaskFromCommand(timestamp, (MyTuple<int, MyTuple<int, long>, int, int>)msg.Data);
+                {
+                    WaitingCommand = (MyTuple<int, MyTuple<int, long>, int, int>)msg.Data;
+                    WaitingCommandTimestamp = timestamp;
+                }
             }
+        }
+
+        private void TryAddTaskFromWaitingCommand(TimeSpan timestamp)
+        {
+            if (WaitingCommandTimestamp + kCommandWaitTimeout < timestamp) WaitingCommand = null;
+            if (WaitingCommand == null) return;
+
+            var wCommand = (MyTuple<int, MyTuple<int, long>, int, int>)WaitingCommand;
+
+            var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+            var intelKey = MyTuple.Create((IntelItemType)wCommand.Item2.Item1, wCommand.Item2.Item2);
+            if (!intelItems.ContainsKey(intelKey) && intelKey.Item1 != IntelItemType.NONE) return; // None denotes special commands
+
+            AddTaskFromCommand(timestamp, wCommand);
+            WaitingCommand = null;
         }
 
         private void AddTaskFromCommand(TimeSpan timestamp, MyTuple<int, MyTuple<int, long>, int, int> command)

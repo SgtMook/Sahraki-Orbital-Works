@@ -47,7 +47,6 @@ namespace IngameScript
 
             subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
 
-
             subsystemManager.AddSubsystem("sensorswivel1", new SwivelSubsystem("[SN1]", lookingGlass1));
             subsystemManager.AddSubsystem("sensorswivel2", new SwivelSubsystem("[SN2]", lookingGlass2));
 
@@ -55,9 +54,6 @@ namespace IngameScript
 
             subsystemManager.AddSubsystem("scanner", new ScannerSubsystem(intelSubsystem, "SCN"));
             subsystemManager.AddSubsystem("scanner2", new ScannerSubsystem(intelSubsystem, "SCN2"));
-
-            subsystemManager.AddCommandMultiplexor("lookingglass", "lookingglass1");
-            subsystemManager.AddCommandMultiplexor("lookingglass", "lookingglass2");
 
             subsystemManager.DeserializeManager(Storage);
         }
