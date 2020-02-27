@@ -18,8 +18,6 @@ using VRage;
 using VRageMath;
 using VRage.Library;
 
-using System.Collections.Immutable;
-
 namespace IngameScript
 {
     // Forward drilling tunnel miner

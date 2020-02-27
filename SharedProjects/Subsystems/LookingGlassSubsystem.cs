@@ -106,7 +106,7 @@ namespace IngameScript
         private bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
-            if (block is IMyShipController)
+            if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
                 Controller = (IMyShipController)block;
             return false;
         }

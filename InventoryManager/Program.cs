@@ -769,33 +769,7 @@ namespace IngameScript
 			return false;
 		}
 
-		MyFixedPoint TransferAsMuchAsPossible(IMyInventory source, IMyInventory inv, MyInventoryItem item, MyFixedPoint amount)
-		{
-			var remainingVolume = inv.MaxVolume - inv.CurrentVolume;
-			MyItemInfo itemInfo = item.Type.GetItemInfo();
 
-			// If at least 1% volume left
-			float minEmptyVol = 0.01f;
-
-			if (source.Owner is IMyShipDrill) minEmptyVol = 0.2f; // Drills don't deposit unless less than 80% full
-
-			if (source.CanTransferItemTo(inv, item.Type) && remainingVolume > inv.MaxVolume * minEmptyVol)
-			{
-				var transferAmt = amount;
-				var totalVolume = transferAmt * itemInfo.Volume;
-
-				if (totalVolume > remainingVolume)
-					transferAmt = remainingVolume * (1f / itemInfo.Volume);
-
-				if (!itemInfo.UsesFractions)
-					transferAmt = MyFixedPoint.Floor(transferAmt);
-
-				if (source.TransferItemTo(inv, item, transferAmt))
-					amount -= transferAmt;
-			}
-
-			return amount;
-		}
 
 		void AddKey(string key, MyItemType type)
 		{

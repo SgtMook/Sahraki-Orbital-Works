@@ -257,7 +257,7 @@ namespace IngameScript
         }
     }
 
-    public class HangarSubsystem : ISubsystem
+    public class HangarSubsystem : ISubsystem, IInventoryRefreshRequester
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10 | UpdateFrequency.Update100;
@@ -321,6 +321,26 @@ namespace IngameScript
         }
         #endregion
 
+        #region IInventoryRefreshRequester
+        public bool RequestingRefresh()
+        {
+            return requestingRefresh;
+        }
+
+        public void AcknowledgeRequest()
+        {
+            requestingRefresh = false;
+        }
+
+        bool requestingRefresh = false;
+        Dictionary<Hangar, MyShipConnectorStatus> lastConnectorStatuses = new Dictionary<Hangar, MyShipConnectorStatus>();
+
+        void UpdateRefreshRequests()
+        {
+            
+        }
+        #endregion
+
         MyGridProgram Program;
         string Tag;
         string TagPrefix;
@@ -333,6 +353,7 @@ namespace IngameScript
         IIntelProvider IntelProvider;
 
         IMyShipController controller;
+        IMyInteriorLight DirectionIndicator;
 
         Dictionary<long, Hangar> HangarsDict = new Dictionary<long, Hangar>(64);
 
@@ -352,9 +373,11 @@ namespace IngameScript
         void GetParts()
         {
             controller = null;
+            DirectionIndicator = null;
             for (int i = 0; i < Hangars.Count(); i++) 
                 if (Hangars[i] != null) Hangars[i].Clear();
             HangarsDict.Clear();
+            lastConnectorStatuses.Clear();
 
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
@@ -377,6 +400,13 @@ namespace IngameScript
             if (indexTagEnd == -1) return false;
 
             var numString = block.CustomName.Substring(TagPrefix.Length, indexTagEnd - TagPrefix.Length);
+
+            if (numString == string.Empty)
+            {
+                // No number - master systems
+                if (block is IMyInteriorLight && block.CustomName.Contains("<DI>")) DirectionIndicator = (IMyInteriorLight)block;
+            }
+
             int hangarIndex;
             if (!int.TryParse(numString, out hangarIndex)) return false;
             if (Hangars[hangarIndex] == null) Hangars[hangarIndex] = new Hangar(hangarIndex, this);
@@ -399,7 +429,7 @@ namespace IngameScript
 
             hangar.Intel.UndockNear = hangar.Connector.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 1.3f : 0.55f;
 
-            hangar.Intel.IndicatorDir = hangar.DirectionIndicator == null ? Vector3D.Zero : hangar.DirectionIndicator.WorldMatrix.Forward;
+            hangar.Intel.IndicatorDir = hangar.DirectionIndicator == null ? (DirectionIndicator == null ? Vector3D.Zero : DirectionIndicator.WorldMatrix.Forward) : hangar.DirectionIndicator.WorldMatrix.Forward;
             hangar.Intel.HangarChannelTag = HangarChannelTag;
 
             return hangar.Intel;
@@ -414,6 +444,14 @@ namespace IngameScript
                 {
                     IntelProvider.ReportFleetIntelligence(GetHangarIntel(Hangars[i], timestamp), timestamp);
                     Hangars[i].Update(timestamp, intelItems);
+
+                    if (requestingRefresh == false && lastConnectorStatuses.ContainsKey(Hangars[i]) && 
+                        ((lastConnectorStatuses[Hangars[i]] == MyShipConnectorStatus.Connected && Hangars[i].Connector.Status != MyShipConnectorStatus.Connected) ||
+                        (lastConnectorStatuses[Hangars[i]] != MyShipConnectorStatus.Connected && Hangars[i].Connector.Status == MyShipConnectorStatus.Connected)))
+                    {
+                        requestingRefresh = true;
+                    }
+                    lastConnectorStatuses[Hangars[i]] = Hangars[i].Connector.Status;
                 }
             }
         }
