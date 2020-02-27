@@ -171,10 +171,7 @@ namespace IngameScript
             if (DockingSubsystem.Connector.Status != MyShipConnectorStatus.Connected) return mainTask;
 
             var task = new CompoundTask();
-            task.TaskQueue.Enqueue(new DockTask(DockingSubsystem, true));
-            var w = new Waypoint();
-            w.Position = DockingSubsystem.Connector.WorldMatrix.Backward * 40 + DockingSubsystem.Connector.WorldMatrix.Translation;
-            task.TaskQueue.Enqueue(new WaypointTask(Program, Autopilot, w, WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector));
+            task.TaskQueue.Enqueue(new UndockSeperationTask(Autopilot, DockingSubsystem, canonicalTime));
             task.TaskQueue.Enqueue(mainTask);
 
             return task;
@@ -244,6 +241,7 @@ namespace IngameScript
             Autopilot.Move(ObstacleMode == AvoidObstacleMode.DoNotAvoid ? Destination.Position : PlotPath(IntelItems, canonicalTime));
             Autopilot.Turn(Destination.Direction);
             Autopilot.Spin(Destination.DirectionUp);
+            Autopilot.Drift(Destination.Velocity);
             Autopilot.SetMaxSpeed(Destination.MaxSpeed);
             Autopilot.Reference = MoveReference;
         }
@@ -436,6 +434,48 @@ namespace IngameScript
             return target;
         }
     }
+
+    public class UndockSeperationTask : ITask
+    {
+        #region ITask
+        public TaskStatus Status { get; private set; }
+
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        {
+            if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected) DockingSubsystem.Undock();
+
+            AutopilotSubsystem.Drift(Drift);
+            AutopilotSubsystem.Controller.DampenersOverride = false;
+
+            var deltaT = canonicalTime - StartTime;
+
+            if ((DockingSubsystem.Connector.WorldMatrix.Translation - (ExpectedPosition + ExpectedVelocity * deltaT.TotalSeconds)).Length() > 40)
+            {
+                AutopilotSubsystem.Clear();
+                Status = TaskStatus.Complete;
+            }
+        }
+        #endregion
+
+        TimeSpan StartTime;
+        IAutopilot AutopilotSubsystem;
+        IDockingSubsystem DockingSubsystem;
+
+        Vector3D Drift;
+        Vector3D ExpectedPosition;
+        Vector3D ExpectedVelocity;
+
+        public UndockSeperationTask(IAutopilot autopilotSubsystem, IDockingSubsystem dockingSubsystem, TimeSpan canonicalTime)
+        {
+            StartTime = canonicalTime;
+            AutopilotSubsystem = autopilotSubsystem;
+            DockingSubsystem = dockingSubsystem;
+            ExpectedVelocity = AutopilotSubsystem.Controller.GetShipVelocities().LinearVelocity;
+            Drift = ExpectedVelocity + DockingSubsystem.Connector.WorldMatrix.Backward * 30;
+            ExpectedPosition = DockingSubsystem.Connector.WorldMatrix.Translation;
+        }
+    }
+
     public struct DockTask : ITask
     {
         #region ITask

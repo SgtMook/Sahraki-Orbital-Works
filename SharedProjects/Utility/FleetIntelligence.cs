@@ -324,6 +324,7 @@ namespace IngameScript
         public Vector3D Position; // Position of Zero means to stop moving, One means to keep original
         public Vector3D Direction; // Direction of Zero means to stop turning, One means to keep original
         public Vector3D DirectionUp; // Direction of Zero means to stop turning, One means to keep original
+        public Vector3D Velocity;
         public float MaxSpeed;
         public string Name;
 
