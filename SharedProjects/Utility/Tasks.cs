@@ -549,17 +549,24 @@ namespace IngameScript
 
         public virtual void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
-            var task = TaskQueue.Peek();
-            task.Do(IntelItems, canonicalTime);
-            if (task.Status == TaskStatus.Complete)
-                TaskQueue.Dequeue();
-            else if (task.Status == TaskStatus.Aborted && !ContinueOnAbort)
+            while (true)
             {
-                TaskQueue.Clear();
-                Aborted = true;
+                if (TaskQueue.Count == 0) return;
+                var task = TaskQueue.Peek();
+                task.Do(IntelItems, canonicalTime);
+                if (task.Status == TaskStatus.Complete)
+                    TaskQueue.Dequeue();
+                else if (task.Status == TaskStatus.Aborted && !ContinueOnAbort)
+                {
+                    TaskQueue.Clear();
+                    Aborted = true;
+                    break;
+                }
+                else if (task.Status == TaskStatus.Aborted && ContinueOnAbort)
+                    TaskQueue.Dequeue();
+                else
+                    break;
             }
-            else if (task.Status == TaskStatus.Aborted && ContinueOnAbort)
-                TaskQueue.Dequeue();
         }
         #endregion
         bool ContinueOnAbort;
@@ -645,16 +652,20 @@ namespace IngameScript
                 dockToMeDir.Normalize();
                 Vector3 holdPoint = dockToMeDir * 200 + dockPosition;
                 EnterHoldingPattern.Destination.Position = holdPoint;
+                EnterHoldingPattern.Destination.Velocity = dock.GetVelocity();
             }
 
             ApproachEntrance.Destination.Direction = dockDirection;
             ApproachEntrance.Destination.Position = approachPoint;
+            ApproachEntrance.Destination.Velocity = dock.GetVelocity();
 
             ApproachDock.Destination.Direction = dockDirection;
             ApproachDock.Destination.Position = entryPoint;
+            ApproachDock.Destination.Velocity = dock.GetVelocity();
 
             FinalAdjustToDock.Destination.Direction = dockDirection;
             FinalAdjustToDock.Destination.Position = closePoint;
+            FinalAdjustToDock.Destination.Velocity = dock.GetVelocity();
 
             if (Indicator != null && dock.IndicatorDir != Vector3D.Zero)
             {

@@ -69,6 +69,8 @@ namespace IngameScript
             if (hasPos || tActive)
             {
                 tActive = hasPos;
+                if (targetDrift != Vector3D.Zero && targetPosition != Vector3D.Zero)
+                    targetPosition += targetDrift / 60;
                 SetThrusterPowers();
             }
             bool hasDir = targetDirection != Vector3D.Zero || targetUp != Vector3D.Zero;
@@ -178,8 +180,8 @@ namespace IngameScript
         {
             if (w.Position != Vector3.One && w.Position != Vector3.Zero)
             {
-                var speed = (float)controller.GetShipVelocities().LinearVelocity.Length();
-                Vector3D posError = (w.Position - reference.WorldMatrix.Translation);
+                var speed = (float)(controller.GetShipVelocities().LinearVelocity - w.Velocity).Length();
+                Vector3D posError = (targetPosition - reference.WorldMatrix.Translation);
                 var distance = (float)posError.Length();
                 if (distance > 0.25f || speed > 0.25f)
                     return false;
@@ -435,7 +437,7 @@ namespace IngameScript
 
         void GetMovementVectors(Vector3D target, IMyShipController controller, IMyTerminalBlock reference, float maxThrust, float maxSpeed, out Vector3D AutopilotMoveIndicator, ref Vector3D D, ref Vector3D I)
         {
-            var speed = (float)controller.GetShipVelocities().LinearVelocity.Length();
+            var speed = (float)(controller.GetShipVelocities().LinearVelocity - targetDrift).Length();
             Vector3D currentVelocity = controller.GetShipVelocities().LinearVelocity;
             float aMax = 0.8f * maxThrust / controller.CalculateShipMass().PhysicalMass;
             Vector3D desiredVelocity = targetDrift;
@@ -443,16 +445,14 @@ namespace IngameScript
             var distance = (float)posError.Length();
             posError.Normalize();
 
-            if (targetDrift == Vector3D.Zero)
+            if (target != Vector3D.Zero)
             {
-                float desiredSpeed = Math.Min((float)Math.Sqrt(2f * aMax * distance), maxSpeed);
-
-                desiredVelocity = posError * desiredSpeed;
+                float desiredSpeed = Math.Min((float)Math.Sqrt(2f * aMax * distance) * 0.01f * (100 - (float)targetDrift.Length()), maxSpeed);
+                desiredVelocity += posError * desiredSpeed;
             }
 
-
-            Vector3D adjustVector = currentVelocity - VectorHelpers.VectorProjection(currentVelocity, desiredVelocity);
-            if (targetDrift != Vector3D.Zero || adjustVector.Length() < currentVelocity.Length() * 0.1) adjustVector = Vector3.Zero;
+            Vector3D adjustVector = currentVelocity - targetDrift - VectorHelpers.VectorProjection(currentVelocity - targetDrift, desiredVelocity - targetDrift);
+            if (adjustVector.Length() < (currentVelocity - targetDrift).Length() * 0.1) adjustVector = Vector3.Zero;
 
             Vector3D Error = (desiredVelocity - currentVelocity - adjustVector * 3) * 30 / aMax;
 
@@ -471,11 +471,8 @@ namespace IngameScript
             if (D == Vector3.Zero) D = Error;
 
             AutopilotMoveIndicator = kP * Error + kD * (Error - D) + kI * I;
-            if (targetDrift == Vector3D.Zero)
-            {
-                if (distance < 10 && speed < 10) AutopilotMoveIndicator *= 0.5f;
-                else if (distance < 1) AutopilotMoveIndicator *= 0.2f;
-            }
+            if (distance < 10 && speed < 10) AutopilotMoveIndicator *= 0.5f;
+            else if (distance < 1) AutopilotMoveIndicator *= 0.2f;
 
             if (AutopilotMoveIndicator.Length() > 1) AutopilotMoveIndicator /= AutopilotMoveIndicator.Length();
 

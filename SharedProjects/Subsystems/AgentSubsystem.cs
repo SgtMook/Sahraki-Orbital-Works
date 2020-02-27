@@ -154,16 +154,23 @@ namespace IngameScript
 
         private void DoTasks(TimeSpan timestamp)
         {
-            if (TaskQueue.Count == 0) return;
-            ITask currentTask = TaskQueue.Peek();
-            currentTask.Do(IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff);
-            if (currentTask.Status == TaskStatus.Complete)
+            while (true)
             {
-                TaskQueue.Dequeue();
-            }
-            else if (currentTask.Status == TaskStatus.Aborted)
-            {
-                var task = TaskQueue.Dequeue();
+                if (TaskQueue.Count == 0) return;
+                ITask currentTask = TaskQueue.Peek();
+                currentTask.Do(IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff);
+                if (currentTask.Status == TaskStatus.Complete)
+                {
+                    TaskQueue.Dequeue();
+                }
+                else if (currentTask.Status == TaskStatus.Aborted)
+                {
+                    TaskQueue.Dequeue();
+                }
+                else
+                {
+                    break;
+                }
             }
         }
 
