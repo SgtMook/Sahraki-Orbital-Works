@@ -28,6 +28,16 @@ namespace IngameScript
         public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "toggleactive") Active = !Active;
+            if (command == "activate")
+            {
+                ActiveLookingGlass = LookingGlasses[0];
+                ActiveLookingGlass.InterceptControls = true;
+            }
+            if (command == "deactivate")
+            {
+                ActiveLookingGlass.InterceptControls = false;
+                ActiveLookingGlass = null;
+            }
             if (command == "activateplugin") ActivatePlugin((string)argument);
             if (command == "cycleplugin") CyclePlugin();
         }
@@ -38,7 +48,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return string.Empty;
+            return Controller.MoveIndicator.ToString();
         }
 
         public string SerializeSubsystem()
@@ -65,11 +75,9 @@ namespace IngameScript
                 UpdateActiveLookingGlass();
                 UpdateUpdateFrequency();
             }
-
         }
 
         #endregion
-
         public LookingGlassNetworkSubsystem(IIntelProvider intelProvider, bool overrideGyros = true)
         {
             IntelProvider = intelProvider;
@@ -254,7 +262,7 @@ namespace IngameScript
         private void UpdateActiveLookingGlass()
         {
             ActiveLookingGlass = null;
-
+            
             foreach (var lg in LookingGlasses)
             {
                 if (lg.PrimaryCamera.IsActive)

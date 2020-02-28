@@ -460,7 +460,7 @@ namespace IngameScript
             float kI = 0.2f;
             float kD = 2.5f;
 
-            if (Error.Length() > 1) Error.Normalize();
+            if (Error.LengthSquared() > 1) Error.Normalize();
             else
             {
                 kP = 0.2f;

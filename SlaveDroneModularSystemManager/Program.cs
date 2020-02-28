@@ -18,8 +18,6 @@ using VRage;
 using VRageMath;
 using VRage.Library;
 
-using System.Collections.Immutable;
-
 namespace IngameScript
 {
     partial class Program : MyGridProgram
@@ -30,19 +28,25 @@ namespace IngameScript
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             // Add subsystems
-            IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
+            // Intel system setup
+            IntelMasterSubsystem intelSubsystem = new IntelMasterSubsystem();
             subsystemManager.AddSubsystem("intel", intelSubsystem);
-            AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
-            subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
-            DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
-            subsystemManager.AddSubsystem("docking", dockingSubsystem);
 
-            AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Drone);
-            UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(this, autopilotSubsystem, dockingSubsystem);
-            undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
-            undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
-            agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
-            subsystemManager.AddSubsystem("agent", agentSubsystem);
+            // Looking Glass Setup
+            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
+
+            lookingGlassNetwork.AddPlugin("command", new LookingGlassPlugin_Command());
+            lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat());
+
+            LookingGlass lookingGlass1 = new LookingGlass(this, "[LG]");
+
+            lookingGlassNetwork.AddLookingGlass(lookingGlass1);
+
+            subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+
+            subsystemManager.AddSubsystem("sensorswivel", new SwivelSubsystem("[LG1]", lookingGlass1));
+
+            subsystemManager.AddSubsystem("hangar", new HangarSubsystem(intelSubsystem));
 
             subsystemManager.DeserializeManager(Storage);
         }

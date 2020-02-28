@@ -27,7 +27,7 @@ namespace IngameScript
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
             if (type != TaskType.Attack) return new NullTask();
-            return new HornetAttackTask(Program, CombatSystem, Autopilot, AgentSubsystem, intelKey);
+            return new HornetAttackTask(Program, CombatSystem, Autopilot, AgentSubsystem, MonitorSubsystem, intelKey);
         }
         #endregion
 
@@ -35,13 +35,15 @@ namespace IngameScript
         HornetCombatSubsystem CombatSystem;
         IAutopilot Autopilot;
         IAgentSubsystem AgentSubsystem;
+        IMonitorSubsystem MonitorSubsystem;
 
-        public HornetAttackTaskGenerator(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem)
+        public HornetAttackTaskGenerator(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem)
         {
             Program = program;
             CombatSystem = combatSystem;
             Autopilot = autopilot;
             AgentSubsystem = agentSubsystem;
+            MonitorSubsystem = monitorSubsystem;
         }
     }
 
@@ -53,6 +55,15 @@ namespace IngameScript
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
+
+            if (MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.3 ||
+                MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) < 0.1 ||
+                MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.1)
+            {
+                GoHome(canonicalTime);
+                return;
+            }
+
             IMyShipController controller = Autopilot.Controller;
             Vector3D linearVelocity = controller.GetShipVelocities().LinearVelocity;
             var currentPosition = controller.WorldMatrix.Translation;
@@ -112,8 +123,8 @@ namespace IngameScript
                 }
                 else
                 {
-                    AgentSubsystem.AddTask(TaskType.Dock, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Enqueue, 0, canonicalTime);
-                    Status = TaskStatus.Complete;
+                    GoHome(canonicalTime);
+                    return;
                 }
 
                 Vector3D toTarget = LeadTask.Destination.Position - Program.Me.WorldMatrix.Translation;
@@ -162,13 +173,22 @@ namespace IngameScript
             LastLinearVelocity = linearVelocity;
             LeadTask.Do(IntelItems, canonicalTime);
         }
+
+        private void GoHome(TimeSpan canonicalTime)
+        {
+            AgentSubsystem.AddTask(TaskType.Dock, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Enqueue, 0, canonicalTime);
+            Status = TaskStatus.Complete;
+        }
         #endregion
 
         WaypointTask LeadTask;
         MyGridProgram Program;
+
         HornetCombatSubsystem CombatSystem;
         IAutopilot Autopilot;
         IAgentSubsystem AgentSubsystem;
+        IMonitorSubsystem MonitorSubsystem;
+
         MyTuple<IntelItemType, long> IntelKey;
         Vector3D TargetPosition;
         bool TargetPositionSet = false;
@@ -185,13 +205,14 @@ namespace IngameScript
         TimeSpan NextSwapTime;
         Random random = new Random();
 
-        public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, MyTuple<IntelItemType, long> intelKey)
+        public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, MyTuple<IntelItemType, long> intelKey)
         {
             Program = program;
             CombatSystem = combatSystem;
             Autopilot = autopilot;
             IntelKey = intelKey;
             AgentSubsystem = agentSubsystem;
+            MonitorSubsystem = monitorSubsystem;
 
             Status = TaskStatus.Incomplete;
 

@@ -139,7 +139,7 @@ namespace IngameScript
             if ((updateSource & UpdateType.Update10) != 0) updateFrequency |= UpdateFrequency.Update10;
             if ((updateSource & UpdateType.Update100) != 0) updateFrequency |= UpdateFrequency.Update100;
 
-            UpdateFrequency targetFrequency = UpdateFrequency.None;
+            UpdateFrequency targetFrequency = UpdateFrequency.Update1;
 
             foreach (ISubsystem subsystem in Subsystems.Values)
             {
