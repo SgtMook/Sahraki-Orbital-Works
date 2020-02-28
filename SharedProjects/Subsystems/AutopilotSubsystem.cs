@@ -42,9 +42,9 @@ namespace IngameScript
 
     public class AutopilotSubsystem : ISubsystem, IAutopilot
     {
-
         StringBuilder statusbuilder = new StringBuilder();
         // StringBuilder debugBuilder = new StringBuilder();
+        bool run = false;
 
         #region ISubsystem
         public void Command(TimeSpan timestamp, string command, object argument)
@@ -65,69 +65,39 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            bool hasPos = targetPosition != Vector3D.Zero || targetDrift != Vector3D.Zero;
-            if (hasPos || tActive)
+            if (run)
             {
-                tActive = hasPos;
-                if (targetDrift != Vector3D.Zero && targetPosition != Vector3D.Zero)
-                    targetPosition += targetDrift / 60;
-                SetThrusterPowers();
-            }
-            bool hasDir = targetDirection != Vector3D.Zero || targetUp != Vector3D.Zero;
-            if (hasDir || rActive)
-            {
-                rActive = hasDir;
-                SetGyroPowers();
-            }
+                bool hasPos = targetPosition != Vector3D.Zero || targetDrift != Vector3D.Zero;
+                if (hasPos || tActive)
+                {
+                    tActive = hasPos;
+                    if (targetDrift != Vector3D.Zero && targetPosition != Vector3D.Zero)
+                        targetPosition += targetDrift / 60;
+                    SetThrusterPowers();
+                }
+                bool hasDir = targetDirection != Vector3D.Zero || targetUp != Vector3D.Zero;
+                if (hasDir || rActive)
+                {
+                    rActive = hasDir;
+                    SetGyroPowers();
+                }
 
-            if (hasPos || hasDir)
-                UpdateFrequency = UpdateFrequency.Update1;
-            else if (UpdateFrequency == UpdateFrequency.Update1)
-            {
-                UpdateFrequency = UpdateFrequency.Update10;
-                Clear();
+                if (hasPos || hasDir)
+                    UpdateFrequency = UpdateFrequency.Update1;
+                else if (UpdateFrequency == UpdateFrequency.Update1)
+                {
+                    UpdateFrequency = UpdateFrequency.Update10;
+                    Clear();
+                }
             }
+            run = !run;
         }
 
         public string GetStatus()
         {
             statusbuilder.Clear();
 
-            if (controller != null)
-            {
-                statusbuilder.AppendLine("AOK");
-
-                // Debug
-                //statusbuilder.AppendLine($"TPOS: {targetPosition.ToString()}");
-                //statusbuilder.AppendLine($"TDIR: {targetDirection.ToString()}");
-
-                //var speed = (float)controller.GetShipVelocities().LinearVelocity.Length();
-                //
-                //Vector3D posError = (targetPosition - reference.WorldMatrix.Translation);
-                //var distance = (float)posError.Length();
-                //posError.Normalize();
-                //
-                //float aMax = 0.8f * thrusts[0] / controller.CalculateShipMass().PhysicalMass;
-                //float desiredSpeed = Math.Min((float)Math.Sqrt(2f * aMax * distance), maxSpeed);
-                //
-                //Vector3D desiredVelocity = posError * desiredSpeed;
-                //Vector3D currentVelocity = controller.GetShipVelocities().LinearVelocity;
-                //
-                //Vector3D Error = (desiredVelocity - currentVelocity) * 30 / aMax;
-                //statusbuilder.AppendLine($"TVOL: {Error}");
-                //statusbuilder.AppendLine($"tD: {targetDirection}");
-                //statusbuilder.AppendLine($"refD: {reference.WorldMatrix.Forward}");
-                //
-                //statusbuilder.AppendLine(reference.WorldMatrix.Up.ToString());
-                //statusbuilder.AppendLine(IPitch.ToString());
-                //statusbuilder.AppendLine(IYaw.ToString());
-            }
-            else
-            {
-                statusbuilder.AppendLine("ERR");
-            }
-
-            return Status;
+            return statusbuilder.ToString();
         }
 
         public UpdateFrequency UpdateFrequency { get; set; }
@@ -255,6 +225,7 @@ namespace IngameScript
         IMyRemoteControl controller;
         IMyTerminalBlock reference;
 
+        ThrusterManager thrusterManager = new ThrusterManager();
         List<IMyThrust> thrustersList = new List<IMyThrust>();
 
         List<IMyGyro> gyros = new List<IMyGyro>();
@@ -287,6 +258,7 @@ namespace IngameScript
             { Base6Directions.Direction.Backward, Vector3I.Backward },
         };
 
+
         // Helpers
 
         void GetParts()
@@ -296,6 +268,8 @@ namespace IngameScript
             thrustersList.Clear();
             for (int i = 0; i < thrusts.Length; i++)
                 thrusts[i] = 0;
+
+            thrusterManager.Clear();
 
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
@@ -324,6 +298,7 @@ namespace IngameScript
                 IMyThrust thruster = (IMyThrust)block;
                 thrustersList.Add(thruster);
                 thruster.ThrustOverride = 0;
+                thrusterManager.AddThruster(thruster);
             }
 
             if (block is IMyGyro)
@@ -339,9 +314,7 @@ namespace IngameScript
         void SetThrusterPowers()
         {
             Vector3D AutopilotMoveIndicator = Vector3.Zero;
-
             if (targetPosition != Vector3D.Zero || targetDrift != Vector3D.Zero) GetMovementVectors(targetPosition, controller, reference, thrusts[0], maxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
-
             if (AutopilotMoveIndicator == Vector3.Zero)
             {
                 controller.DampenersOverride = true;
@@ -354,12 +327,14 @@ namespace IngameScript
             var gridDirIndicator = Vector3D.TransformNormal(AutopilotMoveIndicator, MatrixD.Transpose(
                 controller.CubeGrid.WorldMatrix));
 
-            for (int i = 0; i < thrustersList.Count; i++)
-            {
-                var f = thrustersList[i].Orientation.Forward;
-                float power = (DirectionMap[f] * -1f).Dot(gridDirIndicator);
-                thrustersList[i].ThrustOverridePercentage = Math.Max(power, 0) * 1f;
-            }
+            thrusterManager.SmartSetThrust(gridDirIndicator);
+
+            //for (int i = 0; i < thrustersList.Count; i++)
+            //{
+            //    var f = thrustersList[i].Orientation.Forward;
+            //    float power = (DirectionMap[f] * -1f).Dot(gridDirIndicator);
+            //    thrustersList[i].ThrustOverridePercentage = Math.Max(power, 0) * 1f;
+            //}
         }
 
         void SetGyroPowers()

@@ -17,9 +17,94 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 
-namespace SharedProjects.Utility
+namespace IngameScript
 {
+
     public class ThrusterManager
     {
+        Dictionary<Base6Directions.Direction, Vector3D> DirectionMap = new Dictionary<Base6Directions.Direction, Vector3D>()
+        {
+            { Base6Directions.Direction.Up, Vector3D.Up },
+            { Base6Directions.Direction.Down, Vector3D.Down },
+            { Base6Directions.Direction.Left, Vector3D.Left },
+            { Base6Directions.Direction.Right, Vector3D.Right },
+            { Base6Directions.Direction.Forward, Vector3D.Forward },
+            { Base6Directions.Direction.Backward, Vector3D.Backward },
+        };
+        Dictionary<Base6Directions.Direction, List<IMyThrust>> Thrusters = new Dictionary<Base6Directions.Direction, List<IMyThrust>>()
+        {
+            { Base6Directions.Direction.Up, new List<IMyThrust>()},
+            { Base6Directions.Direction.Down, new List<IMyThrust>()},
+            { Base6Directions.Direction.Left, new List<IMyThrust>()},
+            { Base6Directions.Direction.Right, new List<IMyThrust>()},
+            { Base6Directions.Direction.Forward, new List<IMyThrust>()},
+            { Base6Directions.Direction.Backward, new List<IMyThrust>()},
+        };
+
+        Base6Directions.Direction[] directions = new Base6Directions.Direction[6] {
+            Base6Directions.Direction.Up,
+            Base6Directions.Direction.Down,
+            Base6Directions.Direction.Left,
+            Base6Directions.Direction.Right,
+            Base6Directions.Direction.Forward,
+            Base6Directions.Direction.Backward
+        };
+
+        Dictionary<Base6Directions.Direction, double> prevPowers = new Dictionary<Base6Directions.Direction, double>();
+
+        public ThrusterManager()
+        {
+
+        }
+
+        public void Clear()
+        {
+            foreach (var direction in directions)
+            {
+                Thrusters[direction].Clear();
+            }
+            prevPowers.Clear();
+        }
+
+        public void AddThruster(IMyThrust thruster)
+        {
+            Thrusters[thruster.Orientation.Forward].Add(thruster);
+        }
+
+        public void SmartSetThrust(Vector3D GridMoveIndicator)
+        {
+            foreach (var K in directions)
+            {
+                List<IMyThrust> list = Thrusters[K];
+                if (!prevPowers.ContainsKey(K))
+                {
+                    foreach (var thruster in list) thruster.ThrustOverridePercentage = 0;
+                    prevPowers[K] = 0;
+                }
+                var power = Math.Max(0, Math.Min((DirectionMap[K] * -1f).Dot(GridMoveIndicator), 0.999999));
+
+                if (power == prevPowers[K]) continue;
+
+                var finalThrusterIndex = (int)(power * list.Count);
+                var prevFinalThrusterIndex = (int)(prevPowers[K] * list.Count);
+                if (finalThrusterIndex > prevFinalThrusterIndex)
+                {
+                    for (int i = prevFinalThrusterIndex; i < finalThrusterIndex; i++)
+                        SetThruster(K, i, 1);
+                }
+                else if (finalThrusterIndex < prevFinalThrusterIndex)
+                {
+                    for (int i = finalThrusterIndex + 1; i <= prevFinalThrusterIndex; i++)
+                        SetThruster(K, i, 0);
+                }
+                SetThruster(K, finalThrusterIndex, (float)((power * list.Count) % 1));
+                prevPowers[K] = power;
+            }
+        }
+
+        private void SetThruster(Base6Directions.Direction K, int i, float val)
+        {
+            Thrusters[K][i].ThrustOverridePercentage = val;
+        }
     }
 }

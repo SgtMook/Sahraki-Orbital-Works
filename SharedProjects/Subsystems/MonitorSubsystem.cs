@@ -85,7 +85,7 @@ namespace IngameScript
         float hydrogenPercent;
         float powerPercent;
 
-        IMyRadioAntenna Antenna;
+        IMyBeacon Beacon;
 
         StringBuilder antennaBuilder = new StringBuilder();
 
@@ -94,7 +94,7 @@ namespace IngameScript
             Inventories.Clear();
             HydrogenTanks.Clear();
             Batteries.Clear();
-            Antenna = null;
+            Beacon = null;
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
@@ -109,8 +109,8 @@ namespace IngameScript
                 HydrogenTanks.Add((IMyGasTank)block);
             if (block is IMyBatteryBlock)
                 Batteries.Add((IMyBatteryBlock)block);
-            if (block is IMyRadioAntenna && !((IMyRadioAntenna)block).ShowShipName)
-                Antenna = (IMyRadioAntenna)block;
+            if (block is IMyBeacon)
+                Beacon = (IMyBeacon)block;
 
             return false;
         }
@@ -165,10 +165,10 @@ namespace IngameScript
 
         void UpdateAntenna()
         {
-            if (Antenna == null) return;
+            if (Beacon == null) return;
             antennaBuilder.Clear();
             antennaBuilder.Append("H:").Append((int)(hydrogenPercent * 100)).Append("|P:").Append((int)(powerPercent * 100)).Append("|C:").Append((int)(inventoryPercent * 100));
-            Antenna.CustomName = antennaBuilder.ToString();
+            Beacon.CustomName = antennaBuilder.ToString();
         }
     }
 }

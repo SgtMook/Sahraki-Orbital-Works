@@ -55,10 +55,14 @@ namespace IngameScript
 
 
             subsystemManager.DeserializeManager(Storage);
+
+            profiler = new Profiler(this.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
         }
-
         MyCommandLine commandLine = new MyCommandLine();
-
+        StringBuilder builder = new StringBuilder();
+        const double PROFILER_NEW_VALUE_FACTOR = 0.01;
+        const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
+        Profiler profiler;
         SubsystemManager subsystemManager;
 
         public void Save()
@@ -78,6 +82,10 @@ namespace IngameScript
             else
             {
                 subsystemManager.Update(updateSource);
+                //profiler.UpdateRuntime();
+                //builder.Clear();
+                //profiler.PrintPerformance(builder);
+                //Echo(builder.ToString());
                 Echo(subsystemManager.GetStatus());
             }
         }
