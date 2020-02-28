@@ -44,7 +44,8 @@ namespace IngameScript
     {
         StringBuilder statusbuilder = new StringBuilder();
         // StringBuilder debugBuilder = new StringBuilder();
-        bool run = false;
+        int run = 0;
+        int kRunEveryXUpdates = 2;
 
         #region ISubsystem
         public void Command(TimeSpan timestamp, string command, object argument)
@@ -65,14 +66,15 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            if (run)
+            run++;
+            if (run == kRunEveryXUpdates)
             {
                 bool hasPos = targetPosition != Vector3D.Zero || targetDrift != Vector3D.Zero;
                 if (hasPos || tActive)
                 {
                     tActive = hasPos;
                     if (targetDrift != Vector3D.Zero && targetPosition != Vector3D.Zero)
-                        targetPosition += targetDrift / 60;
+                        targetPosition += targetDrift * kRunEveryXUpdates / 60;
                     SetThrusterPowers();
                 }
                 bool hasDir = targetDirection != Vector3D.Zero || targetUp != Vector3D.Zero;
@@ -89,8 +91,8 @@ namespace IngameScript
                     UpdateFrequency = UpdateFrequency.Update10;
                     Clear();
                 }
+                run = 0;
             }
-            run = !run;
         }
 
         public string GetStatus()
@@ -423,6 +425,7 @@ namespace IngameScript
             if (target != Vector3D.Zero)
             {
                 float desiredSpeed = Math.Min((float)Math.Sqrt(2f * aMax * distance) * 0.01f * (100 - (float)targetDrift.Length()), maxSpeed);
+                desiredSpeed = Math.Min(distance * 2f + 1f, desiredSpeed);
                 desiredVelocity += posError * desiredSpeed;
             }
 
