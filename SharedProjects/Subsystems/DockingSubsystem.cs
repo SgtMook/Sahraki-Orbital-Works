@@ -123,6 +123,7 @@ namespace IngameScript
             if (block is IMyRadioAntenna) ((IMyRadioAntenna)block).Enabled = false;
             if (block is IMyGyro) ((IMyGyro)block).Enabled = false;
             if (block is IMyCameraBlock) ((IMyCameraBlock)block).Enabled = false;
+            if (block is IMyLargeTurretBase) ((IMyLargeTurretBase)block).Enabled = false;
 
             return false;
         }
@@ -137,6 +138,7 @@ namespace IngameScript
             if (block is IMyRadioAntenna) ((IMyRadioAntenna)block).Enabled = true;
             if (block is IMyGyro) ((IMyGyro)block).Enabled = true;
             if (block is IMyCameraBlock) ((IMyCameraBlock)block).Enabled = true;
+            if (block is IMyLargeTurretBase) ((IMyLargeTurretBase)block).Enabled = true;
             return false;
         }
 
