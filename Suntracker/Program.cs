@@ -19,11 +19,11 @@ using VRageMath;
 
 namespace IngameScript
 {
-	partial class Program : MyGridProgram
-	{
-		public Program()
-		{
-			Runtime.UpdateFrequency = UpdateFrequency.Update1;
+    partial class Program : MyGridProgram
+    {
+        public Program()
+        {
+            Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             GetParts();
 
@@ -38,12 +38,12 @@ namespace IngameScript
             setupString = statusBuilder.ToString();
         }
 
-		public void Save()
-		{
-		}
+        public void Save()
+        {
+        }
 
-		public void Main(string argument, UpdateType updateSource)
-		{
+        public void Main(string argument, UpdateType updateSource)
+        {
             run++;
             if (ticksPerCheck == run)
             {
@@ -56,7 +56,7 @@ namespace IngameScript
                 statusBuilder.Append("Running").Append('.', elipses);
                 Echo(statusBuilder.ToString());
             }
-		}
+        }
 
         private void CheckSystems()
         {
