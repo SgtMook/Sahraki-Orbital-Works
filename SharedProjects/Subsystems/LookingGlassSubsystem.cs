@@ -605,7 +605,8 @@ namespace IngameScript
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
-                CurrentUIMode = UIMode.SelectTarget;
+                if (AgentSelection_CurrentIndex < AgentSelection_FriendlyAgents.Count && AgentSelection_CurrentClass != AgentClass.None)
+                    CurrentUIMode = UIMode.SelectTarget;
             }
             else if(CurrentUIMode == UIMode.SelectTarget)
             {
@@ -751,7 +752,7 @@ namespace IngameScript
 
         Dictionary<AgentClass, string> AgentClassTags = new Dictionary<AgentClass, string>
         {
-            { AgentClass.None, "SLF" },
+            { AgentClass.None, "N/A" },
             { AgentClass.Drone, "DRN" },
             { AgentClass.Fighter, "FTR" },
             { AgentClass.Bomber, "BMR" },
@@ -813,7 +814,12 @@ namespace IngameScript
 
             Builder.AppendLine();
 
-            if (AgentSelection_CurrentIndex >= AgentSelection_FriendlyAgents.Count) return;
+            if (AgentSelection_CurrentIndex >= AgentSelection_FriendlyAgents.Count)
+            {
+                Host.ActiveLookingGlass.RightHUD.WriteText(Builder.ToString());
+                CurrentUIMode = UIMode.SelectAgent;
+                return;
+            }
 
             var Agent = AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex];
             TargetSelection_TaskTypes.Clear();
@@ -824,7 +830,11 @@ namespace IngameScript
                     TargetSelection_TaskTypes.Add((TaskType)(1 << i));
             }
 
-            if (TargetSelection_TaskTypes.Count == 0) return;
+            if (TargetSelection_TaskTypes.Count == 0)
+            {
+                Host.ActiveLookingGlass.RightHUD.WriteText(Builder.ToString());
+                return;
+            }
             if (TargetSelection_TaskTypesIndex >= TargetSelection_TaskTypes.Count) TargetSelection_TaskTypesIndex = 0;
 
             Builder.Append(TaskTypeTags[TargetSelection_TaskTypes[Host.CustomMod(TargetSelection_TaskTypesIndex - 1, TargetSelection_TaskTypes.Count)]]).

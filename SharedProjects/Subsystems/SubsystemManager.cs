@@ -21,6 +21,13 @@ using VRageMath;
 
 namespace IngameScript
 {
+    enum OutputMode
+    {
+        Debug,
+        Profile,
+        None
+    }
+
     public class SubsystemManager
     {
         MyGridProgram Program;
@@ -35,7 +42,7 @@ namespace IngameScript
 
         TimeSpan Timestamp = new TimeSpan();
 
-        const bool ProfileMode = true;
+        const OutputMode outputMode = OutputMode.None;
         const double PROFILER_NEW_VALUE_FACTOR = 0.01;
         const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
         Profiler profiler;
@@ -168,13 +175,13 @@ namespace IngameScript
         {
             StatusBuilder.Clear();
 
-            if (ProfileMode)
+            if (outputMode == OutputMode.Profile)
             {
                 profiler.PrintPerformance(StatusBuilder);
                 StatusBuilder.AppendLine("============");
                 profiler.PrintSectionBreakdown(StatusBuilder);
             }
-            else
+            else if (outputMode == OutputMode.Debug)
             {
                 StatusBuilder.AppendLine(DebugBuilder.ToString());
 
@@ -188,6 +195,10 @@ namespace IngameScript
                     StatusBuilder.AppendLine(kvp.Key);
                     StatusBuilder.AppendLine(kvp.Value.GetStatus());
                 }
+            }
+            else
+            {
+                return string.Empty;
             }
 
             return StatusBuilder.ToString();

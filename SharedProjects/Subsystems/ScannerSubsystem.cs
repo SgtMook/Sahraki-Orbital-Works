@@ -79,7 +79,7 @@ namespace IngameScript
                 if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
                 EnemyShipIntel enemy = (EnemyShipIntel)kvp.Value;
 
-                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) > canonicalTime) continue;
+                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime) continue;
                 if (!EnemyShipIntel.PrioritizeTarget(enemy)) continue;
 
                 Vector3D targetPosition = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
@@ -125,7 +125,7 @@ namespace IngameScript
                 Scanners.Add(camera);
                 camera.EnableRaycast = true;
             }
-            if (block is IMyMotorStator)
+            if (block is IMyMotorStator && block.CustomName.Contains("Base"))
                 BaseRotor = (IMyMotorStator)block;
 
 
