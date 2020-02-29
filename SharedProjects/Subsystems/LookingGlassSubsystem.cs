@@ -438,6 +438,7 @@ namespace IngameScript
             ShowTruncatedName = 1 << 4,
             Large = 1 << 5,
             Small = 1 << 6,
+            Circle = 1 << 7,
         }
         public void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
         {
@@ -456,12 +457,23 @@ namespace IngameScript
             else if ((properties & IntelSpriteOptions.Small) != 0) scale *= 0.5f;
 
             string indicatorText;
+            bool circle = (properties & IntelSpriteOptions.Circle) != 0;
             bool brackets = (properties & IntelSpriteOptions.EmphasizeWithBrackets) != 0;
             bool dashes = (properties & IntelSpriteOptions.EmphasizeWithDashes) != 0;
-            if (brackets && dashes) indicatorText = "-[><]-";
-            else if (brackets) indicatorText = "[><]";
-            else if (dashes) indicatorText = "-><-";
-            else indicatorText = "><";
+            if (circle)
+            {
+                if (brackets && dashes) indicatorText = "-[O]-";
+                else if (brackets) indicatorText = "[O]";
+                else if (dashes) indicatorText = "-O-";
+                else indicatorText = "O";
+            }
+            else
+            {
+                if (brackets && dashes) indicatorText = "-[><]-";
+                else if (brackets) indicatorText = "[><]";
+                else if (dashes) indicatorText = "-><-";
+                else indicatorText = "><";
+            }
 
             var indicator = MySprite.CreateText(indicatorText, "Monospace", color, scale, TextAlignment.CENTER);
             var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
@@ -1013,21 +1025,31 @@ namespace IngameScript
         public LookingGlassNetworkSubsystem Host { get; set; }
         public void DoA(TimeSpan localTime)
         {
+            if (TargetPriority_Selection < TargetPriority_TargetList.Count)
+            {
+                long iD = TargetPriority_TargetList[TargetPriority_Selection].ID;
+                var priority = Host.IntelProvider.GetPriority(iD);
+                Host.IntelProvider.SetPriority(iD, priority - 1);
+            }
         }
 
         public void DoS(TimeSpan localTime)
         {
-            TargetTracking_SelectionIndex = Host.DeltaSelection(TargetTracking_SelectionIndex, TargetTracking_TargetList.Count, true);
+            TargetPriority_Selection = Host.DeltaSelection(TargetPriority_Selection, TargetPriority_TargetList.Count, true);
         }
 
         public void DoD(TimeSpan localTime)
         {
-            if (TargetTracking_TargetList.Count > TargetTracking_SelectionIndex)
-                TargetTracking_TrackID = TargetTracking_TargetList[TargetTracking_SelectionIndex].ID;
+            if (TargetPriority_Selection < TargetPriority_TargetList.Count)
+            {
+                long iD = TargetPriority_TargetList[TargetPriority_Selection].ID;
+                var priority = Host.IntelProvider.GetPriority(iD);
+                Host.IntelProvider.SetPriority(iD, priority + 1);
+            }
         }
         public void DoW(TimeSpan localTime)
         {
-            TargetTracking_SelectionIndex = Host.DeltaSelection(TargetTracking_SelectionIndex, TargetTracking_TargetList.Count, false);
+            TargetPriority_Selection = Host.DeltaSelection(TargetPriority_Selection, TargetPriority_TargetList.Count, false);
         }
 
         public void DoC(TimeSpan localTime)
@@ -1036,7 +1058,6 @@ namespace IngameScript
 
         public void DoSpace(TimeSpan localTime)
         {
-            TargetTracking_TrackID = -1;
             Host.ActiveLookingGlass.DoScan(localTime);
         }
 
@@ -1055,20 +1076,21 @@ namespace IngameScript
         public void UpdateState(TimeSpan localTime)
         {
             UpdateRaytracing();
-            DoTrack(localTime);
         }
         #endregion
 
         private const int kScanDistance = 25000;
 
-        List<EnemyShipIntel> TargetTracking_TargetList = new List<EnemyShipIntel>();
-        int TargetTracking_SelectionIndex = 0;
-        long TargetTracking_TrackID = -1;
-        TimeSpan TargetTracking_LastScanLocalTime;
+        List<EnemyShipIntel> TargetPriority_TargetList = new List<EnemyShipIntel>();
+        int TargetPriority_Selection = 0;
 
         StringBuilder Builder = new StringBuilder();
 
         List<MySprite> SpriteScratchpad = new List<MySprite>();
+
+        public LookingGlassPlugin_Combat()
+        {
+        }
 
         private void UpdateRaytracing()
         {
@@ -1078,26 +1100,6 @@ namespace IngameScript
                 {
                     camera.EnableRaycast = camera.AvailableScanRange < kScanDistance;
                 }
-            }
-        }
-
-        private void DoTrack(TimeSpan timestamp)
-        {
-            if (TargetTracking_TrackID == -1) return;
-        
-            var intels = Host.IntelProvider.GetFleetIntelligences(timestamp);
-            var intelKey = MyTuple.Create(IntelItemType.Enemy, TargetTracking_TrackID);
-        
-            if (!intels.ContainsKey(intelKey)) return;
-        
-            var position = intels[intelKey].GetPositionFromCanonicalTime(timestamp + Host.IntelProvider.CanonicalTimeDiff);
-            var disp = position - Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
-        
-            if ((timestamp - TargetTracking_LastScanLocalTime).TotalSeconds < disp.Length() * 1.05 / (Host.ActiveLookingGlass.SecondaryCameras.Count * 2000)) return;
-        
-            if (Host.ActiveLookingGlass.DoScan(timestamp, Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation + disp * 1.05))
-            {
-                TargetTracking_LastScanLocalTime = timestamp;
             }
         }
 
@@ -1185,40 +1187,40 @@ namespace IngameScript
         
             var intels = Host.IntelProvider.GetFleetIntelligences(timestamp);
             var canonicalTime = timestamp + Host.IntelProvider.CanonicalTimeDiff;
-            TargetTracking_TargetList.Clear();
-        
-            bool hasTarget = false;
-        
+            TargetPriority_TargetList.Clear();
+
             foreach (var intel in intels)
-            {
                 if (intel.Key.Item1 == IntelItemType.Enemy)
-                {
-                    if (!hasTarget && intel.Key.Item2 == TargetTracking_TrackID) hasTarget = true;
-                    TargetTracking_TargetList.Add((EnemyShipIntel)intel.Value);
-                }
-            }
+                    TargetPriority_TargetList.Add((EnemyShipIntel)intel.Value);
+
+            if (TargetPriority_TargetList.Count <= TargetPriority_Selection) TargetPriority_Selection = 0;
         
-            if (!hasTarget) TargetTracking_TrackID = -1;
-            if (TargetTracking_TargetList.Count <= TargetTracking_SelectionIndex) TargetTracking_SelectionIndex = 0;
-        
-        
-            if (TargetTracking_TargetList.Count == 0)
+            if (TargetPriority_TargetList.Count == 0)
             {
                 Builder.AppendLine("NO TARGETS");
                 Host.ActiveLookingGlass.RightHUD.WriteText(Builder.ToString());
                 return;
             }
         
-            Builder.AppendLine("WS SELECT | D TRACK");
+            Builder.AppendLine("W/S: SELECT");
+            Builder.AppendLine("A/D: +/- PRIORITY");
             Builder.AppendLine();
         
-            for (int i = 0; i < 20; i++)
+            for (int i = 0; i < 12; i++)
             {
-                if (i < TargetTracking_TargetList.Count)
+                if (i < TargetPriority_TargetList.Count)
                 {
-                    Builder.Append(TargetTracking_TargetList[i].ID == TargetTracking_TrackID ? '-' : ' ');
-                    Builder.Append(i == TargetTracking_SelectionIndex ? '>' : ' ');
-                    Host.AppendPaddedLine(17, TargetTracking_TargetList[i].DisplayName, Builder);
+                    Builder.Append(i == TargetPriority_Selection ? "> " : "  ");
+
+                    int priority = Host.IntelProvider.GetPriority(TargetPriority_TargetList[i].ID);
+
+                    if (priority == 0) Builder.Append("-- ");
+                    else if (priority == 1) Builder.Append("=- ");
+                    else if (priority == 2) Builder.Append("== ");
+                    else if (priority == 3) Builder.Append("+= ");
+                    else if (priority == 4) Builder.Append("++ ");
+
+                    Host.AppendPaddedLine(14, TargetPriority_TargetList[i].DisplayName, Builder);
                 }
                 else
                 {
@@ -1249,22 +1251,22 @@ namespace IngameScript
                     }
                     else if (intel.IntelItemType == IntelItemType.Enemy)
                     {
-                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small | LookingGlass.IntelSpriteOptions.ShowTruncatedName;
+                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
 
-                        if (TargetTracking_TargetList.Count > TargetTracking_SelectionIndex && intel == TargetTracking_TargetList[TargetTracking_SelectionIndex])
+                        if (TargetPriority_TargetList.Count > TargetPriority_Selection && intel == TargetPriority_TargetList[TargetPriority_Selection])
                         {
                             options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
                             options |= LookingGlass.IntelSpriteOptions.ShowDist;
-                            options &= ~LookingGlass.IntelSpriteOptions.Small;
-                        }
-                        if (intel.ID == TargetTracking_TrackID)
-                        {
-                            options |= LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
-                            options |= LookingGlass.IntelSpriteOptions.ShowDist;
-                            options &= ~LookingGlass.IntelSpriteOptions.Small;
                         }
 
-                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
+                        int priority = Host.IntelProvider.GetPriority(intel.ID);
+
+                        if (priority == 0) options |= LookingGlass.IntelSpriteOptions.Circle | LookingGlass.IntelSpriteOptions.Small;
+                        else if (priority == 1) options |= LookingGlass.IntelSpriteOptions.Small;
+                        else if (priority == 3) options |= LookingGlass.IntelSpriteOptions.Large;
+                        else if (priority == 4) options |= LookingGlass.IntelSpriteOptions.Large | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
+
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, priority == 0 ? Color.White : Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
                     }
                 }
 

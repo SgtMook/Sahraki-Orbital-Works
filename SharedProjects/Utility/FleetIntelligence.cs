@@ -40,6 +40,7 @@ namespace IngameScript
         public const string IntelReportChannelTag = "[FLTINT-RPT]";
         public const string IntelUpdateChannelTag = "[FLTINT-UPD]";
         public const string IntelSyncChannelTag = "[FLTINT-SYN]";
+        public const string IntelPriorityChannelTag = "[FLTINT-PRI]";
         public const string TimeChannelTag = "[FLTTM]";
 
         public const int kMaxIntelPerType = 64;
@@ -189,35 +190,35 @@ namespace IngameScript
             throw new Exception($"Bad type when receiving fleet intel: {data.GetType().ToString()}");
         }
 
-        public static void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
+        public static void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID, IGCSyncPacker packer)
         {
-            var WaypointArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>>(kMaxIntelPerType); 
-            var FriendlyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>(kMaxIntelPerType); 
-            var DockIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>(kMaxIntelPerType); 
-            var AsteroidIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>(kMaxIntelPerType);
-            var EnemyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double, double>, MyTuple<string, long, float, int>>>>>(kMaxIntelPerType);
-            
+            packer.WaypointArrayBuilder.Clear();
+            packer.FriendlyShipIntelArrayBuilder.Clear();
+            packer.DockIntelArrayBuilder.Clear();
+            packer.AsteroidIntelArrayBuilder.Clear();
+            packer.EnemyShipIntelArrayBuilder.Clear();
+
             foreach (KeyValuePair<MyTuple<IntelItemType, long>, IFleetIntelligence> kvp in intelItems)
             {
                 if (kvp.Key.Item1 == IntelItemType.Waypoint)
-                    WaypointArrayBuilder.Add(MyTuple.Create(masterID, Waypoint.IGCPackGeneric((Waypoint)kvp.Value)));
+                    packer.WaypointArrayBuilder.Add(MyTuple.Create(masterID, Waypoint.IGCPackGeneric((Waypoint)kvp.Value)));
                 else if (kvp.Key.Item1 == IntelItemType.Friendly)
-                    FriendlyShipIntelArrayBuilder.Add(MyTuple.Create(masterID, FriendlyShipIntel.IGCPackGeneric((FriendlyShipIntel)kvp.Value)));
+                    packer.FriendlyShipIntelArrayBuilder.Add(MyTuple.Create(masterID, FriendlyShipIntel.IGCPackGeneric((FriendlyShipIntel)kvp.Value)));
                 else if (kvp.Key.Item1 == IntelItemType.Dock)
-                    DockIntelArrayBuilder.Add(MyTuple.Create(masterID, DockIntel.IGCPackGeneric((DockIntel)kvp.Value)));
+                    packer.DockIntelArrayBuilder.Add(MyTuple.Create(masterID, DockIntel.IGCPackGeneric((DockIntel)kvp.Value)));
                 else if (kvp.Key.Item1 == IntelItemType.Asteroid)
-                    AsteroidIntelArrayBuilder.Add(MyTuple.Create(masterID, AsteroidIntel.IGCPackGeneric((AsteroidIntel)kvp.Value)));
+                    packer.AsteroidIntelArrayBuilder.Add(MyTuple.Create(masterID, AsteroidIntel.IGCPackGeneric((AsteroidIntel)kvp.Value)));
                 else if (kvp.Key.Item1 == IntelItemType.Enemy)
-                    EnemyShipIntelArrayBuilder.Add(MyTuple.Create(masterID, EnemyShipIntel.IGCPackGeneric((EnemyShipIntel)kvp.Value)));
+                    packer.EnemyShipIntelArrayBuilder.Add(MyTuple.Create(masterID, EnemyShipIntel.IGCPackGeneric((EnemyShipIntel)kvp.Value)));
                 else
                     throw new Exception("Bad type when sending sync package");
             }
 
-            IGC.SendBroadcastMessage(IntelSyncChannelTag, WaypointArrayBuilder.ToImmutable());
-            IGC.SendBroadcastMessage(IntelSyncChannelTag, FriendlyShipIntelArrayBuilder.ToImmutable());
-            IGC.SendBroadcastMessage(IntelSyncChannelTag, DockIntelArrayBuilder.ToImmutable());
-            IGC.SendBroadcastMessage(IntelSyncChannelTag, AsteroidIntelArrayBuilder.ToImmutable());
-            IGC.SendBroadcastMessage(IntelSyncChannelTag, EnemyShipIntelArrayBuilder.ToImmutable());
+            IGC.SendBroadcastMessage(IntelSyncChannelTag, packer.WaypointArrayBuilder.ToImmutable());
+            IGC.SendBroadcastMessage(IntelSyncChannelTag, packer.FriendlyShipIntelArrayBuilder.ToImmutable());
+            IGC.SendBroadcastMessage(IntelSyncChannelTag, packer.DockIntelArrayBuilder.ToImmutable());
+            IGC.SendBroadcastMessage(IntelSyncChannelTag, packer.AsteroidIntelArrayBuilder.ToImmutable());
+            IGC.SendBroadcastMessage(IntelSyncChannelTag, packer.EnemyShipIntelArrayBuilder.ToImmutable());
         }
 
         /// <summary>
@@ -280,6 +281,20 @@ namespace IngameScript
         {
             return MyTuple.Create(item.IntelItemType, item.ID);
         }
+    }
+
+    public class IGCSyncPacker
+    {
+        public ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>>.Builder WaypointArrayBuilder = 
+            ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>>(64);
+        public ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>.Builder FriendlyShipIntelArrayBuilder = 
+            ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float>, MyTuple<int, string, int>, MyTuple<long>>>>>(64);
+        public ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>.Builder
+            DockIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>(64);
+        public ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>.Builder
+            AsteroidIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>(64);
+        public ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double, double>, MyTuple<string, long, float, int>>>>>.Builder
+            EnemyShipIntelArrayBuilder = ImmutableArray.CreateBuilder<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double, double>, MyTuple<string, long, float, int>>>>>(64);
     }
 
     public class VectorUtilities

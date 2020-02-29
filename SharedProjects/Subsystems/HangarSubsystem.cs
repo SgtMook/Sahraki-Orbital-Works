@@ -425,7 +425,10 @@ namespace IngameScript
             hangar.Intel.CurrentCanonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
 
             hangar.Intel.ID = hangar.Connector.EntityId;
-            hangar.Intel.DisplayName = builder.Append("H").Append(hangar.Index.ToString()).Append('-').Append(Program.Me.CubeGrid.CustomName).ToString();
+            if (string.IsNullOrEmpty(hangar.Intel.DisplayName))
+            {
+                hangar.Intel.DisplayName = builder.Append("H").Append(hangar.Index.ToString()).Append('-').Append(Program.Me.CubeGrid.CustomName).ToString();
+            }
 
             hangar.Intel.UndockNear = hangar.Connector.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 1.3f : 0.55f;
 

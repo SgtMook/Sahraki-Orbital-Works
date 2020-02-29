@@ -27,7 +27,7 @@ namespace IngameScript
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
             if (type != TaskType.Attack) return new NullTask();
-            return new HornetAttackTask(Program, CombatSystem, Autopilot, AgentSubsystem, MonitorSubsystem, intelKey);
+            return new HornetAttackTask(Program, CombatSystem, Autopilot, AgentSubsystem, MonitorSubsystem, IntelProvider, intelKey);
         }
         #endregion
 
@@ -36,14 +36,16 @@ namespace IngameScript
         IAutopilot Autopilot;
         IAgentSubsystem AgentSubsystem;
         IMonitorSubsystem MonitorSubsystem;
+        IIntelProvider IntelProvider;
 
-        public HornetAttackTaskGenerator(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem)
+        public HornetAttackTaskGenerator(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider)
         {
             Program = program;
             CombatSystem = combatSystem;
             Autopilot = autopilot;
             AgentSubsystem = agentSubsystem;
             MonitorSubsystem = monitorSubsystem;
+            IntelProvider = intelProvider;
         }
     }
 
@@ -84,7 +86,11 @@ namespace IngameScript
 
                 if (!EnemyShipIntel.PrioritizeTarget(enemyIntel)) continue;
 
+                if (IntelProvider.GetPriority(enemyIntel.ID) < 2) continue;
+
                 double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
+                if (IntelProvider.GetPriority(enemyIntel.ID) == 3) dist += 600;
+                if (IntelProvider.GetPriority(enemyIntel.ID) == 4) dist += 1200;
                 if (dist < closestIntelDist)
                 {
                     closestIntelDist = dist;
@@ -108,11 +114,11 @@ namespace IngameScript
             //    }
             //}
 
-            if (combatIntel == null) combatIntel = CombatSystem.TargetIntel;
+            if (combatIntel == null && CombatSystem.TargetIntel != null && IntelProvider.GetPriority(CombatSystem.TargetIntel.ID) >= 2) combatIntel = CombatSystem.TargetIntel;
 
             if (combatIntel == null)
             {
-                if (IntelKey.Item1 == IntelItemType.Enemy && IntelItems.ContainsKey(IntelKey) && EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)IntelItems[IntelKey]))
+                if (IntelKey.Item1 == IntelItemType.Enemy && IntelItems.ContainsKey(IntelKey) && EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)IntelItems[IntelKey]) && IntelProvider.GetPriority(IntelKey.Item2) >= 2)
                 {
                     var target = IntelItems[IntelKey];
                     LeadTask.Destination.Position = currentPosition + AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, 98);
@@ -188,6 +194,7 @@ namespace IngameScript
         IAutopilot Autopilot;
         IAgentSubsystem AgentSubsystem;
         IMonitorSubsystem MonitorSubsystem;
+        IIntelProvider IntelProvider;
 
         MyTuple<IntelItemType, long> IntelKey;
         Vector3D TargetPosition;
@@ -205,7 +212,7 @@ namespace IngameScript
         TimeSpan NextSwapTime;
         Random random = new Random();
 
-        public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, MyTuple<IntelItemType, long> intelKey)
+        public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider, MyTuple<IntelItemType, long> intelKey)
         {
             Program = program;
             CombatSystem = combatSystem;
@@ -213,6 +220,7 @@ namespace IngameScript
             IntelKey = intelKey;
             AgentSubsystem = agentSubsystem;
             MonitorSubsystem = monitorSubsystem;
+            IntelProvider = intelProvider;
 
             Status = TaskStatus.Incomplete;
 

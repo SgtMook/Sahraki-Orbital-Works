@@ -47,7 +47,7 @@ namespace IngameScript
 
             undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
             undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
-            undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(this, combatSubsystem, autopilotSubsystem, agentSubsystem, monitorSubsystem));
+            undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(this, combatSubsystem, autopilotSubsystem, agentSubsystem, monitorSubsystem, intelSubsystem));
 
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));

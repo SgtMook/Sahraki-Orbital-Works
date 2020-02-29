@@ -16,7 +16,7 @@ using VRage.Game.ObjectBuilders.Definitions;
 using VRage.Game;
 using VRage;
 using VRageMath;
-
+using System.Collections.Immutable;
 
 namespace IngameScript
 {
@@ -40,12 +40,14 @@ namespace IngameScript
 
         void AddIntelMutator(IOwnIntelMutator processor);
         void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan LocalTime);
+
+        int GetPriority(long EnemyID);
+        void SetPriority(long EnemyID, int value);
     }
 
     // Handles tracking, updating, and transmitting fleet intelligence
     // TODO: Serialize and deserialize intel items
     // TODO: Remove items as necessary
-    // TODO: Support more intel types
     public class IntelMasterSubsystem : ISubsystem, IIntelProvider
     {
         #region ISubsystem
@@ -98,6 +100,7 @@ namespace IngameScript
             if ((updateFlags & UpdateFrequency.Update100) != 0)
             {
                 TimeoutIntelItems(timestamp);
+                SendPriorities();
             }
         }
         #endregion
@@ -133,6 +136,17 @@ namespace IngameScript
         {
             intelProcessors.Add(processor);
         }
+
+        public int GetPriority(long EnemyID)
+        {
+            int priority;
+            if (!EnemyPriorities.TryGetValue(EnemyID, out priority)) priority = 2;
+            return priority;
+        }
+        public void SetPriority(long EnemyID, int value)
+        {
+            EnemyPriorities[EnemyID] = value;
+        }
         #endregion
 
         #region Debug
@@ -148,6 +162,10 @@ namespace IngameScript
         TimeSpan kIntelTimeout = TimeSpan.FromSeconds(4);
 
         List<IOwnIntelMutator> intelProcessors = new List<IOwnIntelMutator>();
+
+        Dictionary<long, int> EnemyPriorities = new Dictionary<long, int>();
+
+        IGCSyncPacker IGCSyncPacker = new IGCSyncPacker();
 
         void GetParts()
         {
@@ -212,7 +230,7 @@ namespace IngameScript
 
         private void SendSyncMessage(TimeSpan timestamp)
         {
-            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me);
+            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me, IGCSyncPacker);
             Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.TimeChannelTag, timestamp.TotalMilliseconds);
         }
 
@@ -228,6 +246,12 @@ namespace IngameScript
                 }
             }
         }
+
+        private void SendPriorities()
+        {
+            Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.IntelPriorityChannelTag, EnemyPriorities.ToImmutableDictionary());
+        }
+
     }
 
     // TODO: Save/load serializations
@@ -261,6 +285,7 @@ namespace IngameScript
             Program = program;
             SyncListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelSyncChannelTag);
             TimeListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.TimeChannelTag);
+            PriorityListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityChannelTag);
             TimeListener.SetMessageCallback($"{name} sync");
             GetParts();
         }
@@ -275,7 +300,18 @@ namespace IngameScript
             if ((updateFlags & UpdateFrequency.Update100) != 0)
             {
                 TimeoutIntelItems(timestamp);
+                UpdatePriorities();
             }
+        }
+
+        public int GetPriority(long EnemyID)
+        {
+            if (EnemyPriorities == null || !EnemyPriorities.ContainsKey(EnemyID)) return 2;
+            return EnemyPriorities[EnemyID];
+        }
+
+        public void SetPriority(long EnemyID, int value)
+        {
         }
 
         #endregion
@@ -319,6 +355,8 @@ namespace IngameScript
         MyGridProgram Program;
         IMyBroadcastListener SyncListener;
 
+        IMyBroadcastListener PriorityListener;
+
         Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
         Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
         List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
@@ -333,6 +371,8 @@ namespace IngameScript
         IMyShipController controller;
 
         List<IOwnIntelMutator> intelProcessors = new List<IOwnIntelMutator>();
+
+        ImmutableDictionary<long, int> EnemyPriorities = null;
 
         void GetParts()
         {
@@ -423,6 +463,18 @@ namespace IngameScript
             }
 
             KeyScratchpad.Clear();
+        }
+
+        private void UpdatePriorities()
+        {
+            while (PriorityListener.HasPendingMessage)
+            {
+                var msg = PriorityListener.AcceptMessage();
+                if (msg.Source == CanonicalTimeSourceID)
+                {
+                    EnemyPriorities = (ImmutableDictionary<long, int>)msg.Data;
+                }
+            }
         }
     }
 }

@@ -79,6 +79,8 @@ namespace IngameScript
                 if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
                 EnemyShipIntel enemy = (EnemyShipIntel)kvp.Value;
 
+                if (IntelProvider.GetPriority(kvp.Key.Item2) < 1) continue;
+
                 if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime) continue;
                 if (!EnemyShipIntel.PrioritizeTarget(enemy)) continue;
 
