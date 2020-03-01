@@ -65,9 +65,9 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            if ((updateFlags & UpdateFrequency.Update1) != 0)
+            if ((updateFlags & UpdateFrequency.Update1) != 0 && ActiveLookingGlass != null)
             {
-                UpdateInputs(timestamp);
+                TriggerInputs(timestamp);
             }
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
@@ -151,11 +151,6 @@ namespace IngameScript
         bool lastWDown = false;
         bool lastCDown = false;
         bool lastSpaceDown = false;
-
-        private void UpdateInputs(TimeSpan timestamp)
-        {
-            TriggerInputs(timestamp);
-        }
 
         private void TriggerInputs(TimeSpan timestamp)
         {
@@ -509,7 +504,7 @@ namespace IngameScript
 
         public MySprite GetCrosshair()
         {
-            var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.1f));
+            var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.4f));
             crosshairs.Position = new Vector2(0, -2) + MiddleHUD.TextureSize / 2f;
             return crosshairs;
         }
@@ -665,6 +660,7 @@ namespace IngameScript
                 {
                     var w = new Waypoint();
                     w.Position = (Vector3D)Host.ActiveLookingGlass.LastDetectedInfo.HitPosition;
+                    w.Direction = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Backward;
                     Host.ReportIntel(w, localTime);
                     SendCommand(w, localTime);
                 }
@@ -955,8 +951,13 @@ namespace IngameScript
                     var distIndicator = MySprite.CreateText(CursorDist.ToString(), "Debug", Color.White, 0.5f);
                     distIndicator.Position = new Vector2(0, 5) + Host.ActiveLookingGlass.MiddleHUD.TextureSize / 2f;
                     frame.Add(distIndicator);
+                } else if (CurrentUIMode == UIMode.Designate)
+                {
+                    var distIndicator = MySprite.CreateText("[SPACE] DESIGNATE", "Debug", Color.White, 0.5f);
+                    distIndicator.Position = new Vector2(0, 5) + Host.ActiveLookingGlass.MiddleHUD.TextureSize / 2f;
+                    frame.Add(distIndicator);
                 }
-            
+
                 foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
                 {
                     if (intel.IntelItemType == IntelItemType.Friendly)

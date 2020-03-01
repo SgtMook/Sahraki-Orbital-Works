@@ -197,7 +197,7 @@ namespace IngameScript
             myIntel.DisplayName = cubeGrid.DisplayName;
             myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
             myIntel.CurrentPosition = cubeGrid.GetPosition();
-            myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length();
+            myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length() + 20;
             myIntel.CurrentCanonicalTime = timestamp;
             myIntel.ID = cubeGrid.EntityId;
             myIntel.HomeID = -1;
@@ -404,7 +404,7 @@ namespace IngameScript
             myIntel.DisplayName = cubeGrid.DisplayName;
             myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
             myIntel.CurrentPosition = cubeGrid.GetPosition();
-            myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length();
+            myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length() + 20;
             myIntel.CurrentCanonicalTime = timestamp + CanonicalTimeDiff;
             myIntel.ID = cubeGrid.EntityId;
 

@@ -85,7 +85,6 @@ namespace IngameScript
         StringBuilder debugBuilder = new StringBuilder();
         private void GetParts()
         {
-            debugBuilder.AppendLine($"Getting parts");
             LastCheckIndex = 0;
             InventoryOwners.Clear();
             InventoryRequests.Clear();

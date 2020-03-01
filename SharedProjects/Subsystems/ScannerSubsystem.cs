@@ -34,18 +34,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            int OKArrays = 0;
-            for (int i = 0; i < ScannerArrays.Length; i++)
-            {
-                if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
-                {
-                    OKArrays++;
-                }
-            }
-
-            var s = $"Arrays {OKArrays} Cameras {Cameras.Count}";
-
-            return debugBuilder.ToString(); ;
+            return string.Empty;
         }
 
         public string SerializeSubsystem()
@@ -121,21 +110,14 @@ namespace IngameScript
             foreach (var kvp in intelItems)
             {
                 if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
-                debugBuilder.AppendLine("Attempting to scan");
                 EnemyShipIntel enemy = (EnemyShipIntel)kvp.Value;
 
                 int priority = IntelProvider.GetPriority(kvp.Key.Item2);
-                debugBuilder.AppendLine("Priority check");
                 if (priority < 1) continue;
 
-                debugBuilder.AppendLine("1");
                 if (!EnemyShipIntel.PrioritizeTarget(enemy)) continue;
-                debugBuilder.AppendLine("2");
                 if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.1) > canonicalTime) continue;
-                debugBuilder.AppendLine("3");
                 if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime && priority < 4) continue;
-
-                debugBuilder.AppendLine("4");
                 Vector3D targetPosition = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
 
                 var scanned = false;
@@ -151,15 +133,12 @@ namespace IngameScript
                     }
                 }
 
-                debugBuilder.AppendLine("5");
                 if (scanned) continue;
 
-                debugBuilder.AppendLine("Scanning with arrays");
                 for (int i = 0; i < ScannerArrays.Length; i++)
                 {
                     if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
                     {
-                        debugBuilder.AppendLine(i.ToString());
                         var result = ScannerArrays[i].TryScan(IntelProvider, Program.Me.WorldMatrix.Translation, targetPosition, enemy, localTime);
                         if (result == TryScanResults.Scanned)
                         {

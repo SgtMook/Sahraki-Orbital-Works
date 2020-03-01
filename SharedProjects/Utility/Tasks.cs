@@ -214,6 +214,8 @@ namespace IngameScript
         {
         }
     }
+
+    // Don't ask why this is a struct
     public struct WaypointTask : ITask
     {
 

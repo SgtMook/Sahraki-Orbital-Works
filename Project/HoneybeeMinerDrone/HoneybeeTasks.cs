@@ -84,39 +84,48 @@ namespace IngameScript
         {
             if (state == 0)
             {
-                Autopilot.SetStatus("Stage 0");
                 LeadTask.Do(IntelItems, canonicalTime);
                 if (LeadTask.Status == TaskStatus.Complete) state = 1;
             }
             else if (state == 1)
             {
-                Autopilot.SetStatus("Stage 1");
+                MineTask.Do(IntelItems, canonicalTime);
+                if (MineTask.Status == TaskStatus.Complete || !MiningSystem.SensorsClear())
+                {
+                    EntryPoint = Autopilot.Reference.WorldMatrix.Translation;
+                    MineTask.Destination.MaxSpeed = 1;
+                    state = 2;
+                }
+            }
+            else if (state == 2)
+            {
                 if (MiningSystem.SensorsClear())
-                    MineTask.Destination.Position = HostCenter;
+                    MineTask.Destination.Position = MiningEnd;
                 else
                     MineTask.Destination.Position = Vector3D.Zero;
 
                 MiningSystem.Drill();
                 MineTask.Do(IntelItems, canonicalTime);
-                if (MiningSystem.PercentageFilled() > 0.92) state = 2;
-            }
-            else if (state == 2)
-            {
-                Autopilot.SetStatus("Stage 2");
-                MiningSystem.StopDrill();
-                MineTask.Destination.Position = LeadTask.Destination.Position;
-                MineTask.Do(IntelItems, canonicalTime);
-                if (MineTask.Status == TaskStatus.Complete) state = 3;
+                if (MiningSystem.PercentageFilled() > 0.92)
+                {
+                    state = 3;
+                    MineTask.Destination.MaxSpeed = 40;
+                }
             }
             else if (state == 3)
             {
-                Autopilot.SetStatus("Stage 3");
+                MiningSystem.StopDrill();
+                MineTask.Destination.Position = EntryPoint;
+                MineTask.Do(IntelItems, canonicalTime);
+                if (MineTask.Status == TaskStatus.Complete) state = 4;
+            }
+            else if (state == 4)
+            {
                 HomeTask.Do(IntelItems, canonicalTime);
-                if (HomeTask.Status != TaskStatus.Incomplete) state = 4;
+                if (HomeTask.Status != TaskStatus.Incomplete) state = 5;
             }
             else
             {
-                Autopilot.SetStatus("Stage 4");
                 Status = TaskStatus.Complete;
             }
         }
@@ -130,8 +139,9 @@ namespace IngameScript
         IAgentSubsystem AgentSubsystem;
         MyTuple<IntelItemType, long> IntelKey;
         AsteroidIntel Host;
-        bool TargetPositionSet = false;
-        Vector3D HostCenter;
+        Vector3D EntryPoint;
+        Vector3D ApproachPoint;
+        Vector3D MiningEnd;
         ITask HomeTask;
 
         int state = 0;
@@ -146,24 +156,39 @@ namespace IngameScript
 
             Status = TaskStatus.Incomplete;
 
-            var HostCenterToTarget = target.Position - host.Position;
-            var HostCenterToTargetDist = HostCenterToTarget.Length();
-            HostCenterToTarget.Normalize();
+            double lDoc, det;
+            GetSphereLineIntersects(host.Position, host.Radius, target.Position, target.Direction, out lDoc, out det);
 
-            var EntryPoint = host.Position + HostCenterToTarget * (HostCenterToTargetDist + 20);
-            HostCenter = host.Position;
+            if (det < 0)
+            {
+                Status = TaskStatus.Aborted;
+                state = -1;
+                return;
+            }
+
+            var d = -lDoc + Math.Sqrt(det);
+
+            ApproachPoint = target.Position + target.Direction * d;
+
+            EntryPoint = target.Position + target.Direction * 15;
+            MiningEnd = target.Position - target.Direction * 100;
 
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter);
             MineTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid);
 
-            LeadTask.Destination.Direction = HostCenterToTarget * -1;
-            LeadTask.Destination.Position = EntryPoint;
-            MineTask.Destination.Direction = HostCenterToTarget * -1;
-            MineTask.Destination.Position = HostCenter;
-
-            MineTask.Destination.MaxSpeed = 1;
+            LeadTask.Destination.Direction = target.Direction * -1;
+            LeadTask.Destination.Position = ApproachPoint;
+            MineTask.Destination.Direction = target.Direction * -1;
+            MineTask.Destination.Position = EntryPoint;
 
             HomeTask = homeTask;
+        }
+
+        // https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
+        private void GetSphereLineIntersects(Vector3D center, double radius, Vector3D lineStart, Vector3D lineDirection, out double lDoc, out double det)
+        {
+            lDoc = Vector3.Dot(lineDirection, lineStart - center);
+            det = lDoc * lDoc - ((lineStart - center).LengthSquared() - radius * radius);
         }
     }
 }
