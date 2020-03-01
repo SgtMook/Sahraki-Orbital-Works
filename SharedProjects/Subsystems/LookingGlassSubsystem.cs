@@ -514,9 +514,9 @@ namespace IngameScript
             return crosshairs;
         }
 
-        public readonly Color kFriendlyBlue = new Color(140, 140, 255);
-        public readonly Color kEnemyRed = new Color(255, 140, 140);
-        public readonly Color kWaypointOrange = new Color(255, 210, 180);
+        public readonly Color kFriendlyBlue = new Color(140, 140, 255, 100);
+        public readonly Color kEnemyRed = new Color(255, 140, 140, 100);
+        public readonly Color kWaypointOrange = new Color(255, 210, 180, 100);
 
         public readonly Color kFocusedColor = new Color(0.5f, 0.5f, 1f);
         public readonly Color kUnfocusedColor = new Color(0.2f, 0.2f, 0.5f, 0.5f);

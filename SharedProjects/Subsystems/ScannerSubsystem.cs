@@ -19,7 +19,7 @@ using VRageMath;
 
 namespace IngameScript
 {
-    public class ScannerSubsystem : ISubsystem
+    public class ScannerNetworkSubsystem : ISubsystem
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10;
@@ -34,7 +34,18 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return debugBuilder.ToString();
+            int OKArrays = 0;
+            for (int i = 0; i < ScannerArrays.Length; i++)
+            {
+                if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
+                {
+                    OKArrays++;
+                }
+            }
+
+            var s = $"Arrays {OKArrays} Cameras {Cameras.Count}";
+
+            return debugBuilder.ToString(); ;
         }
 
         public string SerializeSubsystem()
@@ -52,86 +63,186 @@ namespace IngameScript
         {
             TryScan(timestamp);
         }
-        #endregion
 
+        #endregion
         MyGridProgram Program;
-        List<IMyCameraBlock> Scanners = new List<IMyCameraBlock>();
-        List<EnemyShipIntel> EnemyIntelScratchpad = new List<EnemyShipIntel>();
-        IMyMotorStator BaseRotor;
         IIntelProvider IntelProvider;
-        string tagPrefix = string.Empty;
+        List<EnemyShipIntel> EnemyIntelScratchpad = new List<EnemyShipIntel>();
+        string TagPrefix = string.Empty;
+
+        ScannerArray[] ScannerArrays = new ScannerArray[9];
+        List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
 
         StringBuilder debugBuilder = new StringBuilder();
 
-        public ScannerSubsystem(IIntelProvider intelProvider, string tag = "")
+        public ScannerNetworkSubsystem(IIntelProvider intelProvider, string tag = "S")
         {
             IntelProvider = intelProvider;
-            if (tag != string.Empty) tagPrefix = $"[{tag}]";
-        }
-
-        private void TryScan(TimeSpan localTime)
-        {
-            EnemyIntelScratchpad.Clear();
-            var intelItems = IntelProvider.GetFleetIntelligences(localTime);
-            var canonicalTime = localTime + IntelProvider.CanonicalTimeDiff;
-            foreach (var kvp in intelItems)
-            {
-                if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
-                EnemyShipIntel enemy = (EnemyShipIntel)kvp.Value;
-
-                if (IntelProvider.GetPriority(kvp.Key.Item2) < 1) continue;
-
-                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime) continue;
-                if (!EnemyShipIntel.PrioritizeTarget(enemy)) continue;
-
-                Vector3D targetPosition = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
-                var toTarget = targetPosition - Program.Me.WorldMatrix.Translation;
-                var dist = toTarget.Length();
-                toTarget.Normalize();
-                if (BaseRotor != null && VectorHelpers.VectorAngleBetween(toTarget, BaseRotor.WorldMatrix.Up) > 0.55 * Math.PI) continue;
-
-                foreach (var camera in Scanners)
-                {
-                    var cameraToTarget = targetPosition - camera.WorldMatrix.Translation;
-                    var cameraDist = cameraToTarget.Length();
-                    cameraToTarget.Normalize();
-
-                    if (!camera.CanScan(cameraDist + 30)) continue;
-                    var cameraFinalPosition = cameraToTarget * (cameraDist + 30) + camera.WorldMatrix.Translation;
-                    if (!camera.CanScan(targetPosition)) continue;
-
-                    var info = camera.Raycast(targetPosition);
-                    if (info.EntityId != kvp.Value.ID) break;
-                    enemy.FromDetectedInfo(info, canonicalTime, true);
-                    IntelProvider.ReportFleetIntelligence(enemy, localTime);
-                    break;
-                }
-            }
+            if (tag != string.Empty) TagPrefix = $"[{tag}";
         }
 
         void GetParts()
         {
-            Scanners.Clear();
-            BaseRotor = null;
+            for (int i = 0; i < ScannerArrays.Length; i++)
+                ScannerArrays[i] = null;
+            Cameras.Clear();
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         private bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
-            if (tagPrefix != string.Empty && !block.CustomName.StartsWith(tagPrefix)) return false;
+            if (TagPrefix != string.Empty && !block.CustomName.StartsWith(TagPrefix)) return false;
 
+            var indexTagEnd = block.CustomName.IndexOf(']');
+            if (indexTagEnd == -1) return false;
+
+            var numString = block.CustomName.Substring(TagPrefix.Length, indexTagEnd - TagPrefix.Length);
+
+            if (numString == string.Empty)
+            {
+                // No number - master systems
+                if (block is IMyCameraBlock) Cameras.Add((IMyCameraBlock)block);
+            }
+
+            int arrayIndex;
+            if (!int.TryParse(numString, out arrayIndex)) return false;
+            if (ScannerArrays[arrayIndex] == null) ScannerArrays[arrayIndex] = new ScannerArray(arrayIndex, this);
+            ScannerArrays[arrayIndex].AddPart(block);
+
+            return false;
+        }
+
+        private void TryScan(TimeSpan localTime)
+        {
+            // Go through each target
+            var intelItems = IntelProvider.GetFleetIntelligences(localTime);
+            var canonicalTime = localTime + IntelProvider.CanonicalTimeDiff;
+            foreach (var kvp in intelItems)
+            {
+                if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
+                debugBuilder.AppendLine("Attempting to scan");
+                EnemyShipIntel enemy = (EnemyShipIntel)kvp.Value;
+
+                int priority = IntelProvider.GetPriority(kvp.Key.Item2);
+                debugBuilder.AppendLine("Priority check");
+                if (priority < 1) continue;
+
+                debugBuilder.AppendLine("1");
+                if (!EnemyShipIntel.PrioritizeTarget(enemy)) continue;
+                debugBuilder.AppendLine("2");
+                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.1) > canonicalTime) continue;
+                debugBuilder.AppendLine("3");
+                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime && priority < 4) continue;
+
+                debugBuilder.AppendLine("4");
+                Vector3D targetPosition = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
+
+                var scanned = false;
+
+                foreach (var camera in Cameras)
+                {
+                    var result = CameraTryScan(IntelProvider, camera, targetPosition, localTime, enemy);
+                    if (result == TryScanResults.Obstructed) break; // Try again with camera arrays
+                    else if (result == TryScanResults.Scanned)
+                    {
+                        scanned = true;
+                        break;
+                    }
+                }
+
+                debugBuilder.AppendLine("5");
+                if (scanned) continue;
+
+                debugBuilder.AppendLine("Scanning with arrays");
+                for (int i = 0; i < ScannerArrays.Length; i++)
+                {
+                    if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
+                    {
+                        debugBuilder.AppendLine(i.ToString());
+                        var result = ScannerArrays[i].TryScan(IntelProvider, Program.Me.WorldMatrix.Translation, targetPosition, enemy, localTime);
+                        if (result == TryScanResults.Scanned)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        public enum TryScanResults
+        {
+            Scanned,
+            CannotScan,
+            Obstructed
+        }
+        public static TryScanResults CameraTryScan(IIntelProvider intelProvider, IMyCameraBlock camera, Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy)
+        {
+            var cameraToTarget = targetPosition - camera.WorldMatrix.Translation;
+            var cameraDist = cameraToTarget.Length();
+            cameraToTarget.Normalize();
+
+            if (!camera.CanScan(cameraDist + 30)) return TryScanResults.CannotScan;
+            var cameraFinalPosition = cameraToTarget * (cameraDist + 30) + camera.WorldMatrix.Translation;
+            if (!camera.CanScan(targetPosition)) return TryScanResults.CannotScan;
+
+            var info = camera.Raycast(targetPosition);
+            if (info.EntityId != enemy.ID) return TryScanResults.Obstructed;
+            enemy.FromDetectedInfo(info, localTime + intelProvider.CanonicalTimeDiff, true);
+            intelProvider.ReportFleetIntelligence(enemy, localTime);
+            return TryScanResults.Scanned;
+        }
+    }
+
+    public class ScannerArray
+    {
+        List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
+        IMyMotorStator BaseRotor;
+        string tagPrefix = string.Empty;
+
+        ScannerNetworkSubsystem Host;
+        int Index;
+
+        StringBuilder debugBuilder = new StringBuilder();
+
+        public ScannerArray(int index, ScannerNetworkSubsystem host)
+        {
+            Index = index;
+            Host = host;
+        }
+
+        public bool IsOK()
+        {
+            return BaseRotor != null && Cameras.Count > 0;
+        }
+
+        public ScannerNetworkSubsystem.TryScanResults TryScan(IIntelProvider intelProvider, Vector3D myPosition, Vector3D targetPosition, EnemyShipIntel enemy, TimeSpan localTime)
+        {
+            var toTarget = targetPosition - myPosition;
+            var dist = toTarget.Length();
+            toTarget.Normalize();
+            if (VectorHelpers.VectorAngleBetween(toTarget, BaseRotor.WorldMatrix.Up) > 0.55 * Math.PI) return ScannerNetworkSubsystem.TryScanResults.CannotScan;
+
+            foreach (var camera in Cameras)
+            {
+                var result = ScannerNetworkSubsystem.CameraTryScan(intelProvider, camera, targetPosition, localTime, enemy);
+                if (result == ScannerNetworkSubsystem.TryScanResults.Scanned) return result;
+                if (result == ScannerNetworkSubsystem.TryScanResults.Obstructed) return ScannerNetworkSubsystem.TryScanResults.CannotScan; // This array cannot scan
+            }
+
+            return ScannerNetworkSubsystem.TryScanResults.CannotScan;
+        }
+
+        public void AddPart(IMyTerminalBlock block)
+        {
             if (block is IMyCameraBlock)
             {
                 IMyCameraBlock camera = (IMyCameraBlock)block;
-                Scanners.Add(camera);
+                Cameras.Add(camera);
                 camera.EnableRaycast = true;
             }
             if (block is IMyMotorStator && block.CustomName.Contains("Base"))
                 BaseRotor = (IMyMotorStator)block;
-
-
-            return false;
         }
     }
 }
