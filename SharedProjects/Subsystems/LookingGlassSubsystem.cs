@@ -970,9 +970,16 @@ namespace IngameScript
                     }
                     else if (intel.IntelItemType == IntelItemType.Enemy)
                     {
-                        var options = LookingGlass.IntelSpriteOptions.Small | LookingGlass.IntelSpriteOptions.ShowDist;
+                        var options = LookingGlass.IntelSpriteOptions.ShowDist;
                         if (realTargetIndex >= 0 && TargetSelection_Targets.Count > realTargetIndex && intel == TargetSelection_Targets[realTargetIndex])
-                            options = LookingGlass.IntelSpriteOptions.EmphasizeWithDashes | LookingGlass.IntelSpriteOptions.ShowDist;
+                            options |= LookingGlass.IntelSpriteOptions.ShowDist;
+
+                        int priority = Host.IntelProvider.GetPriority(intel.ID);
+
+                        if (priority == 0) options |= LookingGlass.IntelSpriteOptions.Circle | LookingGlass.IntelSpriteOptions.Small;
+                        else if (priority == 1) options |= LookingGlass.IntelSpriteOptions.Small;
+                        else if (priority == 3) options |= LookingGlass.IntelSpriteOptions.Large;
+                        else if (priority == 4) options |= LookingGlass.IntelSpriteOptions.Large | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
 
                         Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
                     }
