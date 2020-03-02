@@ -37,18 +37,8 @@ namespace IngameScript
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("docking", dockingSubsystem);
 
-
             // LookingGlass setup
-            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, false);
-
-            // Add plugins
-            lookingGlassNetwork.AddPlugin("command", new LookingGlassPlugin_Command());
-            lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat());
-
-            // Add hardware
-            lookingGlassNetwork.AddLookingGlass(new LookingGlass(this));
-
-            // Finalize
+            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", false);
             subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
 
             // Agent setup
@@ -58,11 +48,9 @@ namespace IngameScript
             undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));
-
+            
             subsystemManager.AddSubsystem("agent", agentSubsystem);
-
-
-
+            
             subsystemManager.DeserializeManager(Storage);
         }
 

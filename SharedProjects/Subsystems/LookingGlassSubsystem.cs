@@ -325,8 +325,11 @@ namespace IngameScript
                 else
                 {
                     lg.InterceptControls = false;
-                    lg.Pitch.TargetVelocityRPM = 0;
-                    lg.Yaw.TargetVelocityRPM = 0;
+                    if (OverrideGyros)
+                    {
+                        lg.Pitch.TargetVelocityRPM = 0;
+                        lg.Yaw.TargetVelocityRPM = 0;
+                    }
                 }
             }
 
@@ -335,6 +338,24 @@ namespace IngameScript
             if (OverrideGyros) TerminalPropertiesHelper.SetValue(Controller, "ControlGyros", interceptingControls);
         }
         #endregion
+
+        public void GetDefaultSprites(List<MySprite> scratchpad)
+        {
+            var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.4f));
+            crosshairs.Position = new Vector2(0, -2) + 512 / 2f;
+            scratchpad.Add(crosshairs);
+
+            if (!Active)
+            {
+                var activeInd = MySprite.CreateText("DEACTIVATED", "Debug", Color.Pink, 2f);
+                activeInd.Position = new Vector2(0, -64 - 120) + 512 / 2f;
+                scratchpad.Add(activeInd);
+
+                var activeInd2 = MySprite.CreateText("DRIVE SAFE!", "Debug", Color.Pink, 2f);
+                activeInd2.Position = new Vector2(0, -24 - 120) + 512 / 2f;
+                scratchpad.Add(activeInd2);
+            }
+        }
     }
 
 
@@ -572,13 +593,6 @@ namespace IngameScript
                 scratchpad.Add(nameSprite);
                 v.Y += kDebugConstant.Y * textSize + 0.1f;
             }
-        }
-
-        public MySprite GetCrosshair()
-        {
-            var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.4f));
-            crosshairs.Position = new Vector2(0, -2) + MiddleHUD.TextureSize / 2f;
-            return crosshairs;
         }
 
         public readonly Color kFriendlyBlue = new Color(140, 140, 255, 100);
@@ -1014,8 +1028,7 @@ namespace IngameScript
             {
                 SpriteScratchpad.Clear();
             
-                MySprite crosshairs = Host.ActiveLookingGlass.GetCrosshair();
-                frame.Add(crosshairs);
+                Host.GetDefaultSprites(SpriteScratchpad);
             
                 if (CurrentUIMode == UIMode.SelectWaypoint)
                 {
@@ -1028,7 +1041,7 @@ namespace IngameScript
                     frame.Add(prompt);
 
                     var prompt2 = MySprite.CreateText("[SPACE] CONFIRM", "Debug", Color.White, 0.4f);
-                    prompt2.Position = new Vector2(0, 35) + Host.ActiveLookingGlass.MiddleHUD.TextureSize / 2f;
+                    prompt2.Position = new Vector2(0, 34) + Host.ActiveLookingGlass.MiddleHUD.TextureSize / 2f;
                     frame.Add(prompt2);
                 } else if (CurrentUIMode == UIMode.Designate)
                 {
@@ -1327,8 +1340,7 @@ namespace IngameScript
             {
                 SpriteScratchpad.Clear();
 
-                MySprite crosshairs = Host.ActiveLookingGlass.GetCrosshair();
-                frame.Add(crosshairs);
+                Host.GetDefaultSprites(SpriteScratchpad);
 
                 foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
                 {
