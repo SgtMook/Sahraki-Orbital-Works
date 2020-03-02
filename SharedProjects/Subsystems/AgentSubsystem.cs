@@ -34,7 +34,6 @@ namespace IngameScript
         Fighter,
         Bomber,
         Miner,
-        Carrier,
         Last
     }
 

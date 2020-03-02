@@ -36,21 +36,7 @@ namespace IngameScript
 
             // Looking Glass Setup
             LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
-
-            lookingGlassNetwork.AddPlugin("command", new LookingGlassPlugin_Command());
-            lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat());
-
-            LookingGlass lookingGlass1 = new LookingGlass(this, "[S1]");
-            LookingGlass lookingGlass2 = new LookingGlass(this, "[S2]");
-
-            lookingGlassNetwork.AddLookingGlass(lookingGlass1);
-            lookingGlassNetwork.AddLookingGlass(lookingGlass2);
-
             subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
-
-            // Swivels for looking glasses
-            subsystemManager.AddSubsystem("sensorswivel1", new SwivelSubsystem("[LG1]", lookingGlass1));
-            subsystemManager.AddSubsystem("sensorswivel2", new SwivelSubsystem("[LG2]", lookingGlass2));
 
             // Hangar system setup
             HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);

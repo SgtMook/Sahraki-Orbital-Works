@@ -405,6 +405,7 @@ namespace IngameScript
             {
                 // No number - master systems
                 if (block is IMyInteriorLight && block.CustomName.Contains("<DI>")) DirectionIndicator = (IMyInteriorLight)block;
+                return false;
             }
 
             int hangarIndex;
