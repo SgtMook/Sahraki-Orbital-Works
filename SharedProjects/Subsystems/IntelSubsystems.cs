@@ -53,9 +53,6 @@ namespace IngameScript
         #region ISubsystem
 
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10 | UpdateFrequency.Update100;
-        MyGridProgram Program;
-        IMyBroadcastListener ReportListener;
-        StringBuilder statusBuilder = new StringBuilder();
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
@@ -84,7 +81,8 @@ namespace IngameScript
         public void Setup(MyGridProgram program, string name)
         {
             Program = program;
-            ReportListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
+            ReportListener = Program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
+            PriorityRequestListener = Program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityRequestChannelTag);
             GetParts();
             UpdateMyIntel(TimeSpan.Zero);
         }
@@ -100,6 +98,7 @@ namespace IngameScript
             if ((updateFlags & UpdateFrequency.Update100) != 0)
             {
                 TimeoutIntelItems(timestamp);
+                ReceivePriorityRequests();
                 SendPriorities();
             }
         }
@@ -152,6 +151,10 @@ namespace IngameScript
         #region Debug
         StringBuilder debugBuilder = new StringBuilder();
         #endregion
+
+        MyGridProgram Program;
+        IMyBroadcastListener ReportListener;
+        IMyBroadcastListener PriorityRequestListener;
 
         Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
         Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
@@ -247,6 +250,18 @@ namespace IngameScript
             }
         }
 
+        private void ReceivePriorityRequests()
+        {
+            while (PriorityRequestListener.HasPendingMessage)
+            {
+                var msg = PriorityRequestListener.AcceptMessage();
+                if (!(msg.Data is MyTuple<long, int>)) continue;
+                MyTuple<long, int> unpacked = (MyTuple<long, int>)msg.Data;
+                var newPriority = Math.Max(0, Math.Min(4, unpacked.Item2));
+                EnemyPriorities[unpacked.Item1] = newPriority;
+            }
+        }
+
         private void SendPriorities()
         {
             Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.IntelPriorityChannelTag, EnemyPriorities.ToImmutableDictionary());
@@ -306,12 +321,16 @@ namespace IngameScript
 
         public int GetPriority(long EnemyID)
         {
+            if (EnemyPrioritiesOverride.ContainsKey(EnemyID)) return EnemyPrioritiesOverride[EnemyID];
             if (EnemyPriorities == null || !EnemyPriorities.ContainsKey(EnemyID)) return 2;
             return EnemyPriorities[EnemyID];
         }
 
         public void SetPriority(long EnemyID, int value)
         {
+            EnemyPrioritiesOverride[EnemyID] = value;
+            EnemyPrioritiesKeepSet.Add(EnemyID);
+            Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.IntelPriorityRequestChannelTag, MyTuple.Create(EnemyID, value));
         }
 
         #endregion
@@ -373,6 +392,9 @@ namespace IngameScript
         List<IOwnIntelMutator> intelProcessors = new List<IOwnIntelMutator>();
 
         ImmutableDictionary<long, int> EnemyPriorities = null;
+        Dictionary<long, int> EnemyPrioritiesOverride = new Dictionary<long, int>();
+        HashSet<long> EnemyPrioritiesKeepSet = new HashSet<long>();
+        List<long> EnemyPriorityClearScratchpad = new List<long>();
 
         void GetParts()
         {
@@ -467,6 +489,13 @@ namespace IngameScript
 
         private void UpdatePriorities()
         {
+            EnemyPriorityClearScratchpad.Clear();
+            foreach (var kvp in EnemyPrioritiesOverride)
+                if (!EnemyPrioritiesKeepSet.Contains(kvp.Key)) EnemyPriorityClearScratchpad.Add(kvp.Key);
+            foreach (var id in EnemyPriorityClearScratchpad)
+                EnemyPrioritiesOverride.Remove(id);
+
+            EnemyPrioritiesKeepSet.Clear();
             while (PriorityListener.HasPendingMessage)
             {
                 var msg = PriorityListener.AcceptMessage();

@@ -36,6 +36,8 @@ namespace IngameScript
             subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("docking", dockingSubsystem);
+            MonitorSubsystem monitorSubsystem = new MonitorSubsystem();
+            subsystemManager.AddSubsystem("monitor", monitorSubsystem);
 
             // LookingGlass setup
             LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", false);

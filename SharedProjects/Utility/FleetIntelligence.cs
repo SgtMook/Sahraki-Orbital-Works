@@ -41,6 +41,7 @@ namespace IngameScript
         public const string IntelUpdateChannelTag = "[FLTINT-UPD]";
         public const string IntelSyncChannelTag = "[FLTINT-SYN]";
         public const string IntelPriorityChannelTag = "[FLTINT-PRI]";
+        public const string IntelPriorityRequestChannelTag = "[FLTINT-PRI-REQ]";
         public const string TimeChannelTag = "[FLTTM]";
 
         public const int kMaxIntelPerType = 64;
