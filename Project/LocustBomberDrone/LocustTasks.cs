@@ -129,7 +129,7 @@ namespace IngameScript
         Vector3D LastAcceleration = Vector3D.Zero;
         MatrixD LastReference = MatrixD.Zero;
 
-        double kRotateTheta = 1;
+        double kRotateTheta = 0;
 
         public LocustAttackTask(MyGridProgram program, LocustCombatSystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, MyTuple<IntelItemType, long> intelKey)
         {

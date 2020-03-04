@@ -53,6 +53,8 @@ namespace IngameScript
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));
             subsystemManager.AddSubsystem("agent", agentSubsystem);
 
+
+
             subsystemManager.DeserializeManager(Storage);
         }
 

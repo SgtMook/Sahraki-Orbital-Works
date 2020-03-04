@@ -120,7 +120,7 @@ namespace IngameScript
             float currentVal = 0;
             float totalVal = 0;
 
-            if (Inventories.Count == 0) inventoryPercent = 0;
+            if (Inventories.Count == 0) inventoryPercent = 100;
             else
             {
                 foreach (var inv in Inventories)
@@ -132,7 +132,7 @@ namespace IngameScript
                 inventoryPercent = currentVal / totalVal;
             }
 
-            if (HydrogenTanks.Count == 0) hydrogenPercent = 0;
+            if (HydrogenTanks.Count == 0) hydrogenPercent = 100;
             else
             {
                 currentVal = 0;
@@ -147,7 +147,7 @@ namespace IngameScript
                 hydrogenPercent = currentVal / totalVal;
             }
 
-            if (Batteries.Count == 0) powerPercent = 0;
+            if (Batteries.Count == 0) powerPercent = 100;
             else
             {
                 currentVal = 0;

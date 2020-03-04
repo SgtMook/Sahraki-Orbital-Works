@@ -30,10 +30,14 @@ namespace IngameScript
             if (command == "toggleactive") Active = !Active;
             if (command == "activate")
             {
-                ActiveLookingGlass = LookingGlasses[0];
+                AutoActivate = false;
+                int index;
+                if (!int.TryParse((string)argument, out index)) return;
+                if (ActiveLookingGlass != null) ActiveLookingGlass.InterceptControls = false;
+                ActiveLookingGlass = LookingGlasses[index];
                 ActiveLookingGlass.InterceptControls = true;
             }
-            if (command == "deactivate")
+            if (command == "deactivate" && ActiveLookingGlass != null)
             {
                 ActiveLookingGlass.InterceptControls = false;
                 ActiveLookingGlass = null;
@@ -107,6 +111,7 @@ namespace IngameScript
         bool OverrideGyros;
 
         bool Active = true;
+        bool AutoActivate = true;
 
         string Tag;
         string TagPrefix;
@@ -124,6 +129,9 @@ namespace IngameScript
             LookingGlasses.Clear();
             Controller = null;
 
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindBases);
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindUnassignedBases);
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindArms);
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
             for (int i = 0; i < LookingGlassArray.Length; i++)
@@ -135,29 +143,95 @@ namespace IngameScript
                 }
             }
         }
+
         private bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
             if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
                 Controller = (IMyShipController)block;
 
-            if (!block.CustomName.StartsWith(TagPrefix)) return false;
-            var indexTagEnd = block.CustomName.IndexOf(']');
-            if (indexTagEnd == -1) return false;
-
-            var numString = block.CustomName.Substring(TagPrefix.Length, indexTagEnd - TagPrefix.Length);
-
-            if (numString == string.Empty)
+            for (int i = 0; i < LookingGlassArray.Length; i++)
             {
-                // No number - master systems
-                return false;
+                if (LookingGlassArray[i] != null && LookingGlassArray[i].Pitch != null && block.CubeGrid.EntityId == LookingGlassArray[i].Pitch.TopGrid.EntityId)
+                {
+                    if (block.CustomName.StartsWith("["))
+                    {
+                        var indexTagEnd = block.CustomName.IndexOf(']');
+                        if (indexTagEnd != -1)
+                        {
+                            block.CustomName = block.CustomName.Substring(indexTagEnd + 1);
+                        }
+                    }
+                    block.CustomName = $"[{Tag}{i}]" + block.CustomName;
+                    LookingGlassArray[i].AddPart(block);
+                }
             }
 
-            int index;
-            if (!int.TryParse(numString, out index)) return false;
-            if (LookingGlassArray[index] == null) LookingGlassArray[index] = new LookingGlass();
-            LookingGlassArray[index].AddPart(block);
+            if (!block.CustomName.StartsWith(TagPrefix)) return false;
 
+
+            return false;
+        }
+
+        private bool FindBases(IMyTerminalBlock block)
+        {
+            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (block is IMyMotorStator && block.CustomName.StartsWith(TagPrefix) && !block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId)
+            {
+                var indexTagEnd = block.CustomName.IndexOf(']');
+                if (indexTagEnd == -1) return false;
+
+                var numString = block.CustomName.Substring(TagPrefix.Length, indexTagEnd - TagPrefix.Length);
+
+                int index;
+                if (!int.TryParse(numString, out index)) return false;
+                if (LookingGlassArray[index] == null) LookingGlassArray[index] = new LookingGlass();
+                LookingGlassArray[index].AddPart(block);
+            }
+            return false;
+        }
+
+        private bool FindUnassignedBases(IMyTerminalBlock block)
+        {
+            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (block is IMyMotorStator && block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId)
+            {
+                for (int i = 1; i < LookingGlassArray.Length; i++)
+                {
+                    if (LookingGlassArray[i] == null)
+                    {
+                        LookingGlassArray[i] = new LookingGlass();
+                        block.CustomName = block.CustomName.Replace($"[{Tag}x]", $"[{Tag}{i}]");
+                        LookingGlassArray[i].AddPart(block);
+                        return false;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private bool FindArms(IMyTerminalBlock block)
+        {
+            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (block is IMyMotorStator)
+            {
+                for (int i = 1; i < LookingGlassArray.Length; i++)
+                {
+                    if (LookingGlassArray[i] != null && block.CubeGrid.EntityId == LookingGlassArray[i].Yaw.TopGrid.EntityId)
+                    {
+                        if (block.CustomName.StartsWith("["))
+                        {
+                            var indexTagEnd = block.CustomName.IndexOf(']');
+                            if (indexTagEnd != -1)
+                            {
+                                block.CustomName = block.CustomName.Substring(indexTagEnd + 1);
+                            }
+                        }
+                        block.CustomName = $"[{Tag}{i}]" + block.CustomName;
+                        LookingGlassArray[i].AddPart(block);
+                    }
+                }
+            }
             return false;
         }
 
@@ -313,22 +387,25 @@ namespace IngameScript
 
         private void UpdateActiveLookingGlass()
         {
-            ActiveLookingGlass = null;
-            
-            foreach (var lg in LookingGlasses)
+            if (AutoActivate)
             {
-                if (lg.PrimaryCamera.IsActive)
+                ActiveLookingGlass = null;
+            
+                foreach (var lg in LookingGlasses)
                 {
-                    ActiveLookingGlass = lg;
-                    lg.InterceptControls = true;
-                }
-                else
-                {
-                    lg.InterceptControls = false;
-                    if (OverrideGyros)
+                    if (lg.PrimaryCamera.IsActive)
                     {
-                        lg.Pitch.TargetVelocityRPM = 0;
-                        lg.Yaw.TargetVelocityRPM = 0;
+                        ActiveLookingGlass = lg;
+                        lg.InterceptControls = true;
+                    }
+                    else
+                    {
+                        lg.InterceptControls = false;
+                        if (OverrideGyros)
+                        {
+                            lg.Pitch.TargetVelocityRPM = 0;
+                            lg.Yaw.TargetVelocityRPM = 0;
+                        }
                     }
                 }
             }
@@ -1129,6 +1206,7 @@ namespace IngameScript
             {
                 long iD = TargetPriority_TargetList[TargetPriority_Selection].ID;
                 var priority = Host.IntelProvider.GetPriority(iD);
+                if (priority <= 0) return;
                 Host.IntelProvider.SetPriority(iD, priority - 1);
             }
         }
@@ -1144,6 +1222,7 @@ namespace IngameScript
             {
                 long iD = TargetPriority_TargetList[TargetPriority_Selection].ID;
                 var priority = Host.IntelProvider.GetPriority(iD);
+                if (priority >= 4) return;
                 Host.IntelProvider.SetPriority(iD, priority + 1);
             }
         }

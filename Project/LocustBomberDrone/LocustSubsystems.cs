@@ -115,7 +115,7 @@ namespace IngameScript
             deploying = 12;
         }
 
-        public const int kEngageRange = 600;
+        public const int kEngageRange = 1000;
         #endregion
     }
 }
