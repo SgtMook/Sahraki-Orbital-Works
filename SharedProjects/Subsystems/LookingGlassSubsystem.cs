@@ -1141,7 +1141,7 @@ namespace IngameScript
                     {
                         var options = LookingGlass.IntelSpriteOptions.ShowDist;
                         if (realTargetIndex >= 0 && TargetSelection_Targets.Count > realTargetIndex && intel == TargetSelection_Targets[realTargetIndex])
-                            options |= LookingGlass.IntelSpriteOptions.ShowDist;
+                            options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
 
                         int priority = Host.IntelProvider.GetPriority(intel.ID);
 

@@ -59,12 +59,12 @@ namespace IngameScript
         List<EnemyShipIntel> EnemyIntelScratchpad = new List<EnemyShipIntel>();
         string TagPrefix = string.Empty;
 
-        ScannerArray[] ScannerArrays = new ScannerArray[9];
+        List<ScannerArray> ScannerArrays = new List<ScannerArray>();
         List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
 
         StringBuilder debugBuilder = new StringBuilder();
 
-        public ScannerNetworkSubsystem(IIntelProvider intelProvider, string tag = "S")
+        public ScannerNetworkSubsystem(IIntelProvider intelProvider, string tag = "SE")
         {
             IntelProvider = intelProvider;
             if (tag != string.Empty) TagPrefix = $"[{tag}";
@@ -72,32 +72,58 @@ namespace IngameScript
 
         void GetParts()
         {
-            for (int i = 0; i < ScannerArrays.Length; i++)
-                ScannerArrays[i] = null;
+            ScannerArrays.Clear();
             Cameras.Clear();
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetBases);
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetArms);
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetCameras);
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        private bool GetBases(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
-            if (TagPrefix != string.Empty && !block.CustomName.StartsWith(TagPrefix)) return false;
+            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+            if (!(block is IMyMotorStator)) return false;
+            if (!block.CustomName.StartsWith(TagPrefix)) return false;
+            if (!block.CustomName.Contains("Base")) return false;
 
-            var indexTagEnd = block.CustomName.IndexOf(']');
-            if (indexTagEnd == -1) return false;
+            ScannerArray scanner = new ScannerArray(this);
+            scanner.AddPart(block);
+            ScannerArrays.Add(scanner);
+            return false;
+        }
 
-            var numString = block.CustomName.Substring(TagPrefix.Length, indexTagEnd - TagPrefix.Length);
-
-            if (numString == string.Empty)
+        private bool GetArms(IMyTerminalBlock block)
+        {
+            if (!(block is IMyMotorStator)) return false;
+            foreach (var array in ScannerArrays)
             {
-                // No number - master systems
-                if (block is IMyCameraBlock) Cameras.Add((IMyCameraBlock)block);
+                if (block.CubeGrid.EntityId == array.Base.TopGrid.EntityId)
+                {
+                    array.AddPart(block);
+                    break;
+                }
             }
 
-            int arrayIndex;
-            if (!int.TryParse(numString, out arrayIndex)) return false;
-            if (ScannerArrays[arrayIndex] == null) ScannerArrays[arrayIndex] = new ScannerArray(arrayIndex, this);
-            ScannerArrays[arrayIndex].AddPart(block);
+            return false;
+        }
+
+        private bool GetCameras(IMyTerminalBlock block)
+        {
+            if (!(block is IMyCameraBlock)) return false;
+            if (!block.CustomName.StartsWith(TagPrefix)) return false;
+
+            var camera = (IMyCameraBlock)block;
+
+            foreach (var array in ScannerArrays)
+            {
+                if (block.CubeGrid.EntityId == array.Base.TopGrid.EntityId || block.CubeGrid.EntityId == array.Arm.TopGrid.EntityId)
+                {
+                    array.AddPart(block);
+                    return false;
+                }
+            }
+
+            Cameras.Add(camera);
 
             return false;
         }
@@ -135,7 +161,7 @@ namespace IngameScript
 
                 if (scanned) continue;
 
-                for (int i = 0; i < ScannerArrays.Length; i++)
+                for (int i = 0; i < ScannerArrays.Count; i++)
                 {
                     if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
                     {
@@ -176,23 +202,22 @@ namespace IngameScript
     public class ScannerArray
     {
         List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
-        IMyMotorStator BaseRotor;
+        public IMyMotorStator Base;
+        public IMyMotorStator Arm;
         string tagPrefix = string.Empty;
 
         ScannerNetworkSubsystem Host;
-        int Index;
 
         StringBuilder debugBuilder = new StringBuilder();
 
-        public ScannerArray(int index, ScannerNetworkSubsystem host)
+        public ScannerArray(ScannerNetworkSubsystem host)
         {
-            Index = index;
             Host = host;
         }
 
         public bool IsOK()
         {
-            return BaseRotor != null && Cameras.Count > 0;
+            return Base != null && Cameras.Count > 0;
         }
 
         public ScannerNetworkSubsystem.TryScanResults TryScan(IIntelProvider intelProvider, Vector3D myPosition, Vector3D targetPosition, EnemyShipIntel enemy, TimeSpan localTime)
@@ -200,7 +225,7 @@ namespace IngameScript
             var toTarget = targetPosition - myPosition;
             var dist = toTarget.Length();
             toTarget.Normalize();
-            if (VectorHelpers.VectorAngleBetween(toTarget, BaseRotor.WorldMatrix.Up) > 0.55 * Math.PI) return ScannerNetworkSubsystem.TryScanResults.CannotScan;
+            if (VectorHelpers.VectorAngleBetween(toTarget, Base.WorldMatrix.Up) > 0.55 * Math.PI) return ScannerNetworkSubsystem.TryScanResults.CannotScan;
 
             foreach (var camera in Cameras)
             {
@@ -220,8 +245,11 @@ namespace IngameScript
                 Cameras.Add(camera);
                 camera.EnableRaycast = true;
             }
-            if (block is IMyMotorStator && block.CustomName.Contains("Base"))
-                BaseRotor = (IMyMotorStator)block;
+            if (block is IMyMotorStator)
+            {
+                if (block.CustomName.Contains("Base")) Base = (IMyMotorStator)block;
+                else Arm = (IMyMotorStator)block;
+            }
         }
     }
 }
