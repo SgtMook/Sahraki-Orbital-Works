@@ -81,7 +81,6 @@ namespace IngameScript
 
                 var target = (EnemyShipIntel)IntelItems[IntelKey];
                 worldAttackPoint = currentPosition + AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, 98);
-                Autopilot.SetStatus($"{worldAttackPoint.ToString()} {currentPosition.ToString()} {AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, 98)}");
             }
 
             Vector3D dirToTarget = worldAttackPoint - currentPosition;

@@ -36,8 +36,6 @@ namespace IngameScript
         IMyShipController Controller { get; }
         IMyTerminalBlock Reference { get; set; }
 
-        void SetStatus(string s);
-
     }
 
     public class AutopilotSubsystem : ISubsystem, IAutopilot
@@ -106,19 +104,11 @@ namespace IngameScript
 
         public string SerializeSubsystem()
         {
-            // StringBuilder builder = new StringBuilder();
-            // builder.AppendLine(targetPosition.ToString());
-            // builder.AppendLine(targetDirection.ToString());
-            // return builder.ToString();
             return string.Empty;
         }
 
         public void DeserializeSubsystem(string serialized)
         {
-            // debugBuilder.Append(serialized);
-            // MyStringReader reader = new MyStringReader(serialized);
-            // targetPosition = VectorUtilities.StringToVector3(reader.NextLine());
-            // targetDirection = VectorUtilities.StringToVector3(reader.NextLine());
         }
         #endregion
 
@@ -215,11 +205,6 @@ namespace IngameScript
                     reference = controller;
             }
         }
-
-        public void SetStatus(string s)
-        {
-            Status = s;
-        }
         #endregion
 
         MyGridProgram Program;
@@ -245,21 +230,8 @@ namespace IngameScript
         Vector3D targetDirection = Vector3.Zero;
         Vector3D targetUp = Vector3.Zero;
 
-        string Status = string.Empty;
-
         bool tActive = true;
         bool rActive = true;
-
-        Dictionary<Base6Directions.Direction, Vector3I> DirectionMap = new Dictionary<Base6Directions.Direction, Vector3I>()
-        {
-            { Base6Directions.Direction.Up, Vector3I.Up },
-            { Base6Directions.Direction.Down, Vector3I.Down },
-            { Base6Directions.Direction.Left, Vector3I.Left },
-            { Base6Directions.Direction.Right, Vector3I.Right },
-            { Base6Directions.Direction.Forward, Vector3I.Forward },
-            { Base6Directions.Direction.Backward, Vector3I.Backward },
-        };
-
 
         // Helpers
 
@@ -330,13 +302,6 @@ namespace IngameScript
                 controller.CubeGrid.WorldMatrix));
 
             thrusterManager.SmartSetThrust(gridDirIndicator);
-
-            //for (int i = 0; i < thrustersList.Count; i++)
-            //{
-            //    var f = thrustersList[i].Orientation.Forward;
-            //    float power = (DirectionMap[f] * -1f).Dot(gridDirIndicator);
-            //    thrustersList[i].ThrustOverridePercentage = Math.Max(power, 0) * 1f;
-            //}
         }
 
         void SetGyroPowers()

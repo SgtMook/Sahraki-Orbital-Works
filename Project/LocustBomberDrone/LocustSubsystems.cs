@@ -69,34 +69,20 @@ namespace IngameScript
         MyGridProgram Program;
 
         List<IMySmallGatlingGun> Guns = new List<IMySmallGatlingGun>();
-        IMyRadioAntenna Antenna;
-
-        StringBuilder updateBuilder = new StringBuilder();
-
-        IIntelProvider IntelProvider;
 
         public EnemyShipIntel TargetIntel;
 
         int deploying;
 
-        public LocustCombatSystem(IIntelProvider provider)
-        {
-            IntelProvider = provider;
-        }
-
         void GetParts()
         {
             Guns.Clear();
-            Antenna = null;
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         private bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
-
-            if (block is IMyRadioAntenna)
-                Antenna = (IMyRadioAntenna)block;
 
             if (block is IMySmallGatlingGun)
                 Guns.Add((IMySmallGatlingGun)block);

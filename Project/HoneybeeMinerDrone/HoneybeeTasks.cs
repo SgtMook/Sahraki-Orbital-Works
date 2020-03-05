@@ -26,13 +26,9 @@ namespace IngameScript
 
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
-            Autopilot.SetStatus("Mining Task Generating");
             if (type != TaskType.Mine) return new NullTask();
-            Autopilot.SetStatus("Mining Task Generating 2");
             if (!IntelItems.ContainsKey(intelKey)) return new NullTask();
-            Autopilot.SetStatus("Mining Task Generating 3");
             if (intelKey.Item1 != IntelItemType.Waypoint) return new NullTask();
-            Autopilot.SetStatus("Mining Task Generating 4");
 
             var target = (Waypoint)IntelItems[intelKey];
 
@@ -46,13 +42,10 @@ namespace IngameScript
                 host = (AsteroidIntel)kvp.Value;
                 break;
             }
-            Autopilot.SetStatus("Mining Task Generating 5");
 
             if (host == null) return new NullTask();
 
             var dockTask = DockTaskGenerator.GenerateMoveToAndDockTask(MyTuple.Create(IntelItemType.NONE, (long)0), IntelItems, 40);
-
-            Autopilot.SetStatus("Mining Task Generated");
 
             return new HoneyMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, dockTask);
         }

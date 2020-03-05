@@ -34,7 +34,7 @@ namespace IngameScript
             IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
 
-            LocustCombatSystem combatSubsystem = new LocustCombatSystem(intelSubsystem);
+            LocustCombatSystem combatSubsystem = new LocustCombatSystem();
 
             subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
             subsystemManager.AddSubsystem("docking", dockingSubsystem);
