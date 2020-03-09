@@ -97,6 +97,7 @@ namespace IngameScript
 
             // Exclude types
             if (block is IMyLargeTurretBase) return false;
+            if (block is IMyReactor) return false;
             if (block is IMySmallGatlingGun) return false;
             if (block is IMySmallGatlingGun) return false;
             if (block is IMyGasGenerator) return false;
@@ -276,7 +277,7 @@ namespace IngameScript
             // If at least 1% volume left
             float minEmptyVol = 0.01f;
 
-            if (source.CanTransferItemTo(target, item.Type) && remainingVolume > target.MaxVolume * minEmptyVol)
+            if (remainingVolume > target.MaxVolume * minEmptyVol)
             {
                 var transferAmt = MyFixedPoint.Min(item.Amount, amount);
                 var totalVolume = transferAmt * itemInfo.Volume;

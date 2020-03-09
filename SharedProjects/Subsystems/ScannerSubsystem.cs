@@ -34,7 +34,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return string.Empty;
+            return debugBuilder.ToString();
         }
 
         public string SerializeSubsystem()
@@ -77,6 +77,9 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetBases);
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetArms);
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetCameras);
+
+            debugBuilder.AppendLine($"CAMERAS: {Cameras.Count}");
+            debugBuilder.AppendLine($"ARRAYS: {ScannerArrays.Count}");
         }
 
         private bool GetBases(IMyTerminalBlock block)
@@ -122,7 +125,7 @@ namespace IngameScript
                     return false;
                 }
             }
-
+            camera.EnableRaycast = true;
             Cameras.Add(camera);
 
             return false;

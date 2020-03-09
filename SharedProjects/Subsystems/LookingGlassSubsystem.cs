@@ -129,9 +129,17 @@ namespace IngameScript
             LookingGlasses.Clear();
             Controller = null;
 
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindBases);
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindUnassignedBases);
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindArms);
+            if (OverrideGyros)
+            {
+                Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindBases);
+                Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindUnassignedBases);
+                Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindArms);
+            }
+            else
+            {
+                LookingGlassArray[1] = new LookingGlass();
+            }
+
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
             for (int i = 0; i < LookingGlassArray.Length; i++)
@@ -150,25 +158,30 @@ namespace IngameScript
             if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
                 Controller = (IMyShipController)block;
 
-            for (int i = 0; i < LookingGlassArray.Length; i++)
+            if (OverrideGyros)
             {
-                if (LookingGlassArray[i] != null && LookingGlassArray[i].Pitch != null && block.CubeGrid.EntityId == LookingGlassArray[i].Pitch.TopGrid.EntityId)
+                for (int i = 0; i < LookingGlassArray.Length; i++)
                 {
-                    if (block.CustomName.StartsWith("["))
+                    if (LookingGlassArray[i] != null && LookingGlassArray[i].Pitch != null && block.CubeGrid.EntityId == LookingGlassArray[i].Pitch.TopGrid.EntityId)
                     {
-                        var indexTagEnd = block.CustomName.IndexOf(']');
-                        if (indexTagEnd != -1)
+                        if (block.CustomName.StartsWith("["))
                         {
-                            block.CustomName = block.CustomName.Substring(indexTagEnd + 1);
+                            var indexTagEnd = block.CustomName.IndexOf(']');
+                            if (indexTagEnd != -1)
+                            {
+                                block.CustomName = block.CustomName.Substring(indexTagEnd + 1);
+                            }
                         }
+                        block.CustomName = $"[{Tag}{i}]" + block.CustomName;
+                        LookingGlassArray[i].AddPart(block);
                     }
-                    block.CustomName = $"[{Tag}{i}]" + block.CustomName;
-                    LookingGlassArray[i].AddPart(block);
                 }
             }
-
-            if (!block.CustomName.StartsWith(TagPrefix)) return false;
-
+            else
+            {
+                if (!block.CustomName.StartsWith(TagPrefix)) return false;
+                LookingGlassArray[1].AddPart(block);
+            }
 
             return false;
         }
@@ -1445,6 +1458,10 @@ namespace IngameScript
                         else if (priority == 4) options |= LookingGlass.IntelSpriteOptions.Large | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
 
                         Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, priority == 0 ? Color.White : Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
+                    }
+                    else if (intel.IntelItemType == IntelItemType.Asteroid)
+                    {
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Color.Green, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.Large);
                     }
                 }
 

@@ -54,6 +54,7 @@ namespace IngameScript
         TimeSpan kClaimTimeout = TimeSpan.FromSeconds(1);
 
         List<int> MutexHangars = new List<int>();
+        public float ClearanceDist = 40;
 
         public Hangar(int index, HangarSubsystem host)
         {
@@ -97,6 +98,8 @@ namespace IngameScript
             MyIniParseResult result;
             if (!Host.IniParser.TryParse(Connector.CustomData, out result))
                 return;
+
+
             string mutexes = Host.IniParser.Get("Hangar", "Mutex").ToString();
             if (mutexes == string.Empty) return;
 
@@ -106,6 +109,9 @@ namespace IngameScript
                 int index;
                 if (int.TryParse(i, out index)) MutexHangars.Add(index);
             }
+
+            float dist = Host.IniParser.Get("Hangar", "ClearanceDist").ToInt16();
+            if (dist != 0) ClearanceDist = dist;
         }
 
         public void Clear()
@@ -432,6 +438,7 @@ namespace IngameScript
             }
 
             hangar.Intel.UndockNear = hangar.Connector.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 1.3f : 0.55f;
+            hangar.Intel.UndockFar = hangar.ClearanceDist;
 
             hangar.Intel.IndicatorDir = hangar.DirectionIndicator == null ? (DirectionIndicator == null ? Vector3D.Zero : DirectionIndicator.WorldMatrix.Forward) : hangar.DirectionIndicator.WorldMatrix.Forward;
             hangar.Intel.HangarChannelTag = HangarChannelTag;
