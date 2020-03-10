@@ -53,6 +53,7 @@ namespace IngameScript
             Program = program;
             GetParts();
             UpdateCargo();
+            ParseConfigs();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -61,6 +62,8 @@ namespace IngameScript
             UpdateCargo();
         }
         #endregion
+
+        public int CloseDist = 15;
 
         MyGridProgram Program;
 
@@ -94,6 +97,19 @@ namespace IngameScript
                 Cargos.Add((IMyCargoContainer)block);
 
             return false;
+        }
+
+        // [Honeybee]
+        // CloseDist = 15
+        private void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (Parser.TryParse(Program.Me.CustomData, out result))
+                return;
+
+            var dist = Parser.Get("Honeybee", "CloseDist").ToInt16();
+            if (dist != 0) CloseDist = dist;
         }
 
         private void UpdateCargo()

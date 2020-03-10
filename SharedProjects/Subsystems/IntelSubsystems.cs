@@ -63,7 +63,6 @@ namespace IngameScript
             }
         }
 
-
         public string GetStatus()
         {
             return debugBuilder.ToString();
@@ -71,11 +70,26 @@ namespace IngameScript
 
         public void DeserializeSubsystem(string serialized)
         {
+            MyStringReader reader = new MyStringReader(serialized);
+            while (reader.HasNextLine)
+            {
+                ReportFleetIntelligence(AsteroidIntel.DeserializeAsteroid(reader.NextLine()), TimeSpan.Zero);
+            }
         }
 
         public string SerializeSubsystem()
         {
-            return string.Empty;
+            StringBuilder saveBuilder = new StringBuilder();
+
+            foreach (var kvp in IntelItems)
+            {
+                if (kvp.Key.Item1 == IntelItemType.Asteroid)
+                {
+                    saveBuilder.AppendLine(kvp.Value.Serialize());
+                }
+            }
+
+            return saveBuilder.ToString();
         }
 
         public void Setup(MyGridProgram program, string name)

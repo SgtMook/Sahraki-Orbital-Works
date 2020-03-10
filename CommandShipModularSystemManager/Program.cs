@@ -38,8 +38,8 @@ namespace IngameScript
             subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
             
             // Looking Glass Setup
-            //LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
-            //subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
+            subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
             
             // Hangar system setup
             HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);

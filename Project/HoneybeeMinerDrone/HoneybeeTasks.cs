@@ -108,7 +108,7 @@ namespace IngameScript
             else if (state == 3)
             {
                 MiningSystem.StopDrill();
-                MineTask.Destination.Position = EntryPoint;
+                MineTask.Destination.Position = ApproachPoint;
                 MineTask.Do(IntelItems, canonicalTime);
                 if (MineTask.Status == TaskStatus.Complete) state = 4;
             }
@@ -163,7 +163,7 @@ namespace IngameScript
 
             ApproachPoint = target.Position + target.Direction * d;
 
-            EntryPoint = target.Position + target.Direction * 15;
+            EntryPoint = target.Position + target.Direction * miningSystem.CloseDist;
             MiningEnd = target.Position - target.Direction * 100;
 
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter);

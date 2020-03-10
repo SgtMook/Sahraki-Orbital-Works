@@ -190,6 +190,8 @@ namespace IngameScript
             var inventory = inventoryOwner.GetInventory(inventoryOwner.InventoryCount - 1);
             inventoryRequestAmountsCache.Clear();
 
+            if (inventory == null) return;
+
             // Combine stacks
             CombineStacks(inventory);
 
