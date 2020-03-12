@@ -73,7 +73,9 @@ namespace IngameScript
             MyStringReader reader = new MyStringReader(serialized);
             while (reader.HasNextLine)
             {
-                ReportFleetIntelligence(AsteroidIntel.DeserializeAsteroid(reader.NextLine()), TimeSpan.Zero);
+                var s = reader.NextLine();
+                if (s == string.Empty) return;
+                ReportFleetIntelligence(AsteroidIntel.DeserializeAsteroid(s), TimeSpan.Zero);
             }
         }
 

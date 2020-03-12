@@ -68,7 +68,6 @@ namespace IngameScript
         public void Save()
         {
             string v = subsystemManager.SerializeManager();
-            Me.CustomData = v;
             Storage = v;
         }
 

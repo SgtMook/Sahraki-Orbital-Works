@@ -57,6 +57,7 @@ namespace IngameScript
         {
             Program = program;
             GetParts();
+            ParseConfigs();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -84,6 +85,8 @@ namespace IngameScript
         float inventoryPercent;
         float hydrogenPercent;
         float powerPercent;
+
+        float hydrogenFill = 1;
 
         IMyBeacon Beacon;
 
@@ -115,12 +118,26 @@ namespace IngameScript
             return false;
         }
 
+        // [Monitor]
+        // HydrogenFillPercent = 100
+        private void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(Program.Me.CustomData, out result))
+                return;
+
+            var hFill = Parser.Get("Monitor", "HydrogenFillPercent").ToInt16();
+
+            if (hFill != 0) hydrogenFill = hFill / 100f;
+        }
+
         void UpdatePercentages()
         {
             float currentVal = 0;
             float totalVal = 0;
 
-            if (Inventories.Count == 0) inventoryPercent = 100;
+            if (Inventories.Count == 0) inventoryPercent = 1;
             else
             {
                 foreach (var inv in Inventories)
@@ -132,7 +149,7 @@ namespace IngameScript
                 inventoryPercent = currentVal / totalVal;
             }
 
-            if (HydrogenTanks.Count == 0) hydrogenPercent = 100;
+            if (HydrogenTanks.Count == 0) hydrogenPercent = 1;
             else
             {
                 currentVal = 0;
@@ -145,9 +162,17 @@ namespace IngameScript
                 }
 
                 hydrogenPercent = currentVal / totalVal;
+
+                if (hydrogenPercent > hydrogenFill)
+                {
+                    foreach (var tank in HydrogenTanks)
+                    {
+                        if (tank.Stockpile) tank.Stockpile = false;
+                    }
+                }
             }
 
-            if (Batteries.Count == 0) powerPercent = 100;
+            if (Batteries.Count == 0) powerPercent = 1;
             else
             {
                 currentVal = 0;

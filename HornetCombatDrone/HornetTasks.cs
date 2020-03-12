@@ -78,7 +78,7 @@ namespace IngameScript
             }
 
             EnemyShipIntel combatIntel = null;
-            double closestIntelDist = 1500;
+            double closestIntelDist = CombatSystem.AlertDist;
             foreach (var intel in IntelItems)
             {
                 if (intel.Key.Item1 != IntelItemType.Enemy) continue;
@@ -156,18 +156,18 @@ namespace IngameScript
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
                 var velocityAdjust = linearVelocity + (accelerationAdjust + Acceleration) * 0.5;
 
-                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(combatIntel.GetVelocity() - velocityAdjust, targetPosition + combatIntel.GetVelocity() * 0.08 - (controller.WorldMatrix.Translation + velocityAdjust * 0.08), 400);
+                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(combatIntel.GetVelocity() - velocityAdjust, targetPosition + combatIntel.GetVelocity() * 0.08 - (controller.WorldMatrix.Translation + velocityAdjust * 0.08), CombatSystem.ProjectileSpeed);
 
                 LastAcceleration = linearVelocity - LastLinearVelocity;
                 LeadTask.Destination.Direction = relativeAttackPoint;
-                if ((controller.WorldMatrix.Translation - targetPosition).Length() < 800 && VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < 0.05) CombatSystem.Fire();
+                if ((controller.WorldMatrix.Translation - targetPosition).Length() < CombatSystem.FireDist && VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < 0.05) CombatSystem.Fire();
 
                 Vector3D dirTargetToMe = controller.WorldMatrix.Translation - targetPosition;
                 Vector3D dirTargetToOrbitTarget = Vector3D.Cross(dirTargetToMe, controller.WorldMatrix.Up);
                 dirTargetToOrbitTarget.Normalize();
                 dirTargetToMe.Normalize();
-                LeadTask.Destination.DirectionUp = Math.Sin(kRotateTheta) * controller.WorldMatrix.Right + Math.Cos(kRotateTheta) * controller.WorldMatrix.Up;
-                LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 2 + dirTargetToMe * HornetCombatSubsystem.kEngageRange + dirTargetToOrbitTarget * 200;
+                LeadTask.Destination.DirectionUp = Math.Sin(CombatSystem.EngageTheta) * controller.WorldMatrix.Right + Math.Cos(CombatSystem.EngageTheta) * controller.WorldMatrix.Up;
+                LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 2 + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
 
                 //if (NextSwapTime < canonicalTime)
                 //{
@@ -204,8 +204,6 @@ namespace IngameScript
         Vector3D LastAcceleration = Vector3D.Zero;
         MatrixD LastReference = MatrixD.Zero;
 
-        double kRotateTheta = 0.1;
-
         TimeSpan kSwapTimeMin = TimeSpan.FromSeconds(15);
         int kSwapTimeDelta = 30;
         TimeSpan LastSwapTime;
@@ -225,8 +223,6 @@ namespace IngameScript
             Status = TaskStatus.Incomplete;
 
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.Avoid);
-
-            if (random.Next(2) == 1) kRotateTheta *= -1;
         }
     }
 }

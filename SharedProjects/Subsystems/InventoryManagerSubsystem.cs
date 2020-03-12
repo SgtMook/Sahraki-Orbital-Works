@@ -101,6 +101,7 @@ namespace IngameScript
             if (block is IMySmallGatlingGun) return false;
             if (block is IMySmallGatlingGun) return false;
             if (block is IMyGasGenerator) return false;
+            if (block.CustomName.Contains("[I-X]")) return false;
         
             if (block.HasInventory)
             {

@@ -105,7 +105,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (Parser.TryParse(Program.Me.CustomData, out result))
+            if (!Parser.TryParse(Program.Me.CustomData, out result))
                 return;
 
             var dist = Parser.Get("Honeybee", "CloseDist").ToInt16();

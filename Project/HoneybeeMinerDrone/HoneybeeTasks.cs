@@ -164,7 +164,7 @@ namespace IngameScript
             ApproachPoint = target.Position + target.Direction * d;
 
             EntryPoint = target.Position + target.Direction * miningSystem.CloseDist;
-            MiningEnd = target.Position - target.Direction * 100;
+            MiningEnd = target.Position - target.Direction * 300;
 
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter);
             MineTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid);

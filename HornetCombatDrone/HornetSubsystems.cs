@@ -49,6 +49,7 @@ namespace IngameScript
             Program = program;
             IntelProvider.AddIntelMutator(this);
             GetParts();
+            ParseConfigs();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -93,6 +94,7 @@ namespace IngameScript
         MyGridProgram Program;
 
         List<IMySmallGatlingGun> Guns = new List<IMySmallGatlingGun>();
+        List<IMySmallMissileLauncher> Launchers = new List<IMySmallMissileLauncher>();
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
         List<IMyCameraBlock> Scanners = new List<IMyCameraBlock>();
         IMyRadioAntenna Antenna;
@@ -107,6 +109,14 @@ namespace IngameScript
 
         int engageCounter;
 
+        public int FireDist = 800;
+        public int EngageDist = 500;
+        public int AlertDist = 1500;
+
+        public int ProjectileSpeed = 400;
+
+        public float EngageTheta = 0.2f;
+
         public HornetCombatSubsystem(IIntelProvider provider)
         {
             IntelProvider = provider;
@@ -117,6 +127,7 @@ namespace IngameScript
             Guns.Clear();
             Turrets.Clear();
             Scanners.Clear();
+            Launchers.Clear();
             Antenna = null;
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
@@ -130,6 +141,9 @@ namespace IngameScript
 
             if (block is IMySmallGatlingGun)
                 Guns.Add((IMySmallGatlingGun)block);
+
+            if (block is IMySmallMissileLauncher)
+                Launchers.Add((IMySmallMissileLauncher)block);
 
             if (block is IMyLargeTurretBase)
             {
@@ -149,25 +163,48 @@ namespace IngameScript
             return false;
         }
 
+        // [Hornet]
+        // FireDist = 800
+        // EngageDist = 500
+        // AlertDist = 1500
+        // ProjectileSpeed = 400
+        // EngageTheta = 0.2
+        private void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(Program.Me.CustomData, out result))
+                return;
+
+            var val = Parser.Get("Hornet", "FireDist").ToInt16();
+            if (val != 0) FireDist = val;
+            val = Parser.Get("Hornet", "EngageDist").ToInt16();
+            if (val != 0) EngageDist = val;
+            val = Parser.Get("Hornet", "AlertDist").ToInt16();
+            if (val != 0) AlertDist = val;
+
+            val = Parser.Get("Hornet", "ProjectileSpeed").ToInt16();
+            if (val != 0) ProjectileSpeed = val;
+
+            var flo = Parser.Get("Hornet", "EngageTheta").ToDecimal();
+            if (flo != 0) EngageTheta = (float)flo;
+        }
+
         #region Public accessors
         public void Fire()
         {
             if (fireCounter == -1)
             {
-                foreach (var gun in Guns)
-                {
-                    TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
-                }
+                foreach (var gun in Guns) TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
+                foreach (var launcher in Launchers) TerminalPropertiesHelper.SetValue(launcher, "Shoot", true);
             }
             fireCounter = 6;
         }
 
         public void HoldFire()
         {
-            foreach (var gun in Guns)
-            {
-                TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
-            }
+            foreach (var gun in Guns) TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
+            foreach (var launcher in Launchers) TerminalPropertiesHelper.SetValue(launcher, "Shoot", false);
             fireCounter = -1;
         }
 

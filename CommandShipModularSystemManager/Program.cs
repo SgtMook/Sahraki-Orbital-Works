@@ -46,12 +46,16 @@ namespace IngameScript
             subsystemManager.AddSubsystem("hangar", hangarSubsystem);
             
             // Seeing-Eye scanner setup
-            //subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
+            subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
 
             // Inventory system setup
             InventoryManagerSubsystem inventorySubsystem = new InventoryManagerSubsystem();
             inventorySubsystem.RegisterRequester(hangarSubsystem);
             subsystemManager.AddSubsystem("inventory", inventorySubsystem);
+
+            // Command system setup
+            TextCommandSubsystem textCommandSubsystem = new TextCommandSubsystem(intelSubsystem);
+            subsystemManager.AddSubsystem("command", textCommandSubsystem);
 
             subsystemManager.DeserializeManager(Storage);
         }
