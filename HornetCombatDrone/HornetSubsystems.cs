@@ -115,7 +115,7 @@ namespace IngameScript
 
         public int ProjectileSpeed = 400;
 
-        public float EngageTheta = 0.2f;
+        public float EngageTheta = 0.1f;
 
         public HornetCombatSubsystem(IIntelProvider provider)
         {
@@ -168,7 +168,7 @@ namespace IngameScript
         // EngageDist = 500
         // AlertDist = 1500
         // ProjectileSpeed = 400
-        // EngageTheta = 0.2
+        // EngageTheta = 0.1
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();

@@ -257,7 +257,7 @@ namespace IngameScript
         }
 
         readonly MyGridProgram Program;
-        readonly IAutopilot Autopilot;
+        public readonly IAutopilot Autopilot;
         public Waypoint Destination;
 
         readonly List<IFleetIntelligence> IntelScratchpad;
@@ -473,7 +473,7 @@ namespace IngameScript
             AutopilotSubsystem = autopilotSubsystem;
             DockingSubsystem = dockingSubsystem;
             ExpectedVelocity = AutopilotSubsystem.Controller.GetShipVelocities().LinearVelocity;
-            Drift = ExpectedVelocity + DockingSubsystem.Connector.WorldMatrix.Backward * 30;
+            Drift = ExpectedVelocity + (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected ? (DockingSubsystem.Connector.OtherConnector.WorldMatrix.Forward) : (DockingSubsystem.Connector.WorldMatrix.Backward)) * 30;
             ExpectedPosition = DockingSubsystem.Connector.WorldMatrix.Translation;
         }
     }
@@ -507,7 +507,7 @@ namespace IngameScript
         }
         #endregion
 
-        IDockingSubsystem DockingSubsystem;
+        public IDockingSubsystem DockingSubsystem;
 
         bool Undock;
 
@@ -682,6 +682,16 @@ namespace IngameScript
                 Program.IGC.SendBroadcastMessage(dock.HangarChannelTag, MyTuple.Create(Program.Me.CubeGrid.EntityId, dock.ID, (int)HangarRequest.RequestDock));
                 if (dock.OwnerID == Program.Me.CubeGrid.EntityId && (dock.Status & HangarStatus.Docking) != 0)
                     WaitForClearance.Status = TaskStatus.Complete;
+            }
+
+            if (TaskQueue.Count < 3)
+            {
+                if (DockTask.DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connectable)
+                {
+                    FinalAdjustToDock.Autopilot.Clear();
+                    DockTask.Do(IntelItems, canonicalTime);
+                    TaskQueue.Clear();
+                }
             }
 
             base.Do(IntelItems, canonicalTime);

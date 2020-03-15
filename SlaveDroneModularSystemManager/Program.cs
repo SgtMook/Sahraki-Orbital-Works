@@ -18,6 +18,8 @@ using VRage;
 using VRageMath;
 using VRage.Library;
 
+
+
 namespace IngameScript
 {
     partial class Program : MyGridProgram
@@ -29,24 +31,31 @@ namespace IngameScript
 
             // Add subsystems
             // Intel system setup
-            IntelMasterSubsystem intelSubsystem = new IntelMasterSubsystem();
-            subsystemManager.AddSubsystem("intel", intelSubsystem);
+            IIntelProvider intelSubsystem;
+            if (Me.CustomName.Contains("[INT-M]")) intelSubsystem = new IntelMasterSubsystem();
+            else intelSubsystem = new IntelSlaveSubsystem();
 
-            // Looking Glass Setup
-            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
+            subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
 
-            lookingGlassNetwork.AddPlugin("command", new LookingGlassPlugin_Command());
-            lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat());
-
-            LookingGlass lookingGlass1 = new LookingGlass(this, "[LG]");
-
-            lookingGlassNetwork.AddLookingGlass(lookingGlass1);
-
-            subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
-
-            subsystemManager.AddSubsystem("sensorswivel", new SwivelSubsystem("[LG1]", lookingGlass1));
-
-            subsystemManager.AddSubsystem("hangar", new HangarSubsystem(intelSubsystem));
+            //// Looking Glass Setup
+            //LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
+            //subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+            //
+            //// Hangar system setup
+            HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);
+            subsystemManager.AddSubsystem("hangar", hangarSubsystem);
+            //
+            //// Seeing-Eye scanner setup
+            //subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
+            //
+            //// Inventory system setup
+            //InventoryManagerSubsystem inventorySubsystem = new InventoryManagerSubsystem();
+            //inventorySubsystem.RegisterRequester(hangarSubsystem);
+            //subsystemManager.AddSubsystem("inventory", inventorySubsystem);
+            //
+            //// Command system setup
+            //TextCommandSubsystem textCommandSubsystem = new TextCommandSubsystem(intelSubsystem);
+            //subsystemManager.AddSubsystem("command", textCommandSubsystem);
 
             subsystemManager.DeserializeManager(Storage);
         }

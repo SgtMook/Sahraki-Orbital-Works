@@ -45,6 +45,7 @@ namespace IngameScript
         {
             if (command == "scramblefighters") ScrambleFighters(timestamp);
             if (command == "recallfighters") RecallFighters(timestamp);
+            if (command == "autohome") AutoHomeCrafts(timestamp);
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -85,6 +86,7 @@ namespace IngameScript
         EnemyPrioritizer Prioritizer;
 
         List<FriendlyShipIntel> FriendlyShipScratchpad = new List<FriendlyShipIntel>();
+        List<DockIntel> DockIntelScratchpad = new List<DockIntel>();
         List<EnemyShipIntel> EnemyShipScratchpad = new List<EnemyShipIntel>();
 
         bool alarm;
@@ -110,6 +112,8 @@ namespace IngameScript
         {
             AlarmLights.Clear();
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Alarm = true;
+            Alarm = false;
         }
 
         private bool CollectParts(IMyTerminalBlock block)
@@ -117,7 +121,12 @@ namespace IngameScript
             if (!Program.Me.IsSameConstructAs(block)) return false;
 
             // Exclude types
-            if (block is IMyInteriorLight && block.CustomName.Contains("Alarm")) AlarmLights.Add((IMyInteriorLight)block);
+            if (block is IMyInteriorLight && block.CustomName.Contains("Alarm"))
+            {
+                IMyInteriorLight light = (IMyInteriorLight)block;
+                light.Radius = 20;
+                AlarmLights.Add(light);
+            }
 
             return false;
         }
@@ -197,6 +206,38 @@ namespace IngameScript
             for (int i = 0; i < FriendlyShipScratchpad.Count; i++)
             {
                 IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Dock, MyTuple.Create(IntelItemType.NONE, (long)0), localTime);
+            }
+        }
+
+        private void AutoHomeCrafts(TimeSpan localTime)
+        {
+            FriendlyShipScratchpad.Clear();
+            DockIntelScratchpad.Clear();
+
+            var intelItems = IntelProvider.GetFleetIntelligences(localTime);
+            foreach (var kvp in intelItems)
+            {
+                if (kvp.Key.Item1 == IntelItemType.Friendly)
+                {
+                    var friendly = (FriendlyShipIntel)kvp.Value;
+                    if (friendly.AgentClass == AgentClass.Fighter)
+                    {
+                        FriendlyShipScratchpad.Add(friendly);
+                    }
+                }
+                else if (kvp.Key.Item1 == IntelItemType.Dock)
+                {
+                    var dock = (DockIntel)kvp.Value;
+                    if (dock.OwnerID == -1)
+                        DockIntelScratchpad.Add(dock);
+                }
+            }
+
+            if (FriendlyShipScratchpad.Count == 0) return;
+
+            for (int i = 0; i < FriendlyShipScratchpad.Count && i < DockIntelScratchpad.Count; i++)
+            {
+                IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.SetHome, MyTuple.Create(IntelItemType.Dock, DockIntelScratchpad[i].ID), localTime);
             }
         }
     }

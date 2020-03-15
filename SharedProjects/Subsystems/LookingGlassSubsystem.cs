@@ -881,7 +881,7 @@ namespace IngameScript
             Host.ActiveLookingGlass.LeftHUD.FontColor = CurrentUIMode == UIMode.SelectAgent ? Host.ActiveLookingGlass.kFocusedColor : Host.ActiveLookingGlass.kUnfocusedColor;
 
             int kRowLength = 19;
-            int kMenuRows = 12;
+            int kMenuRows = 16;
 
             Builder.AppendLine("===== COMMAND =====");
             Builder.AppendLine();

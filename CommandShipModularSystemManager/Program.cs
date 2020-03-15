@@ -38,8 +38,8 @@ namespace IngameScript
             subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
             
             // Looking Glass Setup
-            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
-            subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+            // LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
+            // subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
             
             // Hangar system setup
             HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);
@@ -49,9 +49,9 @@ namespace IngameScript
             subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
 
             // Inventory system setup
-            InventoryManagerSubsystem inventorySubsystem = new InventoryManagerSubsystem();
-            inventorySubsystem.RegisterRequester(hangarSubsystem);
-            subsystemManager.AddSubsystem("inventory", inventorySubsystem);
+            // InventoryManagerSubsystem inventorySubsystem = new InventoryManagerSubsystem();
+            // inventorySubsystem.RegisterRequester(hangarSubsystem);
+            // subsystemManager.AddSubsystem("inventory", inventorySubsystem);
 
             // Command system setup
             TextCommandSubsystem textCommandSubsystem = new TextCommandSubsystem(intelSubsystem);

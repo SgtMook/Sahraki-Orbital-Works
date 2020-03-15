@@ -43,6 +43,8 @@ namespace IngameScript
 
         int GetPriority(long EnemyID);
         void SetPriority(long EnemyID, int value);
+
+        bool HasMaster { get; }
     }
 
     // Handles tracking, updating, and transmitting fleet intelligence
@@ -118,6 +120,8 @@ namespace IngameScript
                 SendPriorities();
             }
         }
+
+        public bool HasMaster => true;
         #endregion
 
         #region IIntelProvider
@@ -375,6 +379,14 @@ namespace IngameScript
         }
 
         public TimeSpan CanonicalTimeDiff { get; set; } // Add this to timestamp to get canonical time
+
+        public bool HasMaster
+        {
+            get
+            {
+                return CanonicalTimeSourceID != 0;
+            }
+        }
 
         public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {

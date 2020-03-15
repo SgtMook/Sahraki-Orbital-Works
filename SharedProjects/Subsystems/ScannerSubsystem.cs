@@ -26,6 +26,7 @@ namespace IngameScript
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
+            if (command == "designate") Designate(timestamp);
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -51,6 +52,7 @@ namespace IngameScript
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             TryScan(timestamp);
+            if (Designator != null) UpdateDesignator(timestamp);
         }
 
         #endregion
@@ -58,28 +60,45 @@ namespace IngameScript
         IIntelProvider IntelProvider;
         List<EnemyShipIntel> EnemyIntelScratchpad = new List<EnemyShipIntel>();
         string TagPrefix = string.Empty;
+        string DesignatorPrefix = string.Empty;
 
         List<ScannerArray> ScannerArrays = new List<ScannerArray>();
         List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
+        IMyCameraBlock Designator;
+
+        List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
 
         StringBuilder debugBuilder = new StringBuilder();
 
         public ScannerNetworkSubsystem(IIntelProvider intelProvider, string tag = "SE")
         {
             IntelProvider = intelProvider;
-            if (tag != string.Empty) TagPrefix = $"[{tag}";
+            if (tag != string.Empty)
+            {
+                TagPrefix = $"[{tag}";
+                DesignatorPrefix = $"[{tag}] <D> T:";
+            }
         }
 
         void GetParts()
         {
             ScannerArrays.Clear();
             Cameras.Clear();
+            Designator = null;
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetTurrets);
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetBases);
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetArms);
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetCameras);
 
             debugBuilder.AppendLine($"CAMERAS: {Cameras.Count}");
             debugBuilder.AppendLine($"ARRAYS: {ScannerArrays.Count}");
+        }
+
+        private bool GetTurrets(IMyTerminalBlock block)
+        {
+            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (block is IMyLargeTurretBase) Turrets.Add((IMyLargeTurretBase)block);
+            return false;
         }
 
         private bool GetBases(IMyTerminalBlock block)
@@ -117,6 +136,13 @@ namespace IngameScript
 
             var camera = (IMyCameraBlock)block;
 
+            if (camera.CustomName.Contains("<D>"))
+            {
+                Designator = camera;
+                Designator.EnableRaycast = true;
+                return false;
+            }
+
             foreach (var array in ScannerArrays)
             {
                 if (block.CubeGrid.EntityId == array.Base.TopGrid.EntityId || block.CubeGrid.EntityId == array.Arm.TopGrid.EntityId)
@@ -147,32 +173,59 @@ namespace IngameScript
                 if (!EnemyShipIntel.PrioritizeTarget(enemy)) continue;
                 if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.1) > canonicalTime) continue;
                 if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime && priority < 4) continue;
+
                 Vector3D targetPosition = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
 
-                var scanned = false;
+                TryScanTarget(targetPosition, localTime, enemy);
 
-                foreach (var camera in Cameras)
+            }
+
+            foreach (var turret in Turrets)
+            {
+                if (!turret.HasTarget) continue;
+                var target = turret.GetTargetedEntity();
+                if (target.IsEmpty()) continue;
+                if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid) continue;
+                if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) continue;
+
+                var intelDict = IntelProvider.GetFleetIntelligences(localTime);
+                var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
+                var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
+                TargetIntel.ID = target.EntityId;
+
+                if (TargetIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) < canonicalTime)
                 {
-                    var result = CameraTryScan(IntelProvider, camera, targetPosition, localTime, enemy);
-                    if (result == TryScanResults.Obstructed) break; // Try again with camera arrays
-                    else if (result == TryScanResults.Scanned)
-                    {
-                        scanned = true;
-                        break;
-                    }
+                    TryScanTarget(target.Position, localTime, TargetIntel);
                 }
+            }
 
-                if (scanned) continue;
+        }
 
-                for (int i = 0; i < ScannerArrays.Count; i++)
+        void TryScanTarget(Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy)
+        {
+            var scanned = false;
+
+            foreach (var camera in Cameras)
+            {
+                var result = CameraTryScan(IntelProvider, camera, targetPosition, localTime, enemy);
+                if (result == TryScanResults.Obstructed) continue; // Try again with camera arrays
+                else if (result == TryScanResults.Scanned)
                 {
-                    if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
+                    scanned = true;
+                    break;
+                }
+            }
+
+            if (scanned) return;
+
+            for (int i = 0; i < ScannerArrays.Count; i++)
+            {
+                if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
+                {
+                    var result = ScannerArrays[i].TryScan(IntelProvider, Program.Me.WorldMatrix.Translation, targetPosition, enemy, localTime);
+                    if (result == TryScanResults.Scanned)
                     {
-                        var result = ScannerArrays[i].TryScan(IntelProvider, Program.Me.WorldMatrix.Translation, targetPosition, enemy, localTime);
-                        if (result == TryScanResults.Scanned)
-                        {
-                            break;
-                        }
+                        break;
                     }
                 }
             }
@@ -199,6 +252,30 @@ namespace IngameScript
             enemy.FromDetectedInfo(info, localTime + intelProvider.CanonicalTimeDiff, true);
             intelProvider.ReportFleetIntelligence(enemy, localTime);
             return TryScanResults.Scanned;
+        }
+
+        void Designate(TimeSpan localTime)
+        {
+            if (Designator == null) return;
+            var designateInfo = Designator.Raycast(10000);
+            if (designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) return;
+            var intelDict = IntelProvider.GetFleetIntelligences(localTime);
+            var key = MyTuple.Create(IntelItemType.Enemy, designateInfo.EntityId);
+            var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
+            TargetIntel.FromDetectedInfo(designateInfo, localTime + IntelProvider.CanonicalTimeDiff, true);
+            IntelProvider.ReportFleetIntelligence(TargetIntel, localTime);
+        }
+
+        void UpdateDesignator(TimeSpan localTime)
+        {
+            int enemyCount = 0;
+            var intelDict = IntelProvider.GetFleetIntelligences(localTime);
+            foreach (var kvp in intelDict)
+            {
+                if (kvp.Key.Item1 == IntelItemType.Enemy) enemyCount++;
+            }
+
+            Designator.CustomName = DesignatorPrefix + enemyCount;
         }
     }
 

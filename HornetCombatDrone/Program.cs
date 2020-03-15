@@ -35,12 +35,15 @@ namespace IngameScript
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             HornetCombatSubsystem combatSubsystem = new HornetCombatSubsystem(intelSubsystem);
             MonitorSubsystem monitorSubsystem = new MonitorSubsystem();
+            StatusIndicatorSubsystem indicatorSubsystem = new StatusIndicatorSubsystem(dockingSubsystem, intelSubsystem);
 
             subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
             subsystemManager.AddSubsystem("docking", dockingSubsystem);
             subsystemManager.AddSubsystem("intel", intelSubsystem);
             subsystemManager.AddSubsystem("combat", combatSubsystem);
             subsystemManager.AddSubsystem("monitor", monitorSubsystem);
+            subsystemManager.AddSubsystem("indicator", indicatorSubsystem);
+
 
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Fighter);
             UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(this, autopilotSubsystem, dockingSubsystem);

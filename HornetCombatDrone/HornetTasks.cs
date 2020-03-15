@@ -89,8 +89,8 @@ namespace IngameScript
                 if (IntelProvider.GetPriority(enemyIntel.ID) < 2) continue;
 
                 double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
-                if (IntelProvider.GetPriority(enemyIntel.ID) == 3) dist += 600;
-                if (IntelProvider.GetPriority(enemyIntel.ID) == 4) dist += 1200;
+                if (IntelProvider.GetPriority(enemyIntel.ID) == 3) dist -= 600;
+                if (IntelProvider.GetPriority(enemyIntel.ID) == 4) dist -= 1200;
                 if (dist < closestIntelDist)
                 {
                     closestIntelDist = dist;
@@ -167,7 +167,7 @@ namespace IngameScript
                 dirTargetToOrbitTarget.Normalize();
                 dirTargetToMe.Normalize();
                 LeadTask.Destination.DirectionUp = Math.Sin(CombatSystem.EngageTheta) * controller.WorldMatrix.Right + Math.Cos(CombatSystem.EngageTheta) * controller.WorldMatrix.Up;
-                LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 2 + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
+                LeadTask.Destination.Position = targetPosition + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
 
                 //if (NextSwapTime < canonicalTime)
                 //{
