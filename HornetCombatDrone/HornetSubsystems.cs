@@ -117,6 +117,8 @@ namespace IngameScript
 
         public float EngageTheta = 0.1f;
 
+        public float FireTolerance = 0.2f;
+
         public HornetCombatSubsystem(IIntelProvider provider)
         {
             IntelProvider = provider;
@@ -134,7 +136,7 @@ namespace IngameScript
 
         private bool CollectParts(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyRadioAntenna)
                 Antenna = (IMyRadioAntenna)block;
@@ -169,6 +171,7 @@ namespace IngameScript
         // AlertDist = 1500
         // ProjectileSpeed = 400
         // EngageTheta = 0.1
+        // FireTolerance = 0.2
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -188,6 +191,9 @@ namespace IngameScript
 
             var flo = Parser.Get("Hornet", "EngageTheta").ToDecimal();
             if (flo != 0) EngageTheta = (float)flo;
+            
+            flo = Parser.Get("Hornet", "FireTolerance").ToDecimal();
+            if (flo != 0) FireTolerance = (float)flo;
         }
 
         #region Public accessors

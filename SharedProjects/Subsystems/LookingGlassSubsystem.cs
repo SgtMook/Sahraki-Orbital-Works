@@ -44,6 +44,12 @@ namespace IngameScript
             }
             if (command == "activateplugin") ActivatePlugin((string)argument);
             if (command == "cycleplugin") CyclePlugin();
+            if (command == "up") DoW(timestamp);
+            if (command == "down") DoS(timestamp);
+            if (command == "left") DoA(timestamp);
+            if (command == "right") DoD(timestamp);
+            if (command == "enter") DoSpace(timestamp);
+            if (command == "cancel") DoC(timestamp);
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -84,10 +90,11 @@ namespace IngameScript
         }
 
         #endregion
-        public LookingGlassNetworkSubsystem(IIntelProvider intelProvider, string tag = "LG", bool overrideGyros = true)
+        public LookingGlassNetworkSubsystem(IIntelProvider intelProvider, string tag = "LG", bool overrideGyros = true, bool overrideThrusters = true)
         {
             IntelProvider = intelProvider;
             OverrideGyros = overrideGyros;
+            OverrideThrusters = overrideThrusters;
 
             Tag = tag;
             TagPrefix = "[" + tag;
@@ -109,6 +116,7 @@ namespace IngameScript
         public IMyShipController Controller;
 
         bool OverrideGyros;
+        bool OverrideThrusters;
 
         bool Active = true;
         bool AutoActivate = true;
@@ -290,6 +298,7 @@ namespace IngameScript
         private void TriggerInputs(TimeSpan timestamp)
         {
             if (Controller == null) return;
+            if (!OverrideThrusters) return;
             if (!Active) return;
             var inputVecs = Controller.MoveIndicator;
             if (!lastADown && inputVecs.X < 0) DoA(timestamp);
@@ -424,7 +433,7 @@ namespace IngameScript
             }
 
             bool interceptingControls = ActiveLookingGlass == null || !Active;
-            Controller.ControlThrusters = interceptingControls;
+            if (OverrideThrusters) Controller.ControlThrusters = interceptingControls;
             if (OverrideGyros) TerminalPropertiesHelper.SetValue(Controller, "ControlGyros", interceptingControls);
         }
         #endregion

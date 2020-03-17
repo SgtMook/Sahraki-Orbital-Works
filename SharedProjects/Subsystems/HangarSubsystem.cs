@@ -270,6 +270,7 @@ namespace IngameScript
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
+            if (command == "clear") ClearOwners();
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -444,6 +445,17 @@ namespace IngameScript
             hangar.Intel.HangarChannelTag = HangarChannelTag;
 
             return hangar.Intel;
+        }
+
+        private void ClearOwners()
+        {
+            for (int i = 0; i < Hangars.Count(); i++)
+            {
+                if (Hangars[i] != null && Hangars[i].OK())
+                {
+                    Hangars[i].OwnerID = -1;
+                }
+            }
         }
 
         private void ReportAndUpdateHangars(TimeSpan timestamp)

@@ -115,7 +115,7 @@ namespace IngameScript
 
         bool SetBlockToDock(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
             if (block is IMyThrust) ((IMyThrust)block).Enabled = false;
             if (block is IMyGasTank) ((IMyGasTank)block).Stockpile = true;
             if (block is IMyBatteryBlock) ((IMyBatteryBlock)block).ChargeMode = ChargeMode.Recharge;

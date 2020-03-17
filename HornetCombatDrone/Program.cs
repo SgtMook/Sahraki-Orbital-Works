@@ -59,7 +59,7 @@ namespace IngameScript
 
             subsystemManager.DeserializeManager(Storage);
 
-            profiler = new Profiler(this.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
+            profiler = new Profiler(Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
         }
         MyCommandLine commandLine = new MyCommandLine();
         StringBuilder builder = new StringBuilder();

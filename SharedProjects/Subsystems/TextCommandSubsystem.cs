@@ -43,8 +43,8 @@ namespace IngameScript
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "scramblefighters") ScrambleFighters(timestamp);
-            if (command == "recallfighters") RecallFighters(timestamp);
+            if (command == "attack") ScrambleFighters(timestamp);
+            if (command == "recall") RecallFighters(timestamp);
             if (command == "autohome") AutoHomeCrafts(timestamp);
         }
 
@@ -220,7 +220,7 @@ namespace IngameScript
                 if (kvp.Key.Item1 == IntelItemType.Friendly)
                 {
                     var friendly = (FriendlyShipIntel)kvp.Value;
-                    if (friendly.AgentClass == AgentClass.Fighter)
+                    if (friendly.AgentClass == AgentClass.Fighter && friendly.HomeID == -1)
                     {
                         FriendlyShipScratchpad.Add(friendly);
                     }

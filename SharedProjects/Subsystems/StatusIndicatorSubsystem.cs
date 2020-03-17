@@ -80,7 +80,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!block.IsSameConstructAs(Program.Me)) return false;
+            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyInteriorLight)
                 IndicatorLight = (IMyInteriorLight)block;

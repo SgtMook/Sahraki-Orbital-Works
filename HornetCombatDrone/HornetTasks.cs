@@ -160,14 +160,14 @@ namespace IngameScript
 
                 LastAcceleration = linearVelocity - LastLinearVelocity;
                 LeadTask.Destination.Direction = relativeAttackPoint;
-                if ((controller.WorldMatrix.Translation - targetPosition).Length() < CombatSystem.FireDist && VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < 0.05) CombatSystem.Fire();
+                if ((controller.WorldMatrix.Translation - targetPosition).Length() < CombatSystem.FireDist && VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < CombatSystem.FireTolerance) CombatSystem.Fire();
 
                 Vector3D dirTargetToMe = controller.WorldMatrix.Translation - targetPosition;
                 Vector3D dirTargetToOrbitTarget = Vector3D.Cross(dirTargetToMe, controller.WorldMatrix.Up);
                 dirTargetToOrbitTarget.Normalize();
                 dirTargetToMe.Normalize();
                 LeadTask.Destination.DirectionUp = Math.Sin(CombatSystem.EngageTheta) * controller.WorldMatrix.Right + Math.Cos(CombatSystem.EngageTheta) * controller.WorldMatrix.Up;
-                LeadTask.Destination.Position = targetPosition + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
+                LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 2 + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
 
                 //if (NextSwapTime < canonicalTime)
                 //{

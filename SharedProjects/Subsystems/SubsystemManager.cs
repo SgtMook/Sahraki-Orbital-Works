@@ -42,15 +42,29 @@ namespace IngameScript
 
         TimeSpan Timestamp = new TimeSpan();
 
-        const OutputMode outputMode = OutputMode.None;
         const double PROFILER_NEW_VALUE_FACTOR = 0.01;
         const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
+        OutputMode OutputMode = OutputMode.None;
         Profiler profiler;
 
         public SubsystemManager(MyGridProgram program)
         {
             Program = program;
-            profiler = new Profiler(program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
+            ParseConfigs();
+            if (OutputMode == OutputMode.Profile) profiler = new Profiler(program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
+        }
+
+        // [Manager]
+        // OutputMode = 0
+        private void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(Program.Me.CustomData, out result))
+                return;
+
+            OutputMode mode;
+            if (Enum.TryParse(Parser.Get("Manager", "OutputMode").ToString(), out mode)) OutputMode = mode;
         }
 
         public string AddSubsystem(string name, ISubsystem subsystem)
@@ -146,26 +160,26 @@ namespace IngameScript
         public void Update(UpdateType updateSource)
         {
             UpdateCounter++;
-            profiler.UpdateRuntime();
+            if (OutputMode == OutputMode.Profile) profiler.UpdateRuntime();
 
-            profiler.StartSectionWatch("Setup frequencies");
+            if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Setup frequencies");
             UpdateFrequency updateFrequency = UpdateFrequency.None;
             if ((updateSource & UpdateType.Update1) != 0) updateFrequency |= UpdateFrequency.Update1;
             if ((updateSource & UpdateType.Update10) != 0) updateFrequency |= UpdateFrequency.Update10;
             if ((updateSource & UpdateType.Update100) != 0) updateFrequency |= UpdateFrequency.Update100;
 
             UpdateFrequency targetFrequency = UpdateFrequency.Update1;
-            profiler.StopSectionWatch("Setup frequencies");
+            if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch("Setup frequencies");
             foreach (var subsystem in Subsystems)
             {
-                profiler.StartSectionWatch(subsystem.Key);
+                if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch(subsystem.Key);
                 ISubsystem system = subsystem.Value;
                 if ((system.UpdateFrequency & updateFrequency) != 0)
                 {
                     system.Update(Timestamp, updateFrequency);
                 }
                 targetFrequency |= system.UpdateFrequency;
-                profiler.StopSectionWatch(subsystem.Key);
+                if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch(subsystem.Key);
             }
 
             Program.Runtime.UpdateFrequency = targetFrequency;
@@ -175,13 +189,13 @@ namespace IngameScript
         {
             StatusBuilder.Clear();
 
-            if (outputMode == OutputMode.Profile)
+            if (OutputMode == OutputMode.Profile)
             {
                 profiler.PrintPerformance(StatusBuilder);
                 StatusBuilder.AppendLine("============");
                 profiler.PrintSectionBreakdown(StatusBuilder);
             }
-            else if (outputMode == OutputMode.Debug)
+            else if (OutputMode == OutputMode.Debug)
             {
                 StatusBuilder.AppendLine(DebugBuilder.ToString());
 

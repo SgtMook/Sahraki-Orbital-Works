@@ -262,7 +262,7 @@ namespace IngameScript
 
         private bool CollectParts(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyRemoteControl)
                 controller = (IMyRemoteControl)block;
@@ -322,7 +322,7 @@ namespace IngameScript
                 if (IYaw < -1) IYaw = -1;
                 if (IPitch > 1) IPitch = 1;
                 if (IPitch < -1) IPitch = -1;
-                double kI = 0.01;
+                double kI = 0.025;
 
                 ApplyGyroOverride(pitchAngle * 5 + IPitch * kI, yawAngle * 5 + IYaw * kI, spinAngle * 5, gyros, reference);
             }
