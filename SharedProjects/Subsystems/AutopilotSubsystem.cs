@@ -43,7 +43,8 @@ namespace IngameScript
         StringBuilder statusbuilder = new StringBuilder();
         // StringBuilder debugBuilder = new StringBuilder();
         int run = 0;
-        int kRunEveryXUpdates = 2;
+        int kRunEveryXUpdates = 5;
+        float kInverseTimeStep;
 
         #region ISubsystem
         public void Command(TimeSpan timestamp, string command, object argument)
@@ -59,7 +60,11 @@ namespace IngameScript
 
             UpdateFrequency = UpdateFrequency.Update10;
 
+            kInverseTimeStep = 1 / kRunEveryXUpdates;
+
             GetParts();
+
+            ParseConfigs();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -226,12 +231,25 @@ namespace IngameScript
 
         double IYaw = 0;
         double IPitch = 0;
+        double DYaw = 0;
+        double DPitch = 0;
 
         Vector3D targetDirection = Vector3.Zero;
         Vector3D targetUp = Vector3.Zero;
 
         bool tActive = true;
         bool rActive = true;
+
+        float TP = 1;
+        float TI = 0.15f;
+        float TD = 5;
+        float TP2 = 0.2f;
+        float TI2 = 0.08f;
+        float TD2 = 2;
+        float RP = 5;
+        float RI = 0.2f;
+        float RD = 2;
+
 
         // Helpers
 
@@ -285,6 +303,51 @@ namespace IngameScript
             return false;
         }
 
+        // [Autopilot]
+        // TP = 1
+        // TI = 0.15
+        // TD = 5
+        // TP2 = 0.2
+        // TI2 = 0.08
+        // TD2 = 2
+        // RP = 5
+        // RI = 0.2
+        // RD = 2
+        private void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(Program.Me.CustomData, out result))
+                return;
+
+            var flo = Parser.Get("Autopilot", "TP").ToDecimal();
+            if (flo != 0) TP = (float)flo;
+
+            flo = Parser.Get("Autopilot", "TI").ToDecimal();
+            if (flo != 0) TI = (float)flo;
+
+            flo = Parser.Get("Autopilot", "TD").ToDecimal();
+            if (flo != 0) TD = (float)flo;
+
+            flo = Parser.Get("Autopilot", "TP2").ToDecimal();
+            if (flo != 0) TP2 = (float)flo;
+
+            flo = Parser.Get("Autopilot", "TI2").ToDecimal();
+            if (flo != 0) TI2 = (float)flo;
+
+            flo = Parser.Get("Autopilot", "TD2").ToDecimal();
+            if (flo != 0) TD2 = (float)flo;
+
+            flo = Parser.Get("Autopilot", "RP").ToDecimal();
+            if (flo != 0) RP = (float)flo;
+
+            flo = Parser.Get("Autopilot", "RI").ToDecimal();
+            if (flo != 0) RI = (float)flo;
+
+            flo = Parser.Get("Autopilot", "RD").ToDecimal();
+            if (flo != 0) RD = (float)flo;
+        }
+
         void SetThrusterPowers()
         {
             Vector3D AutopilotMoveIndicator = Vector3.Zero;
@@ -316,15 +379,17 @@ namespace IngameScript
                     spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
                 }
 
-                IYaw += yawAngle;
-                IPitch += pitchAngle;
+                if (DYaw == 0) DYaw = yawAngle;
+                if (DPitch == 0) DPitch = pitchAngle;
+
+                IYaw += yawAngle * kRunEveryXUpdates;
+                IPitch += pitchAngle * kRunEveryXUpdates;
                 if (IYaw > 1) IYaw = 1;
                 if (IYaw < -1) IYaw = -1;
                 if (IPitch > 1) IPitch = 1;
                 if (IPitch < -1) IPitch = -1;
-                double kI = 0.025;
 
-                ApplyGyroOverride(pitchAngle * 5 + IPitch * kI, yawAngle * 5 + IYaw * kI, spinAngle * 5, gyros, reference);
+                ApplyGyroOverride(pitchAngle * RP + (pitchAngle - DPitch) * RD * kInverseTimeStep + IPitch * RI, yawAngle * RP + (yawAngle - DYaw) * RD * kInverseTimeStep + IYaw * RI, spinAngle * RP, gyros, reference);
             }
 
 
@@ -383,43 +448,43 @@ namespace IngameScript
             Vector3D currentVelocity = controller.GetShipVelocities().LinearVelocity;
             float aMax = 0.8f * maxThrust / controller.CalculateShipMass().PhysicalMass;
             Vector3D desiredVelocity = targetDrift;
-            Vector3D posError = (target - reference.WorldMatrix.Translation);
+            Vector3D posError = target - reference.WorldMatrix.Translation;
             var distance = (float)posError.Length();
             posError.Normalize();
 
             if (target != Vector3D.Zero)
             {
                 float desiredSpeed = Math.Min((float)Math.Sqrt(2f * aMax * distance) * 0.01f * (100 - (float)targetDrift.Length()), maxSpeed);
-                desiredSpeed = Math.Min(distance * 2f + 1f, desiredSpeed);
+                desiredSpeed = Math.Min(distance * 5, desiredSpeed);
                 desiredVelocity += posError * desiredSpeed;
             }
 
             Vector3D adjustVector = currentVelocity - targetDrift - VectorHelpers.VectorProjection(currentVelocity - targetDrift, desiredVelocity - targetDrift);
             if (adjustVector.Length() < (currentVelocity - targetDrift).Length() * 0.1) adjustVector = Vector3.Zero;
 
-            Vector3D Error = (desiredVelocity - currentVelocity - adjustVector * 3) * 30 / aMax;
+            Vector3D Error = (desiredVelocity - currentVelocity - adjustVector * 1) * 60 / (aMax * kRunEveryXUpdates);
 
-            float kP = 1f;
-            float kI = 0.2f;
-            float kD = 2.5f;
+            float kP = TP;
+            float kI = TI;
+            float kD = TD;
 
             if (Error.LengthSquared() > 1) Error.Normalize();
             else
             {
-                kP = 0.2f;
-                kI = 0.1f;
-                kD = 1;
+                kP = TP2;
+                kI = TI2;
+                kD = TD2;
             }
 
             if (D == Vector3.Zero) D = Error;
 
-            AutopilotMoveIndicator = kP * Error + kD * (Error - D) + kI * I;
+            AutopilotMoveIndicator = kP * Error + kD * (Error - D) * kInverseTimeStep + kI * I;
             if (distance < 10 && speed < 10) AutopilotMoveIndicator *= 0.5f;
             else if (distance < 1) AutopilotMoveIndicator *= 0.2f;
 
             if (AutopilotMoveIndicator.Length() > 1) AutopilotMoveIndicator /= AutopilotMoveIndicator.Length();
 
-            I += Error;
+            I += Error * kRunEveryXUpdates;
             if (I.Length() > 5) I *= 5 / I.Length();
             D = Error;
 

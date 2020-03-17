@@ -77,7 +77,8 @@ namespace IngameScript
             else
             {
                 subsystemManager.Update(updateSource);
-                Echo(subsystemManager.GetStatus());
+                var s = subsystemManager.GetStatus();
+                if (!string.IsNullOrEmpty(s)) Echo(s);
             }
         }
     }
