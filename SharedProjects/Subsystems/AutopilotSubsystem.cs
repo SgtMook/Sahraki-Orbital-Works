@@ -65,6 +65,8 @@ namespace IngameScript
             GetParts();
 
             ParseConfigs();
+
+            currentMaxSpeed = MaxSpeed;
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -141,7 +143,7 @@ namespace IngameScript
         public void SetMaxSpeed(float maxSpeed)
         {
             if (maxSpeed != -1f)
-                this.maxSpeed = maxSpeed;
+                this.currentMaxSpeed = maxSpeed;
         }
         public bool AtWaypoint(Waypoint w)
         {
@@ -178,7 +180,7 @@ namespace IngameScript
             targetPosition = Vector3D.Zero;
             targetDrift = Vector3D.Zero;
             reference = controller;
-            maxSpeed = 98;
+            currentMaxSpeed = MaxSpeed;
             IYaw = 0;
             IPitch = 0;
             ITranslate = Vector3D.Zero;
@@ -222,7 +224,7 @@ namespace IngameScript
 
         List<IMyGyro> gyros = new List<IMyGyro>();
         float[] thrusts = new float[6];
-        float maxSpeed = 98;
+        float currentMaxSpeed;
 
         Vector3D DTranslate = Vector3.Zero;
         Vector3D ITranslate = Vector3.Zero;
@@ -240,15 +242,17 @@ namespace IngameScript
         bool tActive = true;
         bool rActive = true;
 
-        float TP = 1;
-        float TI = 0.15f;
-        float TD = 5;
-        float TP2 = 0.2f;
+        float TP = 2;
+        float TI = 0.08f;
+        float TD = 3;
+        float TP2 = 2f;
         float TI2 = 0.08f;
         float TD2 = 2;
         float RP = 5;
         float RI = 0.2f;
         float RD = 2;
+
+        float MaxSpeed = 98;
 
 
         // Helpers
@@ -313,6 +317,7 @@ namespace IngameScript
         // RP = 5
         // RI = 0.2
         // RD = 2
+        // MaxSpeed = 98
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -346,12 +351,17 @@ namespace IngameScript
 
             flo = Parser.Get("Autopilot", "RD").ToDecimal();
             if (flo != 0) RD = (float)flo;
+            
+            flo = Parser.Get("Autopilot", "MaxSpeed").ToDecimal();
+            if (flo != 0) MaxSpeed = (float)flo;
+
+
         }
 
         void SetThrusterPowers()
         {
             Vector3D AutopilotMoveIndicator = Vector3.Zero;
-            if (targetPosition != Vector3D.Zero || targetDrift != Vector3D.Zero) GetMovementVectors(targetPosition, controller, reference, thrusts[0], maxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
+            if (targetPosition != Vector3D.Zero || targetDrift != Vector3D.Zero) GetMovementVectors(targetPosition, controller, reference, thrusts[0], currentMaxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
             if (AutopilotMoveIndicator == Vector3.Zero)
             {
                 controller.DampenersOverride = true;
@@ -455,7 +465,7 @@ namespace IngameScript
             if (target != Vector3D.Zero)
             {
                 float desiredSpeed = Math.Min((float)Math.Sqrt(2f * aMax * distance) * 0.01f * (100 - (float)targetDrift.Length()), maxSpeed);
-                desiredSpeed = Math.Min(distance * 5, desiredSpeed);
+                desiredSpeed = Math.Min(distance * distance * 2f, desiredSpeed);
                 desiredVelocity += posError * desiredSpeed;
             }
 
@@ -480,7 +490,6 @@ namespace IngameScript
 
             AutopilotMoveIndicator = kP * Error + kD * (Error - D) * kInverseTimeStep + kI * I;
             if (distance < 10 && speed < 10) AutopilotMoveIndicator *= 0.5f;
-            else if (distance < 1) AutopilotMoveIndicator *= 0.2f;
 
             if (AutopilotMoveIndicator.Length() > 1) AutopilotMoveIndicator /= AutopilotMoveIndicator.Length();
 
@@ -488,7 +497,7 @@ namespace IngameScript
             if (I.Length() > 5) I *= 5 / I.Length();
             D = Error;
 
-            if (targetDrift == Vector3D.Zero && distance < 0.25f && speed < 0.25f)
+            if (targetDrift == Vector3D.Zero && distance < 0.55f && speed < 0.35f)
             {
                 targetPosition = Vector3.Zero;
                 AutopilotMoveIndicator = Vector3.Zero;
