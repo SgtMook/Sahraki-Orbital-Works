@@ -156,7 +156,7 @@ namespace IngameScript
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
                 var velocityAdjust = linearVelocity + (accelerationAdjust + Acceleration) * 0.5;
 
-                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(combatIntel.GetVelocity() - velocityAdjust, targetPosition + combatIntel.GetVelocity() * 0.08 - (controller.WorldMatrix.Translation + velocityAdjust * 0.08), CombatSystem.ProjectileSpeed);
+                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(combatIntel.GetVelocity() - velocityAdjust, targetPosition + combatIntel.GetVelocity() * 0.25 - (controller.WorldMatrix.Translation + velocityAdjust * 0.25), CombatSystem.ProjectileSpeed);
 
                 LastAcceleration = linearVelocity - LastLinearVelocity;
                 LeadTask.Destination.Direction = relativeAttackPoint;
@@ -168,6 +168,8 @@ namespace IngameScript
                 dirTargetToMe.Normalize();
                 LeadTask.Destination.DirectionUp = Math.Sin(CombatSystem.EngageTheta) * controller.WorldMatrix.Right + Math.Cos(CombatSystem.EngageTheta) * controller.WorldMatrix.Up;
                 LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 2 + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
+
+                LastReference = controller.WorldMatrix;
 
                 //if (NextSwapTime < canonicalTime)
                 //{

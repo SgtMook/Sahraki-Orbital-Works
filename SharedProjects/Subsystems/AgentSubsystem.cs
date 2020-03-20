@@ -62,6 +62,8 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            DebugBuilder.Clear();
+            //profiler.PrintSectionBreakdown(DebugBuilder);
             return DebugBuilder.ToString();
         }
 
@@ -75,15 +77,37 @@ namespace IngameScript
             Program = program;
             CommandChannelTag = program.Me.CubeGrid.EntityId.ToString() + "-COMMAND";
             CommandListener = program.IGC.RegisterBroadcastListener(CommandChannelTag);
+            //profiler = new Profiler(Program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
+            //profiler.StartSectionWatch("Baseline");
+            //profiler.StopSectionWatch("Baseline");
+            //
+            //if ((updateFlags & UpdateFrequency.Update10) != 0) run++;
+            //
+            //profiler.StartSectionWatch("GetCommands");
+            //if ((updateFlags & UpdateFrequency.Update10) != 0) GetCommands(timestamp);
+            //profiler.StopSectionWatch("GetCommands");
+            //
+            //profiler.StartSectionWatch("Do Tasks");
+            //if ((updateFlags & UpdateFrequency.Update10) != 0 && run % 3 == 0) DoTasks(timestamp);
+            //profiler.StopSectionWatch("Do Tasks");
+            //
+            //profiler.StartSectionWatch("Add Tasks");
+            //if ((updateFlags & UpdateFrequency.Update10) != 0) TryAddTaskFromWaitingCommand(timestamp);
+            //profiler.StopSectionWatch("Add Tasks");
+
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
-                GetCommands(timestamp);
-                DoTasks(timestamp);
-                TryAddTaskFromWaitingCommand(timestamp);
+                run++;
+                if (run % 3 == 0)
+                {
+                    GetCommands(timestamp);
+                    TryAddTaskFromWaitingCommand(timestamp);
+                    DoTasks(timestamp);
+                }
             }
         }
         #endregion
@@ -119,6 +143,10 @@ namespace IngameScript
         }
         #endregion
 
+        //const double PROFILER_NEW_VALUE_FACTOR = 0.01;
+        //const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
+        //Profiler profiler;
+
         MyGridProgram Program;
         IMyBroadcastListener CommandListener;
 
@@ -132,7 +160,9 @@ namespace IngameScript
 
         MyTuple<int, MyTuple<int, long>, int, int>? WaitingCommand = null;
         TimeSpan WaitingCommandTimestamp;
-        readonly TimeSpan kCommandWaitTimeout = TimeSpan.FromSeconds(0.6);
+        readonly TimeSpan kCommandWaitTimeout = TimeSpan.FromSeconds(1);
+
+        int run = 0;
 
         public AgentSubsystem(IIntelProvider intelProvider, AgentClass agentClass)
         {

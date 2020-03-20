@@ -163,6 +163,7 @@ namespace IngameScript
         public void ProcessIntel(FriendlyShipIntel myIntel)
         {
             myIntel.HomeID = HomeID;
+            if (Connector.Status == MyShipConnectorStatus.Connected) myIntel.Radius = 0;
         }
         #endregion
     }

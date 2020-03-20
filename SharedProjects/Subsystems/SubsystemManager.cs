@@ -44,8 +44,9 @@ namespace IngameScript
 
         const double PROFILER_NEW_VALUE_FACTOR = 0.01;
         const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
-        OutputMode OutputMode = OutputMode.None;
         Profiler profiler;
+
+        OutputMode OutputMode = OutputMode.None;
 
         public SubsystemManager(MyGridProgram program)
         {

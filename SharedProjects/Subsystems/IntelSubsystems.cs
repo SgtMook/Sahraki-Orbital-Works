@@ -107,7 +107,7 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            if ((updateFlags & UpdateFrequency.Update10) != 0)
+            if (runs % 3 == 0 && (updateFlags & UpdateFrequency.Update10) != 0)
             {
                 UpdateIntelFromReports(timestamp);
                 SendSyncMessage(timestamp);
@@ -119,6 +119,7 @@ namespace IngameScript
                 ReceivePriorityRequests();
                 SendPriorities();
             }
+            runs++;
         }
 
         public bool HasMaster => true;
@@ -189,6 +190,8 @@ namespace IngameScript
         Dictionary<long, int> EnemyPriorities = new Dictionary<long, int>();
 
         IGCSyncPacker IGCSyncPacker = new IGCSyncPacker();
+
+        int runs = 0;
 
         void GetParts()
         {
@@ -303,6 +306,8 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            debugBuilder.Clear();
+            profiler.PrintSectionBreakdown(debugBuilder);
             return debugBuilder.ToString();
         }
     
@@ -323,11 +328,13 @@ namespace IngameScript
             PriorityListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityChannelTag);
             TimeListener.SetMessageCallback($"{name} sync");
             GetParts();
+
+            profiler = new Profiler(Program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
         }
     
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            if ((updateFlags & UpdateFrequency.Update10) != 0)
+            if (runs % 3 == 0 && (updateFlags & UpdateFrequency.Update10) != 0)
             {
                 GetSyncMessages(timestamp);
                 UpdateMyIntel(timestamp);
@@ -337,6 +344,24 @@ namespace IngameScript
                 TimeoutIntelItems(timestamp);
                 UpdatePriorities();
             }
+            runs++;
+
+            //profiler.StartSectionWatch("Baseline");
+            //profiler.StopSectionWatch("Baseline");
+            //
+            //profiler.StartSectionWatch("GetSyncMessages");
+            //if ((updateFlags & UpdateFrequency.Update10) != 0) GetSyncMessages(timestamp);
+            //profiler.StopSectionWatch("GetSyncMessages");
+            //profiler.StartSectionWatch("UpdateMyIntel");
+            //if ((updateFlags & UpdateFrequency.Update10) != 0) UpdateMyIntel(timestamp);
+            //profiler.StopSectionWatch("UpdateMyIntel");
+            //
+            //profiler.StartSectionWatch("TimeoutIntelItems");
+            //if ((updateFlags & UpdateFrequency.Update100) != 0) TimeoutIntelItems(timestamp);
+            //profiler.StopSectionWatch("TimeoutIntelItems");
+            //profiler.StartSectionWatch("UpdatePriorities");
+            //if ((updateFlags & UpdateFrequency.Update100) != 0) UpdatePriorities();
+            //profiler.StopSectionWatch("UpdatePriorities");
         }
 
         public int GetPriority(long EnemyID)
@@ -398,6 +423,10 @@ namespace IngameScript
         }
         #endregion
 
+        const double PROFILER_NEW_VALUE_FACTOR = 0.01;
+        const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
+        Profiler profiler;
+
         private const double kOneTick = 16.6666666;
         MyGridProgram Program;
         IMyBroadcastListener SyncListener;
@@ -423,6 +452,8 @@ namespace IngameScript
         Dictionary<long, int> EnemyPrioritiesOverride = new Dictionary<long, int>();
         HashSet<long> EnemyPrioritiesKeepSet = new HashSet<long>();
         List<long> EnemyPriorityClearScratchpad = new List<long>();
+
+        int runs = 0;
 
         void GetParts()
         {

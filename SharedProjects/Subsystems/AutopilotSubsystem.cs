@@ -497,7 +497,7 @@ namespace IngameScript
             if (I.Length() > 5) I *= 5 / I.Length();
             D = Error;
 
-            if (targetDrift == Vector3D.Zero && distance < 0.55f && speed < 0.35f)
+            if (targetDrift == Vector3D.Zero && distance < 0.25f && speed < 0.25f)
             {
                 targetPosition = Vector3.Zero;
                 AutopilotMoveIndicator = Vector3.Zero;
