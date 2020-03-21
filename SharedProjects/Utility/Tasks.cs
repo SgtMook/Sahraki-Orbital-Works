@@ -46,6 +46,7 @@ namespace IngameScript
     {
         TaskType AcceptedTypes { get; }
         ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID);
+
     }
 
     public class WaypointTaskGenerator : ITaskGenerator
@@ -99,11 +100,28 @@ namespace IngameScript
         readonly MyGridProgram Program;
         readonly IDockingSubsystem DockingSubsystem;
 
+        readonly MoveToAndDockTask Task;
+
+        WaypointTask holdTask;
+        WaypointTask approachTask;
+        WaypointTask enterTask;
+        WaypointTask closeTask;
+        DockTask dockTask;
+
         public DockTaskGenerator(MyGridProgram program, IAutopilot autopilot, IDockingSubsystem ds)
         {
             Program = program;
             Autopilot = autopilot;
             DockingSubsystem = ds;
+
+            holdTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.Avoid, DockingSubsystem.Connector);
+            approachTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter, DockingSubsystem.Connector);
+            enterTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
+            closeTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
+            dockTask = new DockTask(DockingSubsystem);
+            Task = new MoveToAndDockTask();
+            Task.Reset(holdTask, approachTask, enterTask, closeTask, dockTask, MyTuple.Create(IntelItemType.NONE, (long)1234), Program, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
+            Task.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.FromSeconds(1));
         }
 
         public ITask GenerateMoveToAndDockTask(MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, float approachMaxSpeed = 100)
@@ -124,14 +142,11 @@ namespace IngameScript
             }
             var Dock = (DockIntel)IntelItems[intelKey];
 
-            var holdTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.Avoid, DockingSubsystem.Connector);
             holdTask.Destination.MaxSpeed = approachMaxSpeed;
-            var approachTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter, DockingSubsystem.Connector);
-            var enterTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
-            var closeTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
-            var dockTask = new DockTask(DockingSubsystem);
 
-            return new MoveToAndDockTask(holdTask, approachTask, enterTask, closeTask, dockTask, intelKey, Program, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
+            Task.Reset(holdTask, approachTask, enterTask, closeTask, dockTask, intelKey, Program, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
+
+            return Task;
         }
     }
 
@@ -210,6 +225,7 @@ namespace IngameScript
     public struct NullTask : ITask
     {
         public TaskStatus Status => TaskStatus.Aborted;
+
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
         {
         }
@@ -240,7 +256,7 @@ namespace IngameScript
                 Autopilot.Clear();
                 Cleared = true;
             }
-            Autopilot.Move(ObstacleMode == AvoidObstacleMode.DoNotAvoid ? Destination.Position : PlotPath(IntelItems, canonicalTime));
+            Autopilot.Move(ObstacleMode == AvoidObstacleMode.DoNotAvoid ? Destination.Position : WaypointHelper.PlotPath(IntelItems, canonicalTime, Autopilot, Destination, IntelScratchpad, PositionScratchpad, Program));
             Autopilot.Turn(Destination.Direction);
             Autopilot.Spin(Destination.DirectionUp);
             Autopilot.Drift(Destination.Velocity);
@@ -273,14 +289,19 @@ namespace IngameScript
             Autopilot = pilotSubsystem;
             Program = program;
             Destination = waypoint;
-            IntelScratchpad = new List<IFleetIntelligence>();
-            PositionScratchpad = new List<Vector3>();
+            IntelScratchpad = new List<IFleetIntelligence>(64);
+            PositionScratchpad = new List<Vector3>(64);
             ObstacleMode = avoidObstacleMode;
             MoveReference = moveReference;
             Cleared = false;
-        }
 
-        Vector3D PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+            WaypointHelper.PlotPath(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.FromSeconds(1), Autopilot, Destination, IntelScratchpad, PositionScratchpad, Program);
+        }
+    }
+
+    public class WaypointHelper
+    {
+        public static Vector3D PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, IAutopilot Autopilot, Waypoint Destination, List<IFleetIntelligence> IntelScratchpad, List<Vector3> PositionScratchpad, MyGridProgram Program)
         {
             Vector3D o = Autopilot.Reference.WorldMatrix.Translation;
             Vector3D targetPosition = Destination.Position;
@@ -291,7 +312,6 @@ namespace IngameScript
             PositionScratchpad.Clear();
 
             bool type1 = false;
-
             // Quick filter on intel items that might interfere with pathing at this time based on type and distance
             foreach (var kvp in IntelItems)
             {
@@ -319,7 +339,6 @@ namespace IngameScript
                     }
                 }
             }
-
             Vector3D target = Destination.Position;
 
             if (type1)
@@ -403,7 +422,7 @@ namespace IngameScript
                             v = dir * (closestObstacle.Radius + SafetyRadius * 2) + closestObstaclePos;
                             var vdir = v - o;
                             vdir.Normalize();
-                            target = o + vdir * (o - Destination.Position).Length(); 
+                            target = o + vdir * (o - Destination.Position).Length();
                         }
                         else
                         {
@@ -433,7 +452,6 @@ namespace IngameScript
 
                 } while (!targetClear && iter < 5);
             }
-
             return target;
         }
     }
@@ -582,6 +600,12 @@ namespace IngameScript
             Aborted = false;
             TaskQueue = new Queue<ITask>();
         }
+
+        public void Reset()
+        {
+            Aborted = false;
+            TaskQueue.Clear();
+        }
     }
     public class MoveToAndDockTask : CompoundTask
     {
@@ -597,8 +621,9 @@ namespace IngameScript
         IMyTerminalBlock Connector;
         IMyTerminalBlock Indicator;
         MyGridProgram Program;
-        public MoveToAndDockTask(WaypointTask holdTask, WaypointTask approachTask, WaypointTask enterTask, WaypointTask closeTask, DockTask dockTask, MyTuple<IntelItemType, long> intelKey, MyGridProgram program, MyCubeSize dockSize, IMyTerminalBlock connector, IMyTerminalBlock indicator = null) : base (false)
+        public void Reset(WaypointTask holdTask, WaypointTask approachTask, WaypointTask enterTask, WaypointTask closeTask, DockTask dockTask, MyTuple<IntelItemType, long> intelKey, MyGridProgram program, MyCubeSize dockSize, IMyTerminalBlock connector, IMyTerminalBlock indicator = null)
         {
+            Reset();
             if (indicator != null)
             {
                 Indicator = indicator;

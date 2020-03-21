@@ -160,10 +160,10 @@ namespace IngameScript
 
         public void Update(UpdateType updateSource)
         {
-            UpdateCounter++;
-            if (OutputMode == OutputMode.Profile) profiler.UpdateRuntime();
-
             if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Setup frequencies");
+            if (OutputMode == OutputMode.Profile) profiler.UpdateRuntime();
+            UpdateCounter++;
+
             UpdateFrequency updateFrequency = UpdateFrequency.None;
             if ((updateSource & UpdateType.Update1) != 0) updateFrequency |= UpdateFrequency.Update1;
             if ((updateSource & UpdateType.Update10) != 0) updateFrequency |= UpdateFrequency.Update10;
@@ -192,9 +192,11 @@ namespace IngameScript
 
             if (OutputMode == OutputMode.Profile)
             {
+                profiler.StartSectionWatch("Profiler");
                 profiler.PrintPerformance(StatusBuilder);
                 StatusBuilder.AppendLine("============");
                 profiler.PrintSectionBreakdown(StatusBuilder);
+                profiler.StopSectionWatch("Profiler");
             }
             else if (OutputMode == OutputMode.Debug)
             {

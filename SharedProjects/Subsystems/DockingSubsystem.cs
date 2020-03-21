@@ -91,55 +91,31 @@ namespace IngameScript
 
         public void Dock()
         {
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(getBlocksScratchPad, SetBlockToDock);
-            ((IMyShipConnector)getBlocksScratchPad[0]).Connect();
-            getBlocksScratchPad.Clear();
+            Connector.Connect();
+            foreach (var block in TurnOnOffList) block.Enabled = false;
+            foreach (var bat in Batteries) bat.ChargeMode = ChargeMode.Recharge;
+            foreach (var tank in Tanks) tank.Stockpile = true;
         }
         public void Undock()
         {
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(getBlocksScratchPad, SetBlockToUndock);
-            ((IMyShipConnector)getBlocksScratchPad[0]).Disconnect();
-            getBlocksScratchPad.Clear();
+            foreach (var block in TurnOnOffList) block.Enabled = true;
+            foreach (var bat in Batteries) bat.ChargeMode = ChargeMode.Auto;
+            foreach (var tank in Tanks) tank.Stockpile = false;
+            Connector.Disconnect();
         }
         #endregion
 
         MyGridProgram Program;
         List<IMyTerminalBlock> getBlocksScratchPad = new List<IMyTerminalBlock>();
+        List<IMyFunctionalBlock> TurnOnOffList = new List<IMyFunctionalBlock>();
+        List<IMyBatteryBlock> Batteries = new List<IMyBatteryBlock>();
+        List<IMyGasTank> Tanks = new List<IMyGasTank>();
 
         IIntelProvider IntelProvider;
 
         public DockingSubsystem(IIntelProvider intelProvider)
         {
             IntelProvider = intelProvider;
-        }
-
-        bool SetBlockToDock(IMyTerminalBlock block)
-        {
-            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
-            if (block is IMyThrust) ((IMyThrust)block).Enabled = false;
-            if (block is IMyGasTank) ((IMyGasTank)block).Stockpile = true;
-            if (block is IMyBatteryBlock) ((IMyBatteryBlock)block).ChargeMode = ChargeMode.Recharge;
-            if (block is IMyShipConnector) return true;
-            if (block is IMyRadioAntenna) ((IMyRadioAntenna)block).Enabled = false;
-            if (block is IMyGyro) ((IMyGyro)block).Enabled = false;
-            if (block is IMyCameraBlock) ((IMyCameraBlock)block).Enabled = false;
-            if (block is IMyLargeTurretBase) ((IMyLargeTurretBase)block).Enabled = false;
-
-            return false;
-        }
-
-        bool SetBlockToUndock(IMyTerminalBlock block)
-        {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
-            if (block is IMyThrust) ((IMyThrust)block).Enabled = true;
-            if (block is IMyGasTank) ((IMyGasTank)block).Stockpile = false;
-            if (block is IMyBatteryBlock) ((IMyBatteryBlock)block).ChargeMode = ChargeMode.Discharge;
-            if (block is IMyShipConnector) return true;
-            if (block is IMyRadioAntenna) ((IMyRadioAntenna)block).Enabled = true;
-            if (block is IMyGyro) ((IMyGyro)block).Enabled = true;
-            if (block is IMyCameraBlock) ((IMyCameraBlock)block).Enabled = true;
-            if (block is IMyLargeTurretBase) ((IMyLargeTurretBase)block).Enabled = true;
-            return false;
         }
 
         void GetParts()
@@ -152,9 +128,17 @@ namespace IngameScript
         bool CollectParts(IMyTerminalBlock block)
         {
             if (!block.IsSameConstructAs(Program.Me)) return false;
-
             if (block is IMyShipConnector) Connector = (IMyShipConnector)block;
             if (block is IMyInteriorLight) DirectionIndicator = (IMyInteriorLight)block;
+
+            if (block is IMyThrust) TurnOnOffList.Add((IMyFunctionalBlock)block);
+            if (block is IMyRadioAntenna) TurnOnOffList.Add((IMyFunctionalBlock)block);
+            if (block is IMyGyro) TurnOnOffList.Add((IMyFunctionalBlock)block);
+            if (block is IMyCameraBlock) TurnOnOffList.Add((IMyFunctionalBlock)block);
+            if (block is IMyLargeTurretBase) TurnOnOffList.Add((IMyFunctionalBlock)block);
+
+            if (block is IMyBatteryBlock) Batteries.Add((IMyBatteryBlock)block);
+            if (block is IMyGasTank) Tanks.Add((IMyGasTank)block);
 
             return false;
         }

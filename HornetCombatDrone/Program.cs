@@ -44,28 +44,20 @@ namespace IngameScript
             subsystemManager.AddSubsystem("monitor", monitorSubsystem);
             subsystemManager.AddSubsystem("indicator", indicatorSubsystem);
 
-
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Fighter);
             UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(this, autopilotSubsystem, dockingSubsystem);
-
+            
             undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
             undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
             undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(this, combatSubsystem, autopilotSubsystem, agentSubsystem, monitorSubsystem, intelSubsystem));
-
+            
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));
             subsystemManager.AddSubsystem("agent", agentSubsystem);
 
-
             subsystemManager.DeserializeManager(Storage);
-
-            profiler = new Profiler(Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
         }
         MyCommandLine commandLine = new MyCommandLine();
-        StringBuilder builder = new StringBuilder();
-        const double PROFILER_NEW_VALUE_FACTOR = 0.01;
-        const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
-        Profiler profiler;
         SubsystemManager subsystemManager;
 
         public void Save()
@@ -77,7 +69,7 @@ namespace IngameScript
         public void Main(string argument, UpdateType updateSource)
         {
             subsystemManager.UpdateTime();
-            if (commandLine.TryParse(argument))
+            if (!string.IsNullOrEmpty(argument) && commandLine.TryParse(argument))
             {
                 subsystemManager.Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
             }
@@ -88,7 +80,8 @@ namespace IngameScript
                 //builder.Clear();
                 //profiler.PrintPerformance(builder);
                 //Echo(builder.ToString());
-                Echo(subsystemManager.GetStatus());
+                string s = subsystemManager.GetStatus();
+                if (!string.IsNullOrEmpty(s)) Echo(s);
             }
         }
     }
