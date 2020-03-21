@@ -27,7 +27,8 @@ namespace IngameScript
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
             if (type != TaskType.Attack) return new NullTask();
-            return new HornetAttackTask(Program, CombatSystem, Autopilot, AgentSubsystem, MonitorSubsystem, IntelProvider, intelKey);
+            HornetAttackTask.Reset(intelKey);
+            return HornetAttackTask;
         }
         #endregion
 
@@ -38,6 +39,8 @@ namespace IngameScript
         IMonitorSubsystem MonitorSubsystem;
         IIntelProvider IntelProvider;
 
+        HornetAttackTask HornetAttackTask;
+
         public HornetAttackTaskGenerator(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider)
         {
             Program = program;
@@ -46,6 +49,9 @@ namespace IngameScript
             AgentSubsystem = agentSubsystem;
             MonitorSubsystem = monitorSubsystem;
             IntelProvider = intelProvider;
+
+            HornetAttackTask = new HornetAttackTask(Program, CombatSystem, Autopilot, AgentSubsystem, MonitorSubsystem, IntelProvider);
+            HornetAttackTask.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
         }
     }
 
@@ -55,8 +61,9 @@ namespace IngameScript
         #region ITask
         public TaskStatus Status { get; private set; }
 
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
+            if (canonicalTime == TimeSpan.Zero) return;
 
             if (MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.3 ||
                 MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) < 0.1 ||
@@ -179,7 +186,7 @@ namespace IngameScript
             }
 
             LastLinearVelocity = linearVelocity;
-            LeadTask.Do(IntelItems, canonicalTime);
+            LeadTask.Do(IntelItems, canonicalTime, profiler);
         }
 
         private void GoHome(TimeSpan canonicalTime)
@@ -187,6 +194,8 @@ namespace IngameScript
             AgentSubsystem.AddTask(TaskType.Dock, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Enqueue, 0, canonicalTime);
             Status = TaskStatus.Complete;
         }
+
+        public string Name => "HornetTask";
         #endregion
 
         WaypointTask LeadTask;
@@ -206,18 +215,11 @@ namespace IngameScript
         Vector3D LastAcceleration = Vector3D.Zero;
         MatrixD LastReference = MatrixD.Zero;
 
-        TimeSpan kSwapTimeMin = TimeSpan.FromSeconds(15);
-        int kSwapTimeDelta = 30;
-        TimeSpan LastSwapTime;
-        TimeSpan NextSwapTime;
-        Random random = new Random();
-
-        public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider, MyTuple<IntelItemType, long> intelKey)
+        public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider)
         {
             Program = program;
             CombatSystem = combatSystem;
             Autopilot = autopilot;
-            IntelKey = intelKey;
             AgentSubsystem = agentSubsystem;
             MonitorSubsystem = monitorSubsystem;
             IntelProvider = intelProvider;
@@ -225,6 +227,17 @@ namespace IngameScript
             Status = TaskStatus.Incomplete;
 
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.Avoid);
+        }
+
+        public void Reset(MyTuple<IntelItemType, long> intelKey)
+        {
+            IntelKey = intelKey;
+
+            TargetPositionSet = false;
+
+            LastLinearVelocity = Vector3D.Zero;
+            LastAcceleration = Vector3D.Zero;
+            LastReference = MatrixD.Zero;
         }
     }
 }

@@ -63,7 +63,7 @@ namespace IngameScript
         public string GetStatus()
         {
             DebugBuilder.Clear();
-            //profiler.PrintSectionBreakdown(DebugBuilder);
+            // profiler.PrintSectionBreakdown(DebugBuilder);
             return DebugBuilder.ToString();
         }
 
@@ -78,6 +78,8 @@ namespace IngameScript
             CommandChannelTag = program.Me.CubeGrid.EntityId.ToString() + "-COMMAND";
             CommandListener = program.IGC.RegisterBroadcastListener(CommandChannelTag);
             //profiler = new Profiler(Program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
+            AddTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.DoFirst, 2, TimeSpan.Zero);
+            AddTaskFromCommand(TimeSpan.Zero, MyTuple.Create(-1, MyTuple.Create(0, (long)0), 0, 0));
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -179,6 +181,7 @@ namespace IngameScript
                 if ((1 << i & (int)taskGenerator.AcceptedTypes) != 0)
                     TaskGenerators[(TaskType)(1 << i)] = taskGenerator;
             }
+            taskGenerator.GenerateTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, 0);
         }
 
         private void DoTasks(TimeSpan timestamp)
@@ -187,7 +190,9 @@ namespace IngameScript
             {
                 if (TaskQueue.Count == 0) return;
                 ITask currentTask = TaskQueue.Peek();
-                currentTask.Do(IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff);
+                //profiler.StartSectionWatch(currentTask.Name);
+                currentTask.Do(IntelProvider.GetFleetIntelligences(timestamp), timestamp + IntelProvider.CanonicalTimeDiff, null);
+                //profiler.StopSectionWatch(currentTask.Name);
                 if (currentTask.Status == TaskStatus.Complete)
                 {
                     TaskQueue.Dequeue();
@@ -233,6 +238,7 @@ namespace IngameScript
 
         private void AddTaskFromCommand(TimeSpan timestamp, MyTuple<int, MyTuple<int, long>, int, int> command)
         {
+            if (timestamp == TimeSpan.Zero) return;
             AddTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), (CommandType)command.Item3, command.Item4, timestamp + IntelProvider.CanonicalTimeDiff);
         }
     }

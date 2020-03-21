@@ -21,8 +21,8 @@ namespace IngameScript
 {
     public interface IDockingSubsystem
     {
-        void Dock();
-        void Undock();
+        void Dock(bool fake = false);
+        void Undock(bool fake = false);
 
         IMyShipConnector Connector { get; }
         IMyInteriorLight DirectionIndicator { get; }
@@ -89,15 +89,17 @@ namespace IngameScript
 
         public long HomeID { get; set; }
 
-        public void Dock()
+        public void Dock(bool fake = false)
         {
+            if (fake) return;
             Connector.Connect();
             foreach (var block in TurnOnOffList) block.Enabled = false;
             foreach (var bat in Batteries) bat.ChargeMode = ChargeMode.Recharge;
             foreach (var tank in Tanks) tank.Stockpile = true;
         }
-        public void Undock()
+        public void Undock(bool fake = false)
         {
+            if (fake) return;
             foreach (var block in TurnOnOffList) block.Enabled = true;
             foreach (var bat in Batteries) bat.ChargeMode = ChargeMode.Auto;
             foreach (var tank in Tanks) tank.Stockpile = false;

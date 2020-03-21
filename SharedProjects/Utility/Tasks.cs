@@ -121,7 +121,10 @@ namespace IngameScript
             dockTask = new DockTask(DockingSubsystem);
             Task = new MoveToAndDockTask();
             Task.Reset(holdTask, approachTask, enterTask, closeTask, dockTask, MyTuple.Create(IntelItemType.NONE, (long)1234), Program, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
-            Task.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.FromSeconds(1));
+            Task.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.FromSeconds(1), null);
+            dockTask.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
+            holdTask.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
+            new WaitTask().Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
         }
 
         public ITask GenerateMoveToAndDockTask(MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, float approachMaxSpeed = 100)
@@ -185,21 +188,32 @@ namespace IngameScript
 
             if (DockingSubsystem.Connector.Status != MyShipConnectorStatus.Connected) return mainTask;
 
-            var task = new CompoundTask();
-            task.TaskQueue.Enqueue(new UndockSeperationTask(Autopilot, DockingSubsystem, canonicalTime));
-            task.TaskQueue.Enqueue(mainTask);
+            CompoundTask.Reset();
+            UndockSeperationTask.Reset(canonicalTime);
+            CompoundTask.TaskQueue.Enqueue(UndockSeperationTask);
+            CompoundTask.TaskQueue.Enqueue(mainTask);
 
-            return task;
+            return CompoundTask;
         }
         #endregion
 
         readonly IAutopilot Autopilot;
         readonly MyGridProgram Program;
         readonly IDockingSubsystem DockingSubsystem;
+
+        CompoundTask CompoundTask = new CompoundTask();
+        UndockSeperationTask UndockSeperationTask;
+
         public UndockFirstTaskGenerator(MyGridProgram program, IAutopilot autopilot, IDockingSubsystem dockingSubsystem)
         {
             Autopilot = autopilot;
             DockingSubsystem = dockingSubsystem;
+            CompoundTask.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
+            CompoundTask.Reset();
+
+            UndockSeperationTask = new UndockSeperationTask(Autopilot, DockingSubsystem);
+            UndockSeperationTask.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
+            DockingSubsystem.Undock(true);
         }
 
         Dictionary<TaskType, ITaskGenerator> TaskGenerators = new Dictionary<TaskType, ITaskGenerator>();
@@ -218,17 +232,20 @@ namespace IngameScript
     #region Tasks
     public interface ITask
     {
-        void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime);
+        void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler);
         TaskStatus Status { get; }
+        string Name { get; }
     }
 
     public struct NullTask : ITask
     {
         public TaskStatus Status => TaskStatus.Aborted;
 
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
         }
+
+        public string Name => "NullTask";
     }
 
     // Don't ask why this is a struct
@@ -249,7 +266,7 @@ namespace IngameScript
             }
         }
 
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
             if (!Cleared)
             {
@@ -262,7 +279,15 @@ namespace IngameScript
             Autopilot.Drift(Destination.Velocity);
             Autopilot.SetMaxSpeed(Destination.MaxSpeed);
             Autopilot.Reference = MoveReference;
+
+            if (canonicalTime == TimeSpan.Zero)
+            {
+                Autopilot.AtWaypoint(Destination);
+                Autopilot.Clear();
+            }
         }
+
+        public string Name => "WaypointTask";
         #endregion
 
         public enum AvoidObstacleMode
@@ -461,8 +486,9 @@ namespace IngameScript
         #region ITask
         public TaskStatus Status { get; private set; }
 
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
+            if (canonicalTime == TimeSpan.Zero) return;
             if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected) DockingSubsystem.Undock();
 
             AutopilotSubsystem.Drift(Drift);
@@ -476,6 +502,8 @@ namespace IngameScript
                 Status = TaskStatus.Complete;
             }
         }
+
+        public string Name => "UndockSeperationTask";
         #endregion
 
         TimeSpan StartTime;
@@ -486,11 +514,15 @@ namespace IngameScript
         Vector3D ExpectedPosition;
         Vector3D ExpectedVelocity;
 
-        public UndockSeperationTask(IAutopilot autopilotSubsystem, IDockingSubsystem dockingSubsystem, TimeSpan canonicalTime)
+        public UndockSeperationTask(IAutopilot autopilotSubsystem, IDockingSubsystem dockingSubsystem)
         {
-            StartTime = canonicalTime;
             AutopilotSubsystem = autopilotSubsystem;
             DockingSubsystem = dockingSubsystem;
+        }
+
+        public void Reset(TimeSpan canonicalTime)
+        {
+            StartTime = canonicalTime;
             ExpectedVelocity = AutopilotSubsystem.Controller.GetShipVelocities().LinearVelocity;
             Drift = ExpectedVelocity + (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected ? (DockingSubsystem.Connector.OtherConnector.WorldMatrix.Forward) : (DockingSubsystem.Connector.WorldMatrix.Backward)) * 30;
             ExpectedPosition = DockingSubsystem.Connector.WorldMatrix.Translation;
@@ -502,7 +534,7 @@ namespace IngameScript
         #region ITask
         public TaskStatus Status { get; private set; }
 
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
             if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected)
             {
@@ -524,6 +556,8 @@ namespace IngameScript
                 Status = TaskStatus.Complete;
             }
         }
+
+        public string Name => "DockTask";
         #endregion
 
         public IDockingSubsystem DockingSubsystem;
@@ -542,9 +576,11 @@ namespace IngameScript
         #region ITask
         public TaskStatus Status { get; set; }
 
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
         }
+
+        public string Name => "WaitTask";
         #endregion
         public WaitTask()
         {
@@ -568,13 +604,13 @@ namespace IngameScript
             }
         }
 
-        public virtual void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public virtual void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
             while (true)
             {
                 if (TaskQueue.Count == 0) return;
                 var task = TaskQueue.Peek();
-                task.Do(IntelItems, canonicalTime);
+                task.Do(IntelItems, canonicalTime, profiler);
                 if (task.Status == TaskStatus.Complete)
                     TaskQueue.Dequeue();
                 else if (task.Status == TaskStatus.Aborted && !ContinueOnAbort)
@@ -589,6 +625,8 @@ namespace IngameScript
                     break;
             }
         }
+
+        public string Name => "CompoundTask";
         #endregion
         bool ContinueOnAbort;
         protected bool Aborted;
@@ -650,7 +688,7 @@ namespace IngameScript
             TaskQueue.Enqueue(DockTask);
         }
 
-        public override void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public override void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
             if (!IntelItems.ContainsKey(IntelKey))
             {
@@ -716,12 +754,12 @@ namespace IngameScript
                 if (DockTask.DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connectable)
                 {
                     FinalAdjustToDock.Autopilot.Clear();
-                    DockTask.Do(IntelItems, canonicalTime);
+                    DockTask.Do(IntelItems, canonicalTime, profiler);
                     TaskQueue.Clear();
                 }
             }
 
-            base.Do(IntelItems, canonicalTime);
+            base.Do(IntelItems, canonicalTime, profiler);
         }
     }
 
@@ -730,7 +768,7 @@ namespace IngameScript
         #region ITask
         public TaskStatus Status { get; private set; }
 
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
             if (IntelKey.Item1 == IntelItemType.NONE && IntelKey.Item2 == 0)
             {
@@ -756,6 +794,8 @@ namespace IngameScript
 
             Program.IGC.SendBroadcastMessage(dock.HangarChannelTag, MyTuple.Create(MyId, dock.ID, (int)HangarRequest.Reserve));
         }
+
+        public string Name => "SetHomeTask";
         #endregion
 
         readonly MyTuple<IntelItemType, long> IntelKey;

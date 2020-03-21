@@ -194,8 +194,8 @@ namespace IngameScript
             {
                 profiler.StartSectionWatch("Profiler");
                 profiler.PrintPerformance(StatusBuilder);
-                StatusBuilder.AppendLine("============");
-                profiler.PrintSectionBreakdown(StatusBuilder);
+                //StatusBuilder.AppendLine("============");
+                //profiler.PrintSectionBreakdown(StatusBuilder);
                 profiler.StopSectionWatch("Profiler");
             }
             else if (OutputMode == OutputMode.Debug)

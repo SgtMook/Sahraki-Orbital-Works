@@ -112,8 +112,14 @@ namespace IngameScript
                 double runtime = (current - sectionValues.StartTicks) * 0.0001;
 
                 sectionValues.AccumulatedCount++;
+                if (sectionValues.AccumulatedCount > sectionValues.MaxRuntimeCount + 1000) sectionValues.MaxRuntime = 0;
                 sectionValues.AccumulatedRuntime += runtime;
                 sectionValues.StartTicks = current;
+                if (sectionValues.MaxRuntime < runtime)
+                {
+                    sectionValues.MaxRuntime = runtime;
+                    sectionValues.MaxRuntimeCount = sectionValues.AccumulatedCount;
+                }
             }
         }
 
@@ -121,7 +127,7 @@ namespace IngameScript
         {
             foreach (KeyValuePair<string, SectionValues> entry in AverageBreakdown)
             {
-                double runtime = entry.Value.AccumulatedRuntime / entry.Value.AccumulatedCount;
+                double runtime = entry.Value.MaxRuntime;
                 sb.AppendLine($"{entry.Key} = {runtime:0.0000}ms");
             }
         }
@@ -130,7 +136,9 @@ namespace IngameScript
         {
             public long AccumulatedCount;
             public double AccumulatedRuntime;
+            public double MaxRuntime;
             public long StartTicks;
+            public long MaxRuntimeCount;
         }
     }
 

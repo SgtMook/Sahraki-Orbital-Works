@@ -67,6 +67,13 @@ namespace IngameScript
             ParseConfigs();
 
             currentMaxSpeed = MaxSpeed;
+
+            Vector3D AutopilotMoveIndicator;
+            GetMovementVectors(targetPosition, controller, reference, thrusts[0], currentMaxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
+            SetThrusterPowers();
+            SetGyroPowers();
+            ApplyGyroOverride(0, 0, 0, gyros, reference);
+            Clear();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
