@@ -129,7 +129,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!block.IsSameConstructAs(Program.Me)) return false;
+            if (block.CubeGrid.EntityId != Program.Me.CubeGrid.EntityId) return false;
             if (block is IMyShipConnector) Connector = (IMyShipConnector)block;
             if (block is IMyInteriorLight) DirectionIndicator = (IMyInteriorLight)block;
 

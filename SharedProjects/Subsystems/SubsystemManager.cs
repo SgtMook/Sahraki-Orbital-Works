@@ -82,6 +82,13 @@ namespace IngameScript
             }
         }
 
+        public void Reset()
+        {
+            if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Reset");
+            foreach (var kvp in Subsystems) kvp.Value.Setup(Program, kvp.Key);
+            if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch("Reset");
+        }
+
         /// <summary>
         /// A multiplexor is used to send one command to multiple subsystems.
         /// For example:
@@ -194,8 +201,8 @@ namespace IngameScript
             {
                 profiler.StartSectionWatch("Profiler");
                 profiler.PrintPerformance(StatusBuilder);
-                //StatusBuilder.AppendLine("============");
-                //profiler.PrintSectionBreakdown(StatusBuilder);
+                StatusBuilder.AppendLine("============");
+                profiler.PrintSectionBreakdown(StatusBuilder);
                 profiler.StopSectionWatch("Profiler");
             }
             else if (OutputMode == OutputMode.Debug)
@@ -223,7 +230,11 @@ namespace IngameScript
 
         public void Command(string subsystem, string command, object argument)
         {
-            if (Subsystems.ContainsKey(subsystem))
+            if (subsystem == "manager")
+            {
+                if (command == "reset") Reset();
+            }
+            else if (Subsystems.ContainsKey(subsystem))
             {
                 Subsystems[subsystem].Command(Timestamp, command, argument);
             }

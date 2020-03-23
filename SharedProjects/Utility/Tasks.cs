@@ -537,6 +537,7 @@ namespace IngameScript
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
+            if (canonicalTime == TimeSpan.Zero) return;
             if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected)
             {
                 if (Undock)

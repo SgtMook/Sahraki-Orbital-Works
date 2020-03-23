@@ -188,7 +188,7 @@ namespace IngameScript
         List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
         TimeSpan kIntelTimeout = TimeSpan.FromSeconds(4);
 
-        List<IOwnIntelMutator> intelProcessors = new List<IOwnIntelMutator>();
+        HashSet<IOwnIntelMutator> intelProcessors = new HashSet<IOwnIntelMutator>();
 
         Dictionary<long, int> EnemyPriorities = new Dictionary<long, int>();
 
@@ -472,7 +472,7 @@ namespace IngameScript
 
         IMyShipController controller;
 
-        List<IOwnIntelMutator> intelProcessors = new List<IOwnIntelMutator>();
+        HashSet<IOwnIntelMutator> intelProcessors = new HashSet<IOwnIntelMutator>();
 
         ImmutableDictionary<long, int> EnemyPriorities = null;
         Dictionary<long, int> EnemyPrioritiesOverride = new Dictionary<long, int>();

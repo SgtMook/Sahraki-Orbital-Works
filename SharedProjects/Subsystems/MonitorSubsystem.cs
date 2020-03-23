@@ -108,7 +108,9 @@ namespace IngameScript
             if (block.HasInventory && block.CustomName.Contains("<M>")) Inventories.Add(block.GetInventory(block.InventoryCount - 1));
             if (block is IMyGasTank && 
                 (block.BlockDefinition.SubtypeId == "LargeHydrogenTank" ||
-                block.BlockDefinition.SubtypeId == "SmallHydrogenTank")) 
+                block.BlockDefinition.SubtypeId == "SmallHydrogenTank" || 
+                block.BlockDefinition.SubtypeId == "LargeHydrogenTankSmall" || 
+                block.BlockDefinition.SubtypeId == "SmallHydrogenTankSmall")) 
                 HydrogenTanks.Add((IMyGasTank)block);
             if (block is IMyBatteryBlock)
                 Batteries.Add((IMyBatteryBlock)block);

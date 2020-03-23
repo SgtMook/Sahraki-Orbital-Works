@@ -56,7 +56,6 @@ namespace IngameScript
         {
             TargetIntel = null;
             var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
-
             foreach (var turret in Turrets)
             {
                 if (!turret.HasTarget) continue;
@@ -64,12 +63,12 @@ namespace IngameScript
                 if (target.IsEmpty()) continue;
                 if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid) continue;
                 if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) continue;
-
+            
                 var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
                 var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
                 TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-
-                if (TargetIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) < canonicalTime)
+            
+                if (TargetIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.1) < canonicalTime)
                 {
                     foreach (var camera in Scanners)
                     {
