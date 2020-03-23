@@ -32,6 +32,7 @@ namespace IngameScript
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
+            if (command == "recall") Recalling = 2;
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -77,6 +78,8 @@ namespace IngameScript
 
         double TotalCargoVolume = 0;
         double CurrentCargoVolume = 0;
+
+        public int Recalling = 0;
 
         void GetParts()
         {
@@ -126,6 +129,8 @@ namespace IngameScript
                 TotalCargoVolume += (double)drill.GetInventory(0).MaxVolume;
                 CurrentCargoVolume += (double)drill.GetInventory(0).CurrentVolume;
             }
+
+            if (Recalling > 0) Recalling--;
         }
 
         private void UpdateDrills()

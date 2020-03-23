@@ -111,6 +111,8 @@ namespace IngameScript
         {
             statusbuilder.Clear();
 
+            statusbuilder.AppendLine(RP.ToString());
+
             return statusbuilder.ToString();
         }
 
@@ -361,8 +363,6 @@ namespace IngameScript
             
             flo = Parser.Get("Autopilot", "MaxSpeed").ToDecimal();
             if (flo != 0) MaxSpeed = (float)flo;
-
-
         }
 
         void SetThrusterPowers()

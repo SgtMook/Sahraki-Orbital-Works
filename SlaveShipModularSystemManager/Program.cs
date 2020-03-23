@@ -40,11 +40,12 @@ namespace IngameScript
             subsystemManager.AddSubsystem("monitor", monitorSubsystem);
 
             // LookingGlass setup
-            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", false);
+            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", false, false);
             subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
 
             // Agent setup
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Drone);
+            intelSubsystem.MyAgent = agentSubsystem;
             UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(this, autopilotSubsystem, dockingSubsystem);
             undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
             undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem));
@@ -52,7 +53,9 @@ namespace IngameScript
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));
             
             subsystemManager.AddSubsystem("agent", agentSubsystem);
-            
+
+            subsystemManager.AddSubsystem("indicator", new StatusIndicatorSubsystem(dockingSubsystem, intelSubsystem));
+
             subsystemManager.DeserializeManager(Storage);
         }
 
@@ -63,7 +66,6 @@ namespace IngameScript
         public void Save()
         {
             string v = subsystemManager.SerializeManager();
-            Me.CustomData = v;
             Storage = v;
         }
 

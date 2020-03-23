@@ -194,7 +194,7 @@ namespace IngameScript
                 if (kvp.Key.Item1 == IntelItemType.Friendly)
                 {
                     var friendly = (FriendlyShipIntel)kvp.Value;
-                    if (friendly.AgentClass == AgentClass.Fighter)
+                    if (!string.IsNullOrEmpty(friendly.CommandChannelTag))
                     {
                         FriendlyShipScratchpad.Add(friendly);
                     }
@@ -220,7 +220,7 @@ namespace IngameScript
                 if (kvp.Key.Item1 == IntelItemType.Friendly)
                 {
                     var friendly = (FriendlyShipIntel)kvp.Value;
-                    if (friendly.AgentClass == AgentClass.Fighter && friendly.HomeID == -1)
+                    if (friendly.HomeID == -1 && !string.IsNullOrEmpty(friendly.CommandChannelTag))
                     {
                         FriendlyShipScratchpad.Add(friendly);
                     }

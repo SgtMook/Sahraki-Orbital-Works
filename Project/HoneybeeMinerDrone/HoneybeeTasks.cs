@@ -47,7 +47,7 @@ namespace IngameScript
 
             var dockTask = DockTaskGenerator.GenerateMoveToAndDockTask(MyTuple.Create(IntelItemType.NONE, (long)0), IntelItems, 40);
 
-            return new HoneyMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, dockTask);
+            return new HoneyMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, dockTask, IntelProvider);
         }
         #endregion
 
@@ -56,14 +56,16 @@ namespace IngameScript
         IAutopilot Autopilot;
         IAgentSubsystem AgentSubsystem;
         DockTaskGenerator DockTaskGenerator;
+        IIntelProvider IntelProvider;
 
-        public HoneybeeMiningTaskGenerator(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, DockTaskGenerator dockTaskGenerator)
+        public HoneybeeMiningTaskGenerator(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, DockTaskGenerator dockTaskGenerator, IIntelProvider intelProvder)
         {
             Program = program;
             MiningSystem = miningSystem;
             Autopilot = autopilot;
             AgentSubsystem = agentSubsystem;
             DockTaskGenerator = dockTaskGenerator;
+            IntelProvider = intelProvder;
         }
     }
 
@@ -73,16 +75,20 @@ namespace IngameScript
         #region ITask
         public TaskStatus Status { get; private set; }
 
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
+            if (state < 3 && MiningSystem.Recalling > 0)
+            {
+                state = 3;
+            }
             if (state == 0)
             {
-                LeadTask.Do(IntelItems, canonicalTime);
+                LeadTask.Do(IntelItems, canonicalTime, profiler);
                 if (LeadTask.Status == TaskStatus.Complete) state = 1;
             }
             else if (state == 1)
             {
-                MineTask.Do(IntelItems, canonicalTime);
+                MineTask.Do(IntelItems, canonicalTime, profiler);
                 if (MineTask.Status == TaskStatus.Complete || !MiningSystem.SensorsClear())
                 {
                     EntryPoint = Autopilot.Reference.WorldMatrix.Translation;
@@ -98,8 +104,8 @@ namespace IngameScript
                     MineTask.Destination.Position = Vector3D.Zero;
 
                 MiningSystem.Drill();
-                MineTask.Do(IntelItems, canonicalTime);
-                if (MiningSystem.PercentageFilled() > 0.92)
+                MineTask.Do(IntelItems, canonicalTime, profiler);
+                if (MiningSystem.PercentageFilled() > 0.92 || (Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 80)
                 {
                     state = 3;
                     MineTask.Destination.MaxSpeed = 40;
@@ -109,12 +115,12 @@ namespace IngameScript
             {
                 MiningSystem.StopDrill();
                 MineTask.Destination.Position = ApproachPoint;
-                MineTask.Do(IntelItems, canonicalTime);
+                MineTask.Do(IntelItems, canonicalTime, profiler);
                 if (MineTask.Status == TaskStatus.Complete) state = 4;
             }
             else if (state == 4)
             {
-                HomeTask.Do(IntelItems, canonicalTime);
+                HomeTask.Do(IntelItems, canonicalTime, profiler);
                 if (HomeTask.Status != TaskStatus.Incomplete) state = 5;
             }
             else
@@ -122,6 +128,8 @@ namespace IngameScript
                 Status = TaskStatus.Complete;
             }
         }
+
+        public string Name => "HoneyMiningTask";
         #endregion
 
         WaypointTask LeadTask;
@@ -139,7 +147,7 @@ namespace IngameScript
 
         int state = 0;
 
-        public HoneyMiningTask(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, Waypoint target, AsteroidIntel host, ITask homeTask)
+        public HoneyMiningTask(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, Waypoint target, AsteroidIntel host, ITask homeTask, IIntelProvider intelProvider)
         {
             Program = program;
             MiningSystem = miningSystem;
@@ -164,13 +172,14 @@ namespace IngameScript
             ApproachPoint = target.Position + target.Direction * d;
 
             EntryPoint = target.Position + target.Direction * miningSystem.CloseDist;
-            MiningEnd = target.Position - target.Direction * 300;
+            MiningEnd = target.Position - target.Direction * 400;
 
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter);
             MineTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid);
 
             LeadTask.Destination.Direction = target.Direction * -1;
             LeadTask.Destination.Position = ApproachPoint;
+            intelProvider.ReportFleetIntelligence(LeadTask.Destination, TimeSpan.FromSeconds(1));
             MineTask.Destination.Direction = target.Direction * -1;
             MineTask.Destination.Position = EntryPoint;
 

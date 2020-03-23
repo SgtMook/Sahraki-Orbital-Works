@@ -496,7 +496,7 @@ namespace IngameScript
 
             var deltaT = canonicalTime - StartTime;
 
-            if ((DockingSubsystem.Connector.WorldMatrix.Translation - (ExpectedPosition + ExpectedVelocity * deltaT.TotalSeconds)).Length() > 40)
+            if ((DockingSubsystem.Connector.WorldMatrix.Translation - (ExpectedPosition + ExpectedVelocity * deltaT.TotalSeconds)).Length() > 80)
             {
                 AutopilotSubsystem.Clear();
                 Status = TaskStatus.Complete;
@@ -522,6 +522,7 @@ namespace IngameScript
 
         public void Reset(TimeSpan canonicalTime)
         {
+            Status = TaskStatus.Incomplete;
             StartTime = canonicalTime;
             ExpectedVelocity = AutopilotSubsystem.Controller.GetShipVelocities().LinearVelocity;
             Drift = ExpectedVelocity + (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected ? (DockingSubsystem.Connector.OtherConnector.WorldMatrix.Forward) : (DockingSubsystem.Connector.WorldMatrix.Backward)) * 30;

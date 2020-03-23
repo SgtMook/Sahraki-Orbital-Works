@@ -67,6 +67,8 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            debugBuilder.Clear();
+            debugBuilder.AppendLine(RadiusMulti.ToString());
             return debugBuilder.ToString();
         }
 
@@ -103,6 +105,7 @@ namespace IngameScript
             PriorityRequestListener = Program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityRequestChannelTag);
             GetParts();
             UpdateMyIntel(TimeSpan.Zero);
+            ParseConfigs();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -209,6 +212,21 @@ namespace IngameScript
             return false;
         }
 
+        float RadiusMulti = 1;
+
+        // [Intel]
+        // RadiusMulti = 1
+        private void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(Program.Me.CustomData, out result))
+                return;
+
+            var flo = Parser.Get("Intel", "RadiusMulti").ToDecimal();
+            if (flo != 0) RadiusMulti = (float)flo;
+        }
+
         void UpdateMyIntel(TimeSpan timestamp)
         {
             if (controller == null) return;
@@ -230,6 +248,8 @@ namespace IngameScript
 
             foreach (var processor in intelProcessors)
                 processor.ProcessIntel(myIntel);
+
+            myIntel.Radius *= RadiusMulti;
 
             ReportFleetIntelligence(myIntel, timestamp);
         }
@@ -377,7 +397,6 @@ namespace IngameScript
             EnemyPrioritiesKeepSet.Add(EnemyID);
             Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.IntelPriorityRequestChannelTag, MyTuple.Create(EnemyID, value));
         }
-
         #endregion
 
         #region IIntelProvider
@@ -415,7 +434,14 @@ namespace IngameScript
 
         public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {
-            Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)targetKey.Item1, targetKey.Item2), (int)CommandType.Override, 0));
+            if (agent.ID == Program.Me.CubeGrid.EntityId && MyAgent != null)
+            {
+                MyAgent.AddTask(taskType, targetKey, CommandType.Override, 0, timestamp + CanonicalTimeDiff);
+            }
+            else
+            {
+                Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)targetKey.Item1, targetKey.Item2), (int)CommandType.Override, 0));
+            }
         }
         public void AddIntelMutator(IOwnIntelMutator processor)
         {
@@ -454,6 +480,8 @@ namespace IngameScript
         List<long> EnemyPriorityClearScratchpad = new List<long>();
 
         int runs = 0;
+
+        public AgentSubsystem MyAgent;
 
         void GetParts()
         {
