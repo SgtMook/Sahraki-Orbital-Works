@@ -367,6 +367,7 @@ namespace IngameScript
 
         void SetThrusterPowers()
         {
+            if (reference == null) return;
             Vector3D AutopilotMoveIndicator = Vector3.Zero;
             if (targetPosition != Vector3D.Zero || targetDrift != Vector3D.Zero) GetMovementVectors(targetPosition, controller, reference, thrusts[0], currentMaxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
             if (AutopilotMoveIndicator == Vector3.Zero)
@@ -386,6 +387,7 @@ namespace IngameScript
 
         void SetGyroPowers()
         {
+            if (reference == null) return;
             double yawAngle = 0, pitchAngle = 0, spinAngle = 0;
             if (targetDirection != Vector3.Zero || targetUp != Vector3.Zero)
             {
@@ -461,6 +463,11 @@ namespace IngameScript
 
         void GetMovementVectors(Vector3D target, IMyShipController controller, IMyTerminalBlock reference, float maxThrust, float maxSpeed, out Vector3D AutopilotMoveIndicator, ref Vector3D D, ref Vector3D I)
         {
+            if (controller == null)
+            {
+                AutopilotMoveIndicator = Vector3D.Zero;
+                return;
+            }
             var speed = (float)(controller.GetShipVelocities().LinearVelocity - targetDrift).Length();
             Vector3D currentVelocity = controller.GetShipVelocities().LinearVelocity;
             float aMax = 0.8f * maxThrust / controller.CalculateShipMass().PhysicalMass;
@@ -515,6 +522,7 @@ namespace IngameScript
 
         void ApplyGyroOverride(double pitch_speed, double yaw_speed, double roll_speed, List<IMyGyro> gyro_list, IMyTerminalBlock reference)
         {
+            if (reference == null) return;
             var rotationVec = new Vector3D(-pitch_speed, yaw_speed, roll_speed); //because keen does some weird stuff with signs
             var shipMatrix = reference.WorldMatrix;
             var relativeRotationVec = Vector3D.TransformNormal(rotationVec, shipMatrix);

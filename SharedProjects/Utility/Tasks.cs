@@ -120,7 +120,7 @@ namespace IngameScript
             closeTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid, DockingSubsystem.Connector);
             dockTask = new DockTask(DockingSubsystem);
             Task = new MoveToAndDockTask();
-            Task.Reset(holdTask, approachTask, enterTask, closeTask, dockTask, MyTuple.Create(IntelItemType.NONE, (long)1234), Program, DockingSubsystem.Connector.CubeGrid.GridSizeEnum, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
+            Task.Reset(holdTask, approachTask, enterTask, closeTask, dockTask, MyTuple.Create(IntelItemType.NONE, (long)1234), Program, MyCubeSize.Small, DockingSubsystem.Connector, DockingSubsystem.DirectionIndicator);
             Task.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.FromSeconds(1), null);
             dockTask.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
             holdTask.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
@@ -328,6 +328,7 @@ namespace IngameScript
     {
         public static Vector3D PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, IAutopilot Autopilot, Waypoint Destination, List<IFleetIntelligence> IntelScratchpad, List<Vector3> PositionScratchpad, MyGridProgram Program)
         {
+            if (Autopilot.Reference == null) return Vector3D.Zero;
             Vector3D o = Autopilot.Reference.WorldMatrix.Translation;
             Vector3D targetPosition = Destination.Position;
             float SafetyRadius = (float)(Autopilot.Controller.CubeGrid.WorldAABB.Max - Autopilot.Controller.CubeGrid.WorldAABB.Min).Length();

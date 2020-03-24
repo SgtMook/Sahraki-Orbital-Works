@@ -76,6 +76,7 @@ namespace IngameScript
             foreach (var K in directions)
             {
                 List<IMyThrust> list = Thrusters[K];
+                if (Thrusters[K].Count == 0) return;
                 if (!prevPowers.ContainsKey(K))
                 {
                     foreach (var thruster in list) thruster.ThrustOverridePercentage = 0;

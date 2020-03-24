@@ -47,7 +47,10 @@ namespace IngameScript
         Profiler profiler;
 
         OutputMode OutputMode = OutputMode.None;
+        bool Active = true;
 
+        string myName;
+        bool setName = false;
         public SubsystemManager(MyGridProgram program)
         {
             Program = program;
@@ -57,6 +60,7 @@ namespace IngameScript
 
         // [Manager]
         // OutputMode = 0
+        // StartActive = true
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -66,6 +70,7 @@ namespace IngameScript
 
             OutputMode mode;
             if (Enum.TryParse(Parser.Get("Manager", "OutputMode").ToString(), out mode)) OutputMode = mode;
+            if (Parser.ContainsKey("Manager", "StartActive")) Active = Parser.Get("Manager", "StartActive").ToBoolean();
         }
 
         public string AddSubsystem(string name, ISubsystem subsystem)
@@ -87,6 +92,15 @@ namespace IngameScript
             if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Reset");
             foreach (var kvp in Subsystems) kvp.Value.Setup(Program, kvp.Key);
             if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch("Reset");
+        }
+
+        public void Activate(string name)
+        {
+            Reset();
+            Active = true;
+            myName = name;
+            setName = true;
+            if (Subsystems.ContainsKey("docking")) Subsystems["docking"].Command(TimeSpan.Zero, "dock", null);
         }
 
         /// <summary>
@@ -167,30 +181,39 @@ namespace IngameScript
 
         public void Update(UpdateType updateSource)
         {
-            if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Setup frequencies");
-            if (OutputMode == OutputMode.Profile) profiler.UpdateRuntime();
-            UpdateCounter++;
-
-            UpdateFrequency updateFrequency = UpdateFrequency.None;
-            if ((updateSource & UpdateType.Update1) != 0) updateFrequency |= UpdateFrequency.Update1;
-            if ((updateSource & UpdateType.Update10) != 0) updateFrequency |= UpdateFrequency.Update10;
-            if ((updateSource & UpdateType.Update100) != 0) updateFrequency |= UpdateFrequency.Update100;
-
-            UpdateFrequency targetFrequency = UpdateFrequency.Update1;
-            if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch("Setup frequencies");
-            foreach (var subsystem in Subsystems)
+            if (Active)
             {
-                if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch(subsystem.Key);
-                ISubsystem system = subsystem.Value;
-                if ((system.UpdateFrequency & updateFrequency) != 0)
+                if (setName)
                 {
-                    system.Update(Timestamp, updateFrequency);
+                    Program.Me.CubeGrid.CustomName = myName;
+                    setName = false;
                 }
-                targetFrequency |= system.UpdateFrequency;
-                if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch(subsystem.Key);
-            }
 
-            Program.Runtime.UpdateFrequency = targetFrequency;
+                if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Setup frequencies");
+                if (OutputMode == OutputMode.Profile) profiler.UpdateRuntime();
+                UpdateCounter++;
+
+                UpdateFrequency updateFrequency = UpdateFrequency.None;
+                if ((updateSource & UpdateType.Update1) != 0) updateFrequency |= UpdateFrequency.Update1;
+                if ((updateSource & UpdateType.Update10) != 0) updateFrequency |= UpdateFrequency.Update10;
+                if ((updateSource & UpdateType.Update100) != 0) updateFrequency |= UpdateFrequency.Update100;
+
+                UpdateFrequency targetFrequency = UpdateFrequency.Update1;
+                if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch("Setup frequencies");
+                foreach (var subsystem in Subsystems)
+                {
+                    if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch(subsystem.Key);
+                    ISubsystem system = subsystem.Value;
+                    if ((system.UpdateFrequency & updateFrequency) != 0)
+                    {
+                        system.Update(Timestamp, updateFrequency);
+                    }
+                    targetFrequency |= system.UpdateFrequency;
+                    if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch(subsystem.Key);
+                }
+
+                Program.Runtime.UpdateFrequency = targetFrequency;
+            }
         }
 
         public string GetStatus()
@@ -233,6 +256,7 @@ namespace IngameScript
             if (subsystem == "manager")
             {
                 if (command == "reset") Reset();
+                if (command == "activate") Activate((string)argument);
             }
             else if (Subsystems.ContainsKey(subsystem))
             {

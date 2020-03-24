@@ -74,7 +74,7 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
             if (IndicatorLight != null)
             {
-                IndicatorLight.Radius = 20;
+                IndicatorLight.Radius = 10;
             }
         }
 

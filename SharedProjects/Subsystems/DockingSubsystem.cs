@@ -108,7 +108,6 @@ namespace IngameScript
         #endregion
 
         MyGridProgram Program;
-        List<IMyTerminalBlock> getBlocksScratchPad = new List<IMyTerminalBlock>();
         List<IMyFunctionalBlock> TurnOnOffList = new List<IMyFunctionalBlock>();
         List<IMyBatteryBlock> Batteries = new List<IMyBatteryBlock>();
         List<IMyGasTank> Tanks = new List<IMyGasTank>();
@@ -124,21 +123,23 @@ namespace IngameScript
         {
             Connector = null;
             DirectionIndicator = null;
+            TurnOnOffList.Clear();
+            Batteries.Clear();
+            Tanks.Clear();
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
             if (block.CubeGrid.EntityId != Program.Me.CubeGrid.EntityId) return false;
-            if (block is IMyShipConnector) Connector = (IMyShipConnector)block;
-            if (block is IMyInteriorLight) DirectionIndicator = (IMyInteriorLight)block;
+            if (block is IMyShipConnector && (Connector == null || block.CustomName.Contains("[D]"))) Connector = (IMyShipConnector)block;
+            if (block is IMyInteriorLight && (DirectionIndicator == null || block.CustomName.Contains("[D]"))) DirectionIndicator = (IMyInteriorLight)block;
 
             if (block is IMyThrust) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyRadioAntenna) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyGyro) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyCameraBlock) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyLargeTurretBase) TurnOnOffList.Add((IMyFunctionalBlock)block);
-
             if (block is IMyBatteryBlock) Batteries.Add((IMyBatteryBlock)block);
             if (block is IMyGasTank) Tanks.Add((IMyGasTank)block);
 
