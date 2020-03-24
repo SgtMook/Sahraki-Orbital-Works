@@ -231,6 +231,8 @@ namespace IngameScript
 
         public void Reset(MyTuple<IntelItemType, long> intelKey)
         {
+            Status = TaskStatus.Incomplete;
+
             IntelKey = intelKey;
 
             TargetPositionSet = false;

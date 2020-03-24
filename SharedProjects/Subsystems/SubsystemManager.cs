@@ -101,6 +101,14 @@ namespace IngameScript
             myName = name;
             setName = true;
             if (Subsystems.ContainsKey("docking")) Subsystems["docking"].Command(TimeSpan.Zero, "dock", null);
+
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(Program.Me.CustomData, out result))
+                return;
+
+            Parser.Delete("Manager", "StartActive");
+            Program.Me.CustomData = Parser.ToString();
         }
 
         /// <summary>
