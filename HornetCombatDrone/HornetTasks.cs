@@ -26,6 +26,12 @@ namespace IngameScript
 
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
+            if (MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.3 ||
+                MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) < 0.1 ||
+                MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.1)
+            {
+                return new NullTask();
+            }
             if (type != TaskType.Attack) return new NullTask();
             HornetAttackTask.Reset(intelKey);
             return HornetAttackTask;

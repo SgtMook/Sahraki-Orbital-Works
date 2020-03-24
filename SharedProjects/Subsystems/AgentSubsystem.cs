@@ -127,7 +127,9 @@ namespace IngameScript
             }
             if (TaskGenerators.ContainsKey(taskType))
             {
-                TaskQueue.Enqueue(TaskGenerators[taskType].GenerateTask(taskType, intelKey, IntelProvider.GetFleetIntelligences(canonicalTime - IntelProvider.CanonicalTimeDiff), canonicalTime, Program.Me.CubeGrid.EntityId));
+                ITask Task = TaskGenerators[taskType].GenerateTask(taskType, intelKey, IntelProvider.GetFleetIntelligences(canonicalTime - IntelProvider.CanonicalTimeDiff), canonicalTime, Program.Me.CubeGrid.EntityId);
+                if (Task is NullTask) return;
+                TaskQueue.Enqueue(Task);
             }
         }
 

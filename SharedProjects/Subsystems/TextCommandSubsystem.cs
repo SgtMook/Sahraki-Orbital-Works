@@ -43,8 +43,8 @@ namespace IngameScript
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "attack") ScrambleFighters(timestamp);
-            if (command == "recall") RecallFighters(timestamp);
+            if (command == "attack") Attack(timestamp);
+            if (command == "recall") RecallCrafts(timestamp);
             if (command == "autohome") AutoHomeCrafts(timestamp);
         }
 
@@ -148,7 +148,7 @@ namespace IngameScript
             Alarm = hasEnemy;
         }
 
-        private void ScrambleFighters(TimeSpan localTime)
+        private void Attack(TimeSpan localTime)
         {
             FriendlyShipScratchpad.Clear();
             EnemyShipScratchpad.Clear();
@@ -184,7 +184,7 @@ namespace IngameScript
             }
         }
 
-        private void RecallFighters(TimeSpan localTime)
+        private void RecallCrafts(TimeSpan localTime)
         {
             FriendlyShipScratchpad.Clear();
 

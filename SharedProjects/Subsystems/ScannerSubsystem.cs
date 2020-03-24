@@ -151,8 +151,12 @@ namespace IngameScript
                     return false;
                 }
             }
-            camera.EnableRaycast = true;
-            Cameras.Add(camera);
+
+            if (camera.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId)
+            {
+                camera.EnableRaycast = true;
+                Cameras.Add(camera);
+            }
 
             return false;
         }

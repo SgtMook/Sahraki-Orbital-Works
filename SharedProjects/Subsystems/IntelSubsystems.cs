@@ -559,6 +559,7 @@ namespace IngameScript
         {
             foreach (var kvp in Timestamps)
             {
+                if (kvp.Key.Item1 == IntelItemType.Asteroid) continue;
                 if ((kvp.Value + kIntelTimeout) < timestamp)
                 {
                     KeyScratchpad.Add(kvp.Key);

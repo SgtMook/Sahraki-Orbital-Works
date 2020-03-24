@@ -218,16 +218,9 @@ namespace IngameScript
             {
                 hangarStatus &= ~HangarStatus.Docking;
             }
-
-            if (CanDock())
-            {
-                if ((hangarStatus & HangarStatus.Docking) == 0) SetLights(Color.Green);
-                else SetLights(Color.Yellow);
-            }
-            else
-            {
-                SetLights(Color.Red);
-            }
+            if (OwnerID == -1) SetLights(Color.Red);
+            else if (hangarStatus != HangarStatus.Reserved) SetLights(Color.Yellow);
+            else SetLights(Color.Green);
         }
 
         private void SetLights(Color color)
@@ -260,6 +253,7 @@ namespace IngameScript
             var split = serialized.Split('|');
             hangarStatus = (HangarStatus)int.Parse(split[0]);
             OwnerID = long.Parse(split[1]);
+            if (Connector.Status == MyShipConnectorStatus.Connected) OwnerID = Connector.OtherConnector.CubeGrid.EntityId;
         }
     }
 
@@ -270,7 +264,7 @@ namespace IngameScript
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "clear") ClearOwners();
+            if (command == "clear") ClearOwners(argument);
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -435,7 +429,7 @@ namespace IngameScript
             hangar.Intel.ID = hangar.Connector.EntityId;
             if (string.IsNullOrEmpty(hangar.Intel.DisplayName))
             {
-                hangar.Intel.DisplayName = builder.Append("H").Append(hangar.Index.ToString()).Append('-').Append(Program.Me.CubeGrid.CustomName).ToString();
+                hangar.Intel.DisplayName = builder.Append(hangar.Connector.CustomName).Append(" - ").Append(Program.Me.CubeGrid.CustomName).ToString();
             }
 
             hangar.Intel.UndockNear = hangar.Connector.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 1.3f : 0.55f;
@@ -447,13 +441,24 @@ namespace IngameScript
             return hangar.Intel;
         }
 
-        private void ClearOwners()
+        private void ClearOwners(object argument)
         {
-            for (int i = 0; i < Hangars.Count(); i++)
+            if (argument == null)
             {
-                if (Hangars[i] != null && Hangars[i].OK())
+                for (int i = 0; i < Hangars.Count(); i++)
                 {
-                    Hangars[i].OwnerID = -1;
+                    if (Hangars[i] != null && Hangars[i].OK())
+                    {
+                        Hangars[i].OwnerID = -1;
+                    }
+                }
+            }
+            else if (argument is string)
+            {
+                int index;
+                if (int.TryParse((string)argument, out index))
+                {
+                    Hangars[index].OwnerID = -1;
                 }
             }
         }

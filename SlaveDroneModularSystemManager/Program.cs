@@ -32,8 +32,7 @@ namespace IngameScript
             // Add subsystems
             // Intel system setup
             IIntelProvider intelSubsystem;
-            if (Me.CustomName.Contains("[INT-M]")) intelSubsystem = new IntelMasterSubsystem();
-            else intelSubsystem = new IntelSlaveSubsystem();
+            intelSubsystem = new IntelSlaveSubsystem();
 
             subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
 
@@ -42,8 +41,8 @@ namespace IngameScript
             //subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
             //
             //// Hangar system setup
-            HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);
-            subsystemManager.AddSubsystem("hangar", hangarSubsystem);
+            //HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);
+            //subsystemManager.AddSubsystem("hangar", hangarSubsystem);
             //
             //// Seeing-Eye scanner setup
             //subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
