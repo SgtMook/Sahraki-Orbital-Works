@@ -18,8 +18,6 @@ using VRage;
 using VRageMath;
 using VRage.Library;
 
-
-
 namespace IngameScript
 {
     partial class Program : MyGridProgram
@@ -29,59 +27,34 @@ namespace IngameScript
             subsystemManager = new SubsystemManager(this);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
-            ParseConfigs();
-
             // Add subsystems
             // Intel system setup
             IIntelProvider intelSubsystem;
-            if (IsMaster) intelSubsystem = new IntelMasterSubsystem();
-            else intelSubsystem = new IntelSlaveSubsystem();
-            
-            subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
-            
-            // Looking Glass Setup
-            //LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", !FixedLookingGlass, ThrusterLookingGlass);
-            //subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
-            
-            // Hangar system setup
-            HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);
-            subsystemManager.AddSubsystem("hangar", hangarSubsystem);
-            
-            // Seeing-Eye scanner setup
-            //subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
+            intelSubsystem = new IntelSlaveSubsystem();
 
-            // Inventory system setup
+            subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
+
+            //// Looking Glass Setup
+            //LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
+            //subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+            //
+            //// Hangar system setup
+            //HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);
+            //subsystemManager.AddSubsystem("hangar", hangarSubsystem);
+            //
+            //// Seeing-Eye scanner setup
+            subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
+            //
+            //// Inventory system setup
             //InventoryManagerSubsystem inventorySubsystem = new InventoryManagerSubsystem();
             //inventorySubsystem.RegisterRequester(hangarSubsystem);
             //subsystemManager.AddSubsystem("inventory", inventorySubsystem);
-
-            // Command system setup
-            TextCommandSubsystem textCommandSubsystem = new TextCommandSubsystem(intelSubsystem);
-            subsystemManager.AddSubsystem("command", textCommandSubsystem);
-
-            // Drone Forge setup
-            subsystemManager.AddSubsystem("forge", new DroneForgeSubsystem(intelSubsystem));
+            //
+            //// Command system setup
+            //TextCommandSubsystem textCommandSubsystem = new TextCommandSubsystem(intelSubsystem);
+            //subsystemManager.AddSubsystem("command", textCommandSubsystem);
 
             subsystemManager.DeserializeManager(Storage);
-        }
-
-        bool IsMaster = false;
-        bool FixedLookingGlass = false;
-        bool ThrusterLookingGlass = false;
-        // [Setup]
-        // IsMaster = true
-        // FixedLookingGlass = false
-        // ThrusterLookingGlass = false
-        private void ParseConfigs()
-        {
-            MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(Me.CustomData, out result))
-                return;
-
-            IsMaster = Parser.Get("Setup", "IsMaster").ToBoolean();
-            FixedLookingGlass = Parser.Get("Setup", "FixedLookingGlass").ToBoolean();
-            ThrusterLookingGlass = Parser.Get("Setup", "ThrusterLookingGlass").ToBoolean();
         }
 
         MyCommandLine commandLine = new MyCommandLine();
@@ -91,6 +64,7 @@ namespace IngameScript
         public void Save()
         {
             string v = subsystemManager.SerializeManager();
+            Me.CustomData = v;
             Storage = v;
         }
 

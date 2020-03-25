@@ -136,7 +136,7 @@ namespace IngameScript
                     var target = IntelItems[IntelKey];
                     LeadTask.Destination.Position = currentPosition + AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, 98);
                 }
-                else if (TargetPosition != Vector3.Zero && (currentPosition - TargetPosition).Length() > 500)
+                else if (TargetPosition != Vector3.Zero && (currentPosition - TargetPosition).Length() > 200)
                 {
                     LeadTask.Destination.Position = TargetPosition;
                 }
@@ -180,7 +180,8 @@ namespace IngameScript
                 dirTargetToOrbitTarget.Normalize();
                 dirTargetToMe.Normalize();
                 LeadTask.Destination.DirectionUp = Math.Sin(CombatSystem.EngageTheta) * controller.WorldMatrix.Right + Math.Cos(CombatSystem.EngageTheta) * controller.WorldMatrix.Up;
-                LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() * 2 + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
+                LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
+                LeadTask.Destination.Velocity = combatIntel.GetVelocity() * 0.5;
 
                 LastReference = controller.WorldMatrix;
 

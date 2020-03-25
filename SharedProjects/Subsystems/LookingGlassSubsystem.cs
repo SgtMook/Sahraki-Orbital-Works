@@ -72,6 +72,11 @@ namespace IngameScript
             GetParts();
             UpdateFrequency = UpdateFrequency.Update10;
             AddDefaultPlugins();
+            if (!OverrideThrusters && LookingGlasses.Count == 1)
+            {
+                ActiveLookingGlass = LookingGlasses[0];
+                ActiveLookingGlass.InterceptControls = true;
+            }
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)

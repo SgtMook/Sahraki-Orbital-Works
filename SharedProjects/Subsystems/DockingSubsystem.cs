@@ -36,13 +36,17 @@ namespace IngameScript
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "dock") Dock();
+            if (command == "dock")
+            {
+                if (Connector.Status != MyShipConnectorStatus.Unconnected || (argument is string && (string)argument == "force")) Dock();
+            }
             if (command == "undock") Undock();
         }
 
         public void DeserializeSubsystem(string serialized)
         {
-            HomeID = long.Parse(serialized);
+            if (Connector.Status == MyShipConnectorStatus.Connected) HomeID = Connector.OtherConnector.EntityId;
+            else HomeID = long.Parse(serialized);
         }
 
         public string GetStatus()
