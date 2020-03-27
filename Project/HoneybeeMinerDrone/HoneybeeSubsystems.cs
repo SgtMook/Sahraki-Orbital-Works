@@ -53,57 +53,63 @@ namespace IngameScript
         {
             Program = program;
             GetParts();
-            UpdateCargo();
             ParseConfigs();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             UpdateDrills();
-            UpdateCargo();
+            if (Recalling > 0) Recalling--;
         }
         #endregion
 
         public int CloseDist = 15;
+        public int MineDepth = 100;
+        public int OffsetDist = 10;
 
         MyGridProgram Program;
 
         List<IMyShipDrill> Drills = new List<IMyShipDrill>();
         List<IMySensorBlock> Sensors = new List<IMySensorBlock>();
-        List<IMyCargoContainer> Cargos = new List<IMyCargoContainer>();
+        List<IMySensorBlock> NearSensors = new List<IMySensorBlock>();
 
         List<MyDetectedEntityInfo> DetectedEntityScratchpad = new List<MyDetectedEntityInfo>();
+        public IMyCameraBlock Camera;
 
         int drillCounter = -1;
-
-        double TotalCargoVolume = 0;
-        double CurrentCargoVolume = 0;
 
         public int Recalling = 0;
 
         void GetParts()
         {
+            Drills.Clear();
+            Sensors.Clear();
+            Camera = null;
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         private bool CollectParts(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
-            if (block is IMyShipDrill)
-                Drills.Add((IMyShipDrill)block);
-
+            if (block is IMyShipDrill) Drills.Add((IMyShipDrill)block);
             if (block is IMySensorBlock)
-                Sensors.Add((IMySensorBlock)block);
-
-            if (block is IMyCargoContainer)
-                Cargos.Add((IMyCargoContainer)block);
-
+            {
+                if (block.CustomName.Contains("[N]")) Sensors.Add((IMySensorBlock)block);
+                else NearSensors.Add((IMySensorBlock)block);
+            }
+            if (block is IMyCameraBlock)
+            {
+                Camera = (IMyCameraBlock)block;
+                Camera.EnableRaycast = true;
+            }
             return false;
         }
 
         // [Honeybee]
         // CloseDist = 15
+        // MineDepth = 100
+        // OffsetDist = 10
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -113,24 +119,12 @@ namespace IngameScript
 
             var dist = Parser.Get("Honeybee", "CloseDist").ToInt16();
             if (dist != 0) CloseDist = dist;
-        }
 
-        private void UpdateCargo()
-        {
-            TotalCargoVolume = 0;
-            CurrentCargoVolume = 0;
-            foreach (var cargo in Cargos)
-            {
-                TotalCargoVolume += (double)cargo.GetInventory(0).MaxVolume;
-                CurrentCargoVolume += (double)cargo.GetInventory(0).CurrentVolume;
-            }
-            foreach (var drill in Drills)
-            {
-                TotalCargoVolume += (double)drill.GetInventory(0).MaxVolume;
-                CurrentCargoVolume += (double)drill.GetInventory(0).CurrentVolume;
-            }
+            dist = Parser.Get("Honeybee", "MineDepth").ToInt16();
+            if (dist != 0) MineDepth = dist;
 
-            if (Recalling > 0) Recalling--;
+            dist = Parser.Get("Honeybee", "OffsetDist").ToInt16();
+            if (dist != 0) OffsetDist = dist;
         }
 
         private void UpdateDrills()
@@ -160,16 +154,17 @@ namespace IngameScript
             drillCounter = -1;
         }
 
-        public double PercentageFilled()
-        {
-            return CurrentCargoVolume / TotalCargoVolume;
-        }
-
         public bool SensorsClear()
         {
             DetectedEntityScratchpad.Clear();
             foreach (var sensor in Sensors) sensor.DetectedEntities(DetectedEntityScratchpad);
             return DetectedEntityScratchpad.Count == 0;
+        }
+        public bool SensorsBack()
+        {
+            DetectedEntityScratchpad.Clear();
+            foreach (var sensor in NearSensors) sensor.DetectedEntities(DetectedEntityScratchpad);
+            return DetectedEntityScratchpad.Count > 0;
         }
         #endregion
     }

@@ -72,7 +72,7 @@ namespace IngameScript
         {
             if (option == MonitorOptions.Cargo) return inventoryPercent;
             else if (option == MonitorOptions.Hydrogen) return hydrogenPercent;
-            else return inventoryPercent;
+            else return powerPercent;
         }
         #endregion
 

@@ -143,6 +143,12 @@ namespace IngameScript
             {
                 return new NullTask();
             }
+
+            if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected && DockingSubsystem.Connector.OtherConnector.EntityId == intelKey.Item2)
+            {
+                return new NullTask();
+            }
+
             var Dock = (DockIntel)IntelItems[intelKey];
 
             holdTask.Destination.MaxSpeed = approachMaxSpeed;

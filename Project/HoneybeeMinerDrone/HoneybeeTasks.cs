@@ -47,7 +47,7 @@ namespace IngameScript
 
             var dockTask = DockTaskGenerator.GenerateMoveToAndDockTask(MyTuple.Create(IntelItemType.NONE, (long)0), IntelItems, 40);
 
-            return new HoneyMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, dockTask, IntelProvider);
+            return new HoneyMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, dockTask, IntelProvider, MonitorSubsystem);
         }
         #endregion
 
@@ -57,8 +57,9 @@ namespace IngameScript
         IAgentSubsystem AgentSubsystem;
         DockTaskGenerator DockTaskGenerator;
         IIntelProvider IntelProvider;
+        IMonitorSubsystem MonitorSubsystem;
 
-        public HoneybeeMiningTaskGenerator(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, DockTaskGenerator dockTaskGenerator, IIntelProvider intelProvder)
+        public HoneybeeMiningTaskGenerator(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, DockTaskGenerator dockTaskGenerator, IIntelProvider intelProvder, IMonitorSubsystem monitorSubsystem)
         {
             Program = program;
             MiningSystem = miningSystem;
@@ -66,6 +67,7 @@ namespace IngameScript
             AgentSubsystem = agentSubsystem;
             DockTaskGenerator = dockTaskGenerator;
             IntelProvider = intelProvder;
+            MonitorSubsystem = monitorSubsystem;
         }
     }
 
@@ -81,44 +83,123 @@ namespace IngameScript
             {
                 state = 3;
             }
-            if (state == 0)
+            if (state == 0) // Approaching asteroid
             {
                 LeadTask.Do(IntelItems, canonicalTime, profiler);
                 if (LeadTask.Status == TaskStatus.Complete) state = 1;
             }
-            else if (state == 1)
+            else if (state == 1) // Diving to surface of asteroid
             {
                 MineTask.Do(IntelItems, canonicalTime, profiler);
+
+                if (MiningSystem.Camera != null && MiningSystem.Camera.CanScan(MineTask.Destination.Position + MineTask.Destination.Direction * MiningSystem.MineDepth))
+                {
+                    var info = MiningSystem.Camera.Raycast(MineTask.Destination.Position + MineTask.Destination.Direction * MiningSystem.MineDepth);
+                    if (info.Type == MyDetectedEntityType.Asteroid) MineTask.Destination.Position = (Vector3D)info.HitPosition - MiningSystem.CloseDist * MineTask.Destination.Direction;
+                }
+
                 if (MineTask.Status == TaskStatus.Complete || !MiningSystem.SensorsClear())
                 {
                     EntryPoint = Autopilot.Reference.WorldMatrix.Translation;
-                    MineTask.Destination.MaxSpeed = 1;
+                    MineTask.Destination.MaxSpeed = 1f;
                     state = 2;
                 }
             }
-            else if (state == 2)
+            else if (state == 2) // Boring tunnel
             {
                 if (MiningSystem.SensorsClear())
                     MineTask.Destination.Position = MiningEnd;
+                else if (MiningSystem.SensorsBack())
+                    MineTask.Destination.Position = EntryPoint;
                 else
                     MineTask.Destination.Position = Vector3D.Zero;
 
+                bool AsteroidAhead = true;
+                if (MiningSystem.Camera != null)
+                {
+                    var info = MiningSystem.Camera.Raycast(50);
+                    AsteroidAhead = info.Type == MyDetectedEntityType.Asteroid;
+                }
+
                 MiningSystem.Drill();
                 MineTask.Do(IntelItems, canonicalTime, profiler);
-                if (MiningSystem.PercentageFilled() > 0.92 || (Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 80)
+
+                if (!AsteroidAhead || GoHomeCheck() || (Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 20)
                 {
                     state = 3;
-                    MineTask.Destination.MaxSpeed = 40;
+                    MineTask.Destination.MaxSpeed = 1;
                 }
             }
-            else if (state == 3)
+            else if (state == 3) // Exiting tunnel
             {
                 MiningSystem.StopDrill();
-                MineTask.Destination.Position = ApproachPoint;
+                if (MineTask.Destination.Position != ExitPoint) MineTask.Destination.Position = EntryPoint;
                 MineTask.Do(IntelItems, canonicalTime, profiler);
-                if (MineTask.Status == TaskStatus.Complete) state = 4;
+                if (MineTask.Status == TaskStatus.Complete)
+                {
+                    if (MineTask.Destination.Position == EntryPoint)
+                    {
+                        MineTask.Destination.Position = ExitPoint;
+                        MineTask.Destination.MaxSpeed = 100;
+                    }
+                    else
+                    {
+                        if (GoHomeCheck() || MiningSystem.Camera == null) state = 4;
+                        else state = 10;
+                    }
+                }
             }
-            else if (state == 4)
+            else if (state == 10) // Resuming to approach point
+            {
+                LeadTask.Destination.Position = ApproachPoint;
+                LeadTask.Do(IntelItems, canonicalTime, profiler);
+                if (LeadTask.Status == TaskStatus.Complete)
+                {
+                    LeadTask.Destination.Position = ApproachPoint + (Perpendicular * Math.Cos(SearchAngle) + Perpendicular.Cross(MineTask.Destination.Direction) * Math.Sin(SearchAngle)) * 100;
+                    LeadTask.Destination.MaxSpeed = 10;
+                    state = 11;
+                }
+            }
+            else if (state == 11) // Search for the digging spot
+            {
+                if (GoHomeCheck()) state = 4;
+
+                var castPosition = SurfacePoint + (Autopilot.Reference.WorldMatrix.Translation - ApproachPoint) + (MiningDepth - 10) * MineTask.Destination.Direction;
+
+                var dist = (SurfacePoint - ApproachPoint).Length();
+
+                if (!targetFound && MiningSystem.Camera.CanScan(castPosition))
+                {
+                    var info = MiningSystem.Camera.Raycast(castPosition);
+                    if (info.Type == MyDetectedEntityType.Asteroid)
+                    {
+                        var dir = Perpendicular * Math.Cos(SearchAngle) + Perpendicular.Cross(MineTask.Destination.Direction) * Math.Sin(SearchAngle);
+                        if ((Autopilot.Reference.WorldMatrix.Translation - (Vector3D)info.HitPosition).Length() < dist + MiningDepth - 10 + MiningSystem.CloseDist)
+                        {
+                            MiningEnd = (Vector3D)info.HitPosition + dir * MiningSystem.OffsetDist + MineTask.Destination.Direction * MiningDepth;
+                            MineTask.Destination.Position = (Vector3D)info.HitPosition + dir * MiningSystem.OffsetDist - MineTask.Destination.Direction * MiningSystem.CloseDist;
+                            ExitPoint = (Vector3D)info.HitPosition + dir * MiningSystem.OffsetDist - MineTask.Destination.Direction * SurfaceDist;
+                            LeadTask.Destination.Position = ExitPoint;
+                            targetFound = true;
+                        }
+                    }
+                }
+                LeadTask.Do(IntelItems, canonicalTime, profiler);
+                if (LeadTask.Status == TaskStatus.Complete)
+                {
+                    if (targetFound)
+                    {
+                        state = 1;
+                        targetFound = false;
+                        SearchAngle += SearchTheta;
+                    }
+                    else
+                    {
+                        state = 4;
+                    }
+                }
+            }
+            else if (state == 4) // Going home
             {
                 HomeTask.Do(IntelItems, canonicalTime, profiler);
                 if (HomeTask.Status != TaskStatus.Incomplete) state = 5;
@@ -138,27 +219,40 @@ namespace IngameScript
         HoneybeeMiningSystem MiningSystem;
         IAutopilot Autopilot;
         IAgentSubsystem AgentSubsystem;
+        IMonitorSubsystem MonitorSubsystem;
         MyTuple<IntelItemType, long> IntelKey;
         AsteroidIntel Host;
         Vector3D EntryPoint;
+        Vector3D ExitPoint;
         Vector3D ApproachPoint;
         Vector3D MiningEnd;
+        Vector3D Perpendicular;
+        Vector3D SurfacePoint;
         ITask HomeTask;
 
-        int state = 0;
+        double SearchTheta = Math.PI / 4;
+        double SearchAngle = 0;
+        double MiningDepth;
+        double SurfaceDist;
 
-        public HoneyMiningTask(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, Waypoint target, AsteroidIntel host, ITask homeTask, IIntelProvider intelProvider)
+        int state = 0;
+        bool targetFound = false;
+
+        public HoneyMiningTask(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, Waypoint target, AsteroidIntel host, ITask homeTask, IIntelProvider intelProvider, IMonitorSubsystem monitorSubsystem)
         {
             Program = program;
             MiningSystem = miningSystem;
             Autopilot = autopilot;
             AgentSubsystem = agentSubsystem;
+            MonitorSubsystem = monitorSubsystem;
             Host = host;
+            MiningDepth = MiningSystem.MineDepth;
 
             Status = TaskStatus.Incomplete;
 
             double lDoc, det;
             GetSphereLineIntersects(host.Position, host.Radius, target.Position, target.Direction, out lDoc, out det);
+            Perpendicular = GetPerpendicular(target.Direction);
 
             if (det < 0)
             {
@@ -167,21 +261,28 @@ namespace IngameScript
                 return;
             }
 
-            var d = -lDoc + Math.Sqrt(det);
+            SurfaceDist = -lDoc + Math.Sqrt(det);
 
-            ApproachPoint = target.Position + target.Direction * d;
+            ApproachPoint = target.Position + target.Direction * SurfaceDist;
+            ExitPoint = ApproachPoint;
 
             EntryPoint = target.Position + target.Direction * miningSystem.CloseDist;
-            MiningEnd = target.Position - target.Direction * 400;
+            MiningEnd = target.Position - target.Direction * MiningDepth;
+
+            SurfacePoint = target.Position;
 
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.SmartEnter);
             MineTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.DoNotAvoid);
 
-            LeadTask.Destination.Direction = target.Direction * -1;
             LeadTask.Destination.Position = ApproachPoint;
+            LeadTask.Destination.Direction = target.Direction * -1;
+            LeadTask.Destination.DirectionUp = Perpendicular;
             intelProvider.ReportFleetIntelligence(LeadTask.Destination, TimeSpan.FromSeconds(1));
             MineTask.Destination.Direction = target.Direction * -1;
+            MineTask.Destination.DirectionUp = Perpendicular;
             MineTask.Destination.Position = EntryPoint;
+
+            AgentSubsystem.Status = Perpendicular.Dot(target.Direction).ToString() + " " + Perpendicular.Cross(MineTask.Destination.Direction).Dot(target.Direction).ToString();
 
             HomeTask = homeTask;
         }
@@ -191,6 +292,20 @@ namespace IngameScript
         {
             lDoc = Vector3.Dot(lineDirection, lineStart - center);
             det = lDoc * lDoc - ((lineStart - center).LengthSquared() - radius * radius);
+        }
+
+        private bool GoHomeCheck()
+        {
+            return //MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) > 0.96 ||
+                   MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.2 ||
+                   MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.2;
+        }
+
+        private Vector3D GetPerpendicular(Vector3D vector)
+        {
+            Vector3D result = new Vector3D(1, 1, -(vector.X + vector.Y) / vector.Z);
+            result.Normalize();
+            return result;
         }
     }
 }

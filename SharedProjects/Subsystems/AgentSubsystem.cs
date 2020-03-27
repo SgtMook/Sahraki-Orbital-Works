@@ -37,12 +37,22 @@ namespace IngameScript
         Last
     }
 
+    [Flags]
+    public enum AgentStatus
+    {
+        Idle = 1 << 0, // This agent is ready to receive and execute a command
+        Engaged = 1 << 10, // This agent is engaged in combat
+
+    }
+
     public interface IAgentSubsystem
     {
         string CommandChannelTag { get; }
         TaskType AvailableTasks { get; }
 
         AgentClass AgentClass { get; }
+
+        string Status { get; set; }
 
         void AddTask(TaskType taskType, MyTuple<IntelItemType, long> intelKey, CommandType commandType, int arguments, TimeSpan canonicalTime);
     }
@@ -64,7 +74,7 @@ namespace IngameScript
         {
             DebugBuilder.Clear();
             // profiler.PrintSectionBreakdown(DebugBuilder);
-            return DebugBuilder.ToString();
+            return Status;
         }
 
         public string SerializeSubsystem()
@@ -143,6 +153,7 @@ namespace IngameScript
                 myIntel.CommandChannelTag = CommandChannelTag;
                 myIntel.AcceptedTaskTypes = AvailableTasks;
                 myIntel.AgentClass = AgentClass;
+                if (TaskQueue.Count == 0) myIntel.AgentStatus = AgentStatus.Idle;
             }
         }
         #endregion
@@ -167,6 +178,8 @@ namespace IngameScript
         readonly TimeSpan kCommandWaitTimeout = TimeSpan.FromSeconds(1);
 
         int run = 0;
+
+        public string Status { get; set; }
 
         public AgentSubsystem(IIntelProvider intelProvider, AgentClass agentClass)
         {

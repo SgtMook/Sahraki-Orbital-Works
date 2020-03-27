@@ -310,6 +310,9 @@ namespace IngameScript
             {
                 IMyGyro gyro = (IMyGyro)block;
                 gyros.Add(gyro);
+                gyro.Pitch = 0;
+                gyro.Yaw = 0;
+                gyro.Roll = 0;
                 gyro.GyroOverride = false;
             }
 
@@ -424,6 +427,9 @@ namespace IngameScript
         {
             foreach (var gyro in gyros)
             {
+                gyro.Pitch = 0;
+                gyro.Yaw = 0;
+                gyro.Roll = 0;
                 gyro.GyroOverride = false;
             }
         }
