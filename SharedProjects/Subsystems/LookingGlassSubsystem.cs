@@ -981,8 +981,8 @@ namespace IngameScript
             { TaskType.Move, IntelItemType.Waypoint},
             { TaskType.SmartMove, IntelItemType.Waypoint },
             { TaskType.Attack, IntelItemType.Enemy | IntelItemType.Waypoint },
-            { TaskType.Dock, IntelItemType.Dock },
-            { TaskType.SetHome, IntelItemType.Dock },
+            { TaskType.Dock, IntelItemType.NONE },
+            { TaskType.SetHome, IntelItemType.NONE },
             { TaskType.Mine, IntelItemType.Waypoint }
         };
 
@@ -1046,6 +1046,10 @@ namespace IngameScript
             foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(timestamp).Values)
             {
                 if ((intel.IntelItemType & TaskTypeToTargetTypes[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]) != 0)
+                    TargetSelection_Targets.Add(intel);
+                else if ((TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex] == TaskType.Dock || TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex] == TaskType.SetHome)
+                    && intel.IntelItemType == IntelItemType.Dock && 
+                    DockIntel.TagsMatch(Agent.HangarTags, ((DockIntel)intel).Tags)) // Special Handling
                     TargetSelection_Targets.Add(intel);
             }
 

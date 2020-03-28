@@ -40,38 +40,62 @@ namespace IngameScript
             subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
             
             // Looking Glass Setup
-            LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", !FixedLookingGlass, ThrusterLookingGlass);
-            subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+            if (LookingGlass)
+            {
+                LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", !FixedLookingGlass, ThrusterLookingGlass);
+                subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+            }
             
             // Hangar system setup
             HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("hangar", hangarSubsystem);
             
             // Seeing-Eye scanner setup
-            subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
+            if (Scanner)
+            {
+                subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
+            }
+
+            DroneForgeSubsystem forgeSubsystem = null;
+
+            // Drone Forge setup
+            if (Forge)
+            {
+                forgeSubsystem = new DroneForgeSubsystem(intelSubsystem);
+                subsystemManager.AddSubsystem("forge", forgeSubsystem);
+            }
 
             // Inventory system setup
-            InventoryManagerSubsystem inventorySubsystem = new InventoryManagerSubsystem();
-            inventorySubsystem.RegisterRequester(hangarSubsystem);
-            subsystemManager.AddSubsystem("inventory", inventorySubsystem);
+            if (Inventory)
+            {
+                InventoryManagerSubsystem inventorySubsystem = new InventoryManagerSubsystem();
+                inventorySubsystem.RegisterRequester(hangarSubsystem);
+                if (Forge) inventorySubsystem.RegisterRequester(forgeSubsystem);
+                subsystemManager.AddSubsystem("inventory", inventorySubsystem);
+            }
 
             // Command system setup
             TextCommandSubsystem textCommandSubsystem = new TextCommandSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("command", textCommandSubsystem);
 
-            // Drone Forge setup
-            subsystemManager.AddSubsystem("forge", new DroneForgeSubsystem(intelSubsystem));
-
             subsystemManager.DeserializeManager(Storage);
         }
 
         bool IsMaster = false;
+        bool LookingGlass = true;
         bool FixedLookingGlass = false;
         bool ThrusterLookingGlass = false;
+        bool Scanner = true;
+        bool Inventory = true;
+        bool Forge = true;
         // [Setup]
         // IsMaster = true
+        // LookingGlass = true
         // FixedLookingGlass = false
         // ThrusterLookingGlass = false
+        // Scanner = true
+        // Inventory = true
+        // Forge = true
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -80,8 +104,12 @@ namespace IngameScript
                 return;
 
             IsMaster = Parser.Get("Setup", "IsMaster").ToBoolean();
+            LookingGlass = Parser.Get("Setup", "LookingGlass").ToBoolean();
             FixedLookingGlass = Parser.Get("Setup", "FixedLookingGlass").ToBoolean();
             ThrusterLookingGlass = Parser.Get("Setup", "ThrusterLookingGlass").ToBoolean();
+            Scanner = Parser.Get("Setup", "Scanner").ToBoolean();
+            Inventory = Parser.Get("Setup", "Inventory").ToBoolean();
+            Forge = Parser.Get("Setup", "Forge").ToBoolean();
         }
 
         MyCommandLine commandLine = new MyCommandLine();

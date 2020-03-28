@@ -74,7 +74,6 @@ namespace IngameScript
         List<IMySensorBlock> NearSensors = new List<IMySensorBlock>();
 
         List<MyDetectedEntityInfo> DetectedEntityScratchpad = new List<MyDetectedEntityInfo>();
-        public IMyCameraBlock Camera;
 
         int drillCounter = -1;
 
@@ -84,7 +83,6 @@ namespace IngameScript
         {
             Drills.Clear();
             Sensors.Clear();
-            Camera = null;
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
@@ -97,11 +95,6 @@ namespace IngameScript
             {
                 if (block.CustomName.Contains("[N]")) Sensors.Add((IMySensorBlock)block);
                 else NearSensors.Add((IMySensorBlock)block);
-            }
-            if (block is IMyCameraBlock)
-            {
-                Camera = (IMyCameraBlock)block;
-                Camera.EnableRaycast = true;
             }
             return false;
         }

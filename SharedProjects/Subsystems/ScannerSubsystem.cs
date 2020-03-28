@@ -152,7 +152,7 @@ namespace IngameScript
                 }
             }
 
-            if (camera.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId)
+            if (camera.IsSameConstructAs(Program.Me))
             {
                 camera.EnableRaycast = true;
                 Cameras.Add(camera);

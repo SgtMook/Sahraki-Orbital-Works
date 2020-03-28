@@ -22,6 +22,8 @@ namespace IngameScript
     public class DroneForge
     {
         public List<IMyShipWelder> Welders = new List<IMyShipWelder>();
+        public List<IMyMotorAdvancedStator> Motors = new List<IMyMotorAdvancedStator>();
+        public List<IMyMotorAdvancedStator> ReverseMotors = new List<IMyMotorAdvancedStator>();
         public IMyProjector Projector;
         public MyGridProgram Program;
 
@@ -49,13 +51,36 @@ namespace IngameScript
                 Projector = (IMyProjector)part;
                 Projector.Enabled = false;
             }
+            if (part is IMyMotorAdvancedStator)
+            {
+                IMyMotorAdvancedStator Motor = (IMyMotorAdvancedStator)part;
+                if (part.CustomName.Contains("<R>"))
+                {
+                    ReverseMotors.Add(Motor);
+                    if (Motor.UpperLimitDeg == float.MaxValue) Motor.UpperLimitDeg = float.MaxValue;
+                    if (Motor.TargetVelocityRPM < 0) Motor.TargetVelocityRPM *= -1;
+                }
+                else
+                {
+                    Motors.Add(Motor);
+                    if (Motor.LowerLimitDeg == float.MinValue) Motor.LowerLimitDeg = 0;
+                    if (Motor.TargetVelocityRPM > 0) Motor.TargetVelocityRPM *= -1;
+                }
+            }
         }
 
         public void Update(TimeSpan localTime)
         {
-            if (Projector.Enabled && Projector.RemainingBlocks == 0)
+            if (Projector.Enabled)
             {
-                Release(localTime);
+                if (Projector.RemainingBlocks == 0) Release(localTime);
+                foreach (var Motor in Motors) if (Motor.TargetVelocityRPM < 0) Motor.TargetVelocityRPM *= -1;
+                foreach (var Motor in ReverseMotors) if (Motor.TargetVelocityRPM > 0) Motor.TargetVelocityRPM *= -1;
+            }
+            else
+            {
+                foreach (var Motor in Motors) if (Motor.TargetVelocityRPM > 0) Motor.TargetVelocityRPM *= -1;
+                foreach (var Motor in ReverseMotors) if (Motor.TargetVelocityRPM < 0) Motor.TargetVelocityRPM *= -1;
             }
         }
 
@@ -71,7 +96,7 @@ namespace IngameScript
         {
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CheckRelease);
 
-            if (droneMainframe != null)
+            if (droneMainframe != null && droneRelease != null)
             {
                 string name = "New Drone";
                 if (Host.IniParser.TryParse(droneMainframe.CustomData))
@@ -99,14 +124,16 @@ namespace IngameScript
                 }
                 droneMainframe.TryRun($"manager activate \"{name}\"");
                 droneMainframe = null;
+
+                droneRelease.Enabled = false;
+
+                droneRelease = null;
+
+                foreach (var welder in Welders) welder.Enabled = false;
+                Projector.Enabled = false;
+
+                Host.RequestRefresh = true;
             }
-
-            droneRelease.Enabled = false;
-
-            droneRelease = null;
-
-            foreach (var welder in Welders) welder.Enabled = false;
-            Projector.Enabled = false;
         }
 
         private bool CheckRelease(IMyTerminalBlock block)
@@ -123,7 +150,7 @@ namespace IngameScript
         }
     }
 
-    public class DroneForgeSubsystem : ISubsystem
+    public class DroneForgeSubsystem : ISubsystem, IInventoryRefreshRequester
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update100;
@@ -175,6 +202,8 @@ namespace IngameScript
         public HashSet<string> FriendlyNameScratchpad = new HashSet<string>();
         public MyIni IniParser = new MyIni();
 
+        public bool RequestRefresh = false;
+
         // Prints drones
         // Drones should be printable just by turning on the projector and welders
         public DroneForgeSubsystem(IIntelProvider intelProvider, string tag = "DF")
@@ -220,5 +249,17 @@ namespace IngameScript
                 }
             }
         }
+
+        #region IInventoryRefreshRequester
+        public bool RequestingRefresh()
+        {
+            return RequestRefresh;
+        }
+
+        public void AcknowledgeRequest()
+        {
+            RequestRefresh = false;
+        }
+        #endregion
     }
 }

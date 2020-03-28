@@ -192,6 +192,8 @@ namespace IngameScript
 
             var mainTask = TaskGenerators[type].GenerateTask(type, intelKey, IntelItems, canonicalTime, myID);
 
+            if (mainTask is NullTask) return new NullTask();
+
             if (DockingSubsystem.Connector.Status != MyShipConnectorStatus.Connected) return mainTask;
 
             CompoundTask.Reset();
@@ -279,7 +281,7 @@ namespace IngameScript
                 Autopilot.Clear();
                 Cleared = true;
             }
-            Autopilot.Move(ObstacleMode == AvoidObstacleMode.DoNotAvoid ? Destination.Position : WaypointHelper.PlotPath(IntelItems, canonicalTime, Autopilot, Destination, IntelScratchpad, PositionScratchpad, Program));
+            Autopilot.Move(ObstacleMode == AvoidObstacleMode.DoNotAvoid ? Destination.Position : WaypointHelper.PlotPath(IntelItems, canonicalTime, Autopilot, Destination, IntelScratchpad, PositionScratchpad, Program, ObstacleMode));
             Autopilot.Turn(Destination.Direction);
             Autopilot.Spin(Destination.DirectionUp);
             Autopilot.Drift(Destination.Velocity);
@@ -326,13 +328,13 @@ namespace IngameScript
             MoveReference = moveReference;
             Cleared = false;
 
-            WaypointHelper.PlotPath(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.FromSeconds(1), Autopilot, Destination, IntelScratchpad, PositionScratchpad, Program);
+            WaypointHelper.PlotPath(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.FromSeconds(1), Autopilot, Destination, IntelScratchpad, PositionScratchpad, Program, ObstacleMode);
         }
     }
 
     public class WaypointHelper
     {
-        public static Vector3D PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, IAutopilot Autopilot, Waypoint Destination, List<IFleetIntelligence> IntelScratchpad, List<Vector3> PositionScratchpad, MyGridProgram Program)
+        public static Vector3D PlotPath(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, IAutopilot Autopilot, Waypoint Destination, List<IFleetIntelligence> IntelScratchpad, List<Vector3> PositionScratchpad, MyGridProgram Program, WaypointTask.AvoidObstacleMode ObstacleMode)
         {
             if (Autopilot.Reference == null) return Vector3D.Zero;
             Vector3D o = Autopilot.Reference.WorldMatrix.Translation;
@@ -465,7 +467,7 @@ namespace IngameScript
                             dirCenterToMe.Normalize();
                             var angle = Math.Acos(Vector3.Dot(dirCenterToDest, dirCenterToMe));
 
-                            if (angle < 0.2)
+                            if (angle < 0.2 && ObstacleMode == WaypointTask.AvoidObstacleMode.SmartEnter)
                             {
                                 target = Destination.Position;
                                 break;

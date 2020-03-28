@@ -42,7 +42,6 @@ namespace IngameScript
     {
         Idle = 1 << 0, // This agent is ready to receive and execute a command
         Engaged = 1 << 10, // This agent is engaged in combat
-
     }
 
     public interface IAgentSubsystem

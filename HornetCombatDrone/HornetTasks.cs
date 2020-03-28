@@ -136,7 +136,7 @@ namespace IngameScript
                     var target = IntelItems[IntelKey];
                     LeadTask.Destination.Position = currentPosition + AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, 98);
                 }
-                else if (TargetPosition != Vector3.Zero && (currentPosition - TargetPosition).Length() > 200)
+                else if (TargetPosition != Vector3.Zero)
                 {
                     LeadTask.Destination.Position = TargetPosition;
                 }
@@ -167,7 +167,7 @@ namespace IngameScript
                 var CurrentAccelerationPreviousFrame = Vector3D.TransformNormal(Acceleration, MatrixD.Transpose(LastReference));
 
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
-                var velocityAdjust = linearVelocity + (accelerationAdjust + Acceleration) * 0.5;
+                var velocityAdjust = linearVelocity + (accelerationAdjust) * 0.5;
 
                 Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(combatIntel.GetVelocity() - velocityAdjust, targetPosition + combatIntel.GetVelocity() * 0.25 - (controller.WorldMatrix.Translation + velocityAdjust * 0.25), CombatSystem.ProjectileSpeed);
 
@@ -193,7 +193,7 @@ namespace IngameScript
             }
 
             LastLinearVelocity = linearVelocity;
-            LeadTask.Do(IntelItems, canonicalTime, profiler);
+            if (LeadTask.Status == TaskStatus.Incomplete) LeadTask.Do(IntelItems, canonicalTime, profiler);
         }
 
         private void GoHome(TimeSpan canonicalTime)

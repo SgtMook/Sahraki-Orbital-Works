@@ -23,6 +23,8 @@ namespace IngameScript
     // Sample Config:
     // [Hangar]
     // Mutex = 1,2,3,4,5
+    // ClearanceDist = 40
+    // Tags = ABCDE
     public enum HangarRequest
     {
         RequestDock,
@@ -55,6 +57,8 @@ namespace IngameScript
 
         List<int> MutexHangars = new List<int>();
         public float ClearanceDist = 40;
+
+        public HangarTags HangarTags = HangarTags.None;
 
         public Hangar(int index, HangarSubsystem host)
         {
@@ -99,7 +103,6 @@ namespace IngameScript
             if (!Host.IniParser.TryParse(Connector.CustomData, out result))
                 return;
 
-
             string mutexes = Host.IniParser.Get("Hangar", "Mutex").ToString();
             if (mutexes == string.Empty) return;
 
@@ -112,6 +115,18 @@ namespace IngameScript
 
             float dist = Host.IniParser.Get("Hangar", "ClearanceDist").ToInt16();
             if (dist != 0) ClearanceDist = dist;
+
+            string tagString = Host.IniParser.Get("Hangar", "Tags").ToString();
+            if (tagString.Contains("A")) HangarTags |= HangarTags.A;
+            if (tagString.Contains("B")) HangarTags |= HangarTags.B;
+            if (tagString.Contains("C")) HangarTags |= HangarTags.C;
+            if (tagString.Contains("D")) HangarTags |= HangarTags.D;
+            if (tagString.Contains("E")) HangarTags |= HangarTags.E;
+            if (tagString.Contains("F")) HangarTags |= HangarTags.F;
+            if (tagString.Contains("G")) HangarTags |= HangarTags.G;
+            if (tagString.Contains("H")) HangarTags |= HangarTags.H;
+            if (tagString.Contains("I")) HangarTags |= HangarTags.I;
+            if (tagString.Contains("J")) HangarTags |= HangarTags.J;
         }
 
         public void Clear()
@@ -437,6 +452,7 @@ namespace IngameScript
 
             hangar.Intel.IndicatorDir = hangar.DirectionIndicator == null ? (DirectionIndicator == null ? Vector3D.Zero : DirectionIndicator.WorldMatrix.Forward) : hangar.DirectionIndicator.WorldMatrix.Forward;
             hangar.Intel.HangarChannelTag = HangarChannelTag;
+            hangar.Intel.Tags = hangar.HangarTags;
 
             return hangar.Intel;
         }

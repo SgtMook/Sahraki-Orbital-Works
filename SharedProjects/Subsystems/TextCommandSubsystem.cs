@@ -36,6 +36,20 @@ namespace IngameScript
         }
     }
 
+    class FriendlyPrioritizer : IComparer<FriendlyShipIntel>
+    {
+        IIntelProvider IntelProvider;
+        public int Compare(FriendlyShipIntel x, FriendlyShipIntel y)
+        {
+            return x.ID.CompareTo(y.ID);
+        }
+
+        public FriendlyPrioritizer(IIntelProvider intelProvider)
+        {
+            IntelProvider = intelProvider;
+        }
+    }
+
     public class TextCommandSubsystem : ISubsystem
     {
         #region ISubsystem
@@ -46,6 +60,7 @@ namespace IngameScript
             if (command == "attack") Attack(timestamp);
             if (command == "recall") RecallCrafts(timestamp);
             if (command == "autohome") AutoHomeCrafts(timestamp);
+            if (command == "toggleCAP") ToggleCAP(timestamp);
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -54,7 +69,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return string.Empty;
+            return debugBuilder.ToString();
         }
 
         public string SerializeSubsystem()
@@ -71,6 +86,7 @@ namespace IngameScript
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             UpdateAlarms(timestamp);
+            UpdateCAP(timestamp);
         }
         #endregion
 
@@ -78,16 +94,31 @@ namespace IngameScript
         {
             IntelProvider = intelProvider;
             Prioritizer = new EnemyPrioritizer(intelProvider);
+            FriendlyPrioritizer = new FriendlyPrioritizer(intelProvider);
         }
 
         MyGridProgram Program;
         IIntelProvider IntelProvider;
 
         EnemyPrioritizer Prioritizer;
+        FriendlyPrioritizer FriendlyPrioritizer;
 
         List<FriendlyShipIntel> FriendlyShipScratchpad = new List<FriendlyShipIntel>();
         List<DockIntel> DockIntelScratchpad = new List<DockIntel>();
         List<EnemyShipIntel> EnemyShipScratchpad = new List<EnemyShipIntel>();
+
+        StringBuilder debugBuilder = new StringBuilder();
+
+        Vector3D[] PatrolPositions = new Vector3D[6]
+        {
+            new Vector3D(800, 0, 0),
+            new Vector3D(-800, 0, 0),
+            new Vector3D(0, 800, 0),
+            new Vector3D(0, -800, 0),
+            new Vector3D(0, 0, 800),
+            new Vector3D(0, 0, -800),
+        };
+        bool CAP = false;
 
         bool alarm;
 
@@ -107,6 +138,7 @@ namespace IngameScript
         }
 
         List<IMyInteriorLight> AlarmLights = new List<IMyInteriorLight>();
+        IMyShipController Controller;
 
         private void GetParts()
         {
@@ -126,6 +158,11 @@ namespace IngameScript
                 IMyInteriorLight light = (IMyInteriorLight)block;
                 light.Radius = 20;
                 AlarmLights.Add(light);
+            }
+
+            if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
+            {
+                Controller = (IMyShipController)block;
             }
 
             return false;
@@ -235,10 +272,67 @@ namespace IngameScript
 
             if (FriendlyShipScratchpad.Count == 0) return;
 
-            for (int i = 0; i < FriendlyShipScratchpad.Count && i < DockIntelScratchpad.Count; i++)
+            foreach (var craft in FriendlyShipScratchpad)
             {
-                IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.SetHome, MyTuple.Create(IntelItemType.Dock, DockIntelScratchpad[i].ID), localTime);
+                DockIntel targetDock = null;
+                foreach (var dock in DockIntelScratchpad)
+                {
+                    if (DockIntel.TagsMatch(craft.HangarTags, dock.Tags))
+                    {
+                        targetDock = dock;
+                        break;
+                    }
+                }
+                
+                if (targetDock != null)
+                {
+                    IntelProvider.ReportCommand(craft, TaskType.SetHome, MyTuple.Create(IntelItemType.Dock, targetDock.ID), localTime);
+                    DockIntelScratchpad.Remove(targetDock);
+                }
             }
+        }
+
+        private void UpdateCAP(TimeSpan timestamp)
+        {
+            debugBuilder.Clear();
+            debugBuilder.AppendLine(CAP.ToString());
+            if (CAP)
+            {
+                FriendlyShipScratchpad.Clear();
+
+                var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+                foreach (var kvp in intelItems)
+                {
+                    if (kvp.Key.Item1 == IntelItemType.Friendly)
+                    {
+                        var friendly = (FriendlyShipIntel)kvp.Value;
+                        if (friendly.AgentClass == AgentClass.Fighter)
+                        {
+                            FriendlyShipScratchpad.Add(friendly);
+                        }
+                    }
+                }
+
+                FriendlyShipScratchpad.Sort(FriendlyPrioritizer);
+
+                debugBuilder.AppendLine(FriendlyShipScratchpad.Count.ToString());
+
+                for (int i = 0; i < PatrolPositions.Count() && i < FriendlyShipScratchpad.Count(); i++)
+                {
+                    var pos = Program.Me.CubeGrid.WorldMatrix.Translation + PatrolPositions[i];
+                    var waypoint = new Waypoint();
+                    waypoint.Position = pos;
+                    debugBuilder.AppendLine(pos.ToString());
+                    waypoint.Velocity = Controller.GetShipVelocities().LinearVelocity;
+                    IntelProvider.ReportFleetIntelligence(waypoint, timestamp);
+                    IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Attack, MyTuple.Create(IntelItemType.Waypoint, waypoint.ID), timestamp);
+                }
+            }
+        }
+
+        private void ToggleCAP(TimeSpan timestamp)
+        {
+            CAP = !CAP;
         }
     }
 }

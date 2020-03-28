@@ -54,7 +54,7 @@ namespace IngameScript
             //if (Connector == null) return "NO CONNECTOR";
             //else if (DirectionIndicator == null) return "NO INDICATOR";
             //return "AOK";
-            return HomeID.ToString();
+            return HangarTags.ToString();
         }
 
         public string SerializeSubsystem()
@@ -67,6 +67,7 @@ namespace IngameScript
             Program = program;
             GetParts();
             IntelProvider.AddIntelMutator(this);
+            ParseConfigs();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -92,6 +93,8 @@ namespace IngameScript
         public IMyInteriorLight DirectionIndicator { get; set; }
 
         public long HomeID { get; set; }
+
+        public HangarTags HangarTags = HangarTags.None;
 
         public void Dock(bool fake = false)
         {
@@ -150,11 +153,34 @@ namespace IngameScript
             return false;
         }
 
+        // [Docking]
+        // Tags = ABCDE
+        private void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(Program.Me.CustomData, out result))
+                return;
+
+            string tagString = Parser.Get("Docking", "Tags").ToString();
+            if (tagString.Contains("A")) HangarTags |= HangarTags.A;
+            if (tagString.Contains("B")) HangarTags |= HangarTags.B;
+            if (tagString.Contains("C")) HangarTags |= HangarTags.C;
+            if (tagString.Contains("D")) HangarTags |= HangarTags.D;
+            if (tagString.Contains("E")) HangarTags |= HangarTags.E;
+            if (tagString.Contains("F")) HangarTags |= HangarTags.F;
+            if (tagString.Contains("G")) HangarTags |= HangarTags.G;
+            if (tagString.Contains("H")) HangarTags |= HangarTags.H;
+            if (tagString.Contains("I")) HangarTags |= HangarTags.I;
+            if (tagString.Contains("J")) HangarTags |= HangarTags.J;
+        }
+
         #region IOwnIntelMutator
         public void ProcessIntel(FriendlyShipIntel myIntel)
         {
             myIntel.HomeID = HomeID;
             if (Connector.Status == MyShipConnectorStatus.Connected) myIntel.Radius = 0;
+            myIntel.HangarTags = HangarTags;
         }
         #endregion
     }
