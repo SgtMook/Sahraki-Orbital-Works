@@ -34,7 +34,7 @@ namespace IngameScript
             IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             HoneybeeMiningSystem miningSubsystem = new HoneybeeMiningSystem();
-            MonitorSubsystem monitorSubsystem = new MonitorSubsystem();
+            MonitorSubsystem monitorSubsystem = new MonitorSubsystem(intelSubsystem);
 
             subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
             subsystemManager.AddSubsystem("docking", dockingSubsystem);

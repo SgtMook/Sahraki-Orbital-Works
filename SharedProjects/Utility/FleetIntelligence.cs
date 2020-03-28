@@ -473,7 +473,7 @@ namespace IngameScript
         public string CommandChannelTag;
         public AgentClass AgentClass;
         public AgentStatus AgentStatus;
-        public Vector3I AgentData = Vector3I.Zero;
+        public Vector3I HydroPowerInv = Vector3I.Zero;
 
         public long HomeID = 0;
         public HangarTags HangarTags = HangarTags.None;
@@ -505,7 +505,7 @@ namespace IngameScript
                         fsi.CommandChannelTag,
                         (int)fsi.AgentClass,
                         (int)fsi.AgentStatus,
-                        fsi.AgentData
+                        fsi.HydroPowerInv
                     ),
                      MyTuple.Create
                     (
@@ -537,7 +537,7 @@ namespace IngameScript
             CommandChannelTag = unpacked.Item3.Item2;
             AgentClass = (AgentClass)unpacked.Item3.Item3;
             AgentStatus = (AgentStatus)unpacked.Item3.Item4;
-            AgentData = unpacked.Item3.Item5;
+            HydroPowerInv = unpacked.Item3.Item5;
 
             HomeID = unpacked.Item4.Item1;
             HangarTags = (HangarTags)unpacked.Item4.Item2;

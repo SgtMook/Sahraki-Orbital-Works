@@ -34,7 +34,7 @@ namespace IngameScript
             IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             HornetCombatSubsystem combatSubsystem = new HornetCombatSubsystem(intelSubsystem);
-            MonitorSubsystem monitorSubsystem = new MonitorSubsystem();
+            MonitorSubsystem monitorSubsystem = new MonitorSubsystem(intelSubsystem);
             StatusIndicatorSubsystem indicatorSubsystem = new StatusIndicatorSubsystem(dockingSubsystem, intelSubsystem);
 
             subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);

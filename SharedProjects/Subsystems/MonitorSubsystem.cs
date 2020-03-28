@@ -30,7 +30,7 @@ namespace IngameScript
     {
         float GetPercentage(MonitorOptions options);
     }
-    public class MonitorSubsystem : ISubsystem, IMonitorSubsystem
+    public class MonitorSubsystem : ISubsystem, IMonitorSubsystem, IOwnIntelMutator
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update100;
@@ -58,6 +58,7 @@ namespace IngameScript
             Program = program;
             GetParts();
             ParseConfigs();
+            IntelProvider.AddIntelMutator(this);
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -91,6 +92,12 @@ namespace IngameScript
         IMyBeacon Beacon;
 
         StringBuilder antennaBuilder = new StringBuilder();
+        IIntelProvider IntelProvider;
+
+        public MonitorSubsystem(IIntelProvider intelProvider)
+        {
+            IntelProvider = intelProvider;
+        }
 
         void GetParts()
         {
@@ -103,7 +110,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!block.IsSameConstructAs(Program.Me)) return false;
+            if (block.CubeGrid.EntityId != Program.Me.CubeGrid.EntityId) return false;
 
             if (block.HasInventory && block.CustomName.Contains("<M>")) Inventories.Add(block.GetInventory(block.InventoryCount - 1));
             if (block is IMyGasTank && 
@@ -197,5 +204,12 @@ namespace IngameScript
             antennaBuilder.Append("H:").Append((int)(hydrogenPercent * 100)).Append("|P:").Append((int)(powerPercent * 100)).Append("|C:").Append((int)(inventoryPercent * 100));
             Beacon.CustomName = antennaBuilder.ToString();
         }
+
+        #region IOwnIntelMutator
+        public void ProcessIntel(FriendlyShipIntel intel)
+        {
+            intel.HydroPowerInv = new Vector3I((int)(hydrogenPercent * 100), (int)(powerPercent * 100), (int)(inventoryPercent * 100));
+        }
+        #endregion
     }
 }

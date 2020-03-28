@@ -245,6 +245,7 @@ namespace IngameScript
             myIntel.CurrentCanonicalTime = timestamp;
             myIntel.ID = cubeGrid.EntityId;
             myIntel.HomeID = -1;
+            myIntel.AgentStatus = AgentStatus.None;
 
             foreach (var processor in intelProcessors)
                 processor.ProcessIntel(myIntel);
@@ -516,6 +517,7 @@ namespace IngameScript
             myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length() + 20;
             myIntel.CurrentCanonicalTime = timestamp + CanonicalTimeDiff;
             myIntel.ID = cubeGrid.EntityId;
+            myIntel.AgentStatus = AgentStatus.None;
 
             foreach (var processor in intelProcessors)
                 processor.ProcessIntel(myIntel);

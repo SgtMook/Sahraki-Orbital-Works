@@ -60,7 +60,7 @@ namespace IngameScript
             if (command == "attack") Attack(timestamp);
             if (command == "recall") RecallCrafts(timestamp);
             if (command == "autohome") AutoHomeCrafts(timestamp);
-            if (command == "toggleCAP") ToggleCAP(timestamp);
+            if (command == "cyclemode") CycleMode(timestamp);
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -86,7 +86,7 @@ namespace IngameScript
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             UpdateAlarms(timestamp);
-            UpdateCAP(timestamp);
+            UpdatePassiveCommand(timestamp);
         }
         #endregion
 
@@ -95,6 +95,7 @@ namespace IngameScript
             IntelProvider = intelProvider;
             Prioritizer = new EnemyPrioritizer(intelProvider);
             FriendlyPrioritizer = new FriendlyPrioritizer(intelProvider);
+            PatrolSpeed = (float)(2 * Math.PI * PatrolRange / PatrolSeconds);
         }
 
         MyGridProgram Program;
@@ -109,16 +110,34 @@ namespace IngameScript
 
         StringBuilder debugBuilder = new StringBuilder();
 
-        Vector3D[] PatrolPositions = new Vector3D[6]
+        enum DroneMode
         {
-            new Vector3D(800, 0, 0),
-            new Vector3D(-800, 0, 0),
-            new Vector3D(0, 800, 0),
-            new Vector3D(0, -800, 0),
-            new Vector3D(0, 0, 800),
-            new Vector3D(0, 0, -800),
+            None,
+            Recall,
+            Escort,
+            Patrol,
+            Attack,
+        }
+
+        DroneMode PassiveMode = DroneMode.None;
+
+        Vector3D[] EscortPositions = new Vector3D[6]
+        {
+            new Vector3D(200, 0, 0),
+            new Vector3D(-200, 0, 0),
+            new Vector3D(0, 200, 0),
+            new Vector3D(0, -200, 0),
+            new Vector3D(0, 0, 200),
+            new Vector3D(0, 0, -200),
         };
-        bool CAP = false;
+
+        int PatrolSeconds = 120;
+        int PatrolRange = 800;
+        float PatrolSpeed;
+
+        MatrixD PatrolXMatrix = MatrixD.Identity;
+        MatrixD PatrolYMatrix = MatrixD.Identity;
+        MatrixD PatrolZMatrix = MatrixD.Identity;
 
         bool alarm;
 
@@ -292,13 +311,15 @@ namespace IngameScript
             }
         }
 
-        private void UpdateCAP(TimeSpan timestamp)
+        private void UpdatePassiveCommand(TimeSpan timestamp)
         {
             debugBuilder.Clear();
-            debugBuilder.AppendLine(CAP.ToString());
-            if (CAP)
+            if (PassiveMode != DroneMode.None)
             {
+                debugBuilder.AppendLine(PatrolOffset(0).ToString());
                 FriendlyShipScratchpad.Clear();
+                DockIntelScratchpad.Clear();
+                EnemyShipScratchpad.Clear();
 
                 var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
                 foreach (var kvp in intelItems)
@@ -311,28 +332,139 @@ namespace IngameScript
                             FriendlyShipScratchpad.Add(friendly);
                         }
                     }
+                    else if (kvp.Key.Item1 == IntelItemType.Dock)
+                    {
+                        var dock = (DockIntel)kvp.Value;
+                        if (dock.OwnerID == -1)
+                            DockIntelScratchpad.Add(dock);
+                    }
+                    else if (kvp.Key.Item1 == IntelItemType.Enemy)
+                    {
+                        var enemy = (EnemyShipIntel)kvp.Value;
+                        if (EnemyShipIntel.PrioritizeTarget(enemy) && IntelProvider.GetPriority(enemy.ID) > 1)
+                            EnemyShipScratchpad.Add(enemy);
+                    }
                 }
-
                 FriendlyShipScratchpad.Sort(FriendlyPrioritizer);
+                EnemyShipScratchpad.Sort(Prioritizer);
+                EnemyShipScratchpad.Reverse();
 
-                debugBuilder.AppendLine(FriendlyShipScratchpad.Count.ToString());
+                int enemyIndex = 0;
 
-                for (int i = 0; i < PatrolPositions.Count() && i < FriendlyShipScratchpad.Count(); i++)
+                if (PassiveMode == DroneMode.Patrol) UpdatePatrolMatrices(timestamp.TotalSeconds % PatrolSeconds);
+
+                debugBuilder.Append("FRIENDLY: " + FriendlyShipScratchpad.Count);
+
+                for (int i = 0;i < FriendlyShipScratchpad.Count(); i++)
                 {
-                    var pos = Program.Me.CubeGrid.WorldMatrix.Translation + PatrolPositions[i];
-                    var waypoint = new Waypoint();
-                    waypoint.Position = pos;
-                    debugBuilder.AppendLine(pos.ToString());
-                    waypoint.Velocity = Controller.GetShipVelocities().LinearVelocity;
-                    IntelProvider.ReportFleetIntelligence(waypoint, timestamp);
-                    IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Attack, MyTuple.Create(IntelItemType.Waypoint, waypoint.ID), timestamp);
+                    debugBuilder.Append($"{i} HOME ID {FriendlyShipScratchpad[i].HomeID}");
+                    // Set home first
+                    if (FriendlyShipScratchpad[i].HomeID == -1)
+                    {
+                        for (int j = 0; j < DockIntelScratchpad.Count; j++)
+                        {
+                            if (DockIntel.TagsMatch(FriendlyShipScratchpad[i].HangarTags, DockIntelScratchpad[j].Tags))
+                            {
+                                IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.SetHome, MyTuple.Create(IntelItemType.Dock, DockIntelScratchpad[j].ID), timestamp);
+                                DockIntelScratchpad.Remove(DockIntelScratchpad[j]);
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+
+                    debugBuilder.Append($"{i} VITALS {FriendlyShipScratchpad[i].HydroPowerInv}");
+                    // If low OR if we are on recall mode
+                    if (VitalsLow(FriendlyShipScratchpad[i]) || PassiveMode == DroneMode.Recall)
+                    {
+                        // If not recalling or docked
+                        if ((FriendlyShipScratchpad[i].AgentStatus & (AgentStatus.Recalling | AgentStatus.DockedAtHome)) == 0) IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Dock, MyTuple.Create(IntelItemType.NONE, (long)0), timestamp);
+                        continue;
+                    }
+
+                    debugBuilder.Append($"{i} DOCKED {(FriendlyShipScratchpad[i].AgentStatus & AgentStatus.DockedAtHome) != 0}");
+                    // If docked
+                    if ((FriendlyShipScratchpad[i].AgentStatus & AgentStatus.DockedAtHome) != 0 && (!VitalsHigh(FriendlyShipScratchpad[i]) || PassiveMode == DroneMode.Recall))
+                    {
+                        continue;
+                    }
+
+                    if ((PassiveMode == DroneMode.Escort || (PassiveMode == DroneMode.Attack && EnemyShipScratchpad.Count == 0)) && EscortPositions.Length > i)
+                    {
+                        var pos = Program.Me.CubeGrid.WorldMatrix.Translation + EscortPositions[i];
+                        var waypoint = new Waypoint();
+                        waypoint.Position = pos;
+                        waypoint.Velocity = Controller.GetShipVelocities().LinearVelocity;
+                        IntelProvider.ReportFleetIntelligence(waypoint, timestamp);
+                        IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Attack, MyTuple.Create(IntelItemType.Waypoint, waypoint.ID), timestamp);
+                    }
+                    else if ((PassiveMode == DroneMode.Patrol) && EscortPositions.Length > i)
+                    {
+                        var pos = Program.Me.CubeGrid.WorldMatrix.Translation + PatrolOffset(i);
+                        var waypoint = new Waypoint();
+                        waypoint.Position = pos;
+                        waypoint.Velocity = Controller.GetShipVelocities().LinearVelocity;
+                        waypoint.MaxSpeed = (float)(Controller.GetShipSpeed() + PatrolSpeed);
+                        IntelProvider.ReportFleetIntelligence(waypoint, timestamp);
+                        IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Attack, MyTuple.Create(IntelItemType.Waypoint, waypoint.ID), timestamp);
+                    }
+                    else if (PassiveMode == DroneMode.Attack)
+                    {
+                        IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Attack, MyTuple.Create(IntelItemType.Enemy, EnemyShipScratchpad[enemyIndex].ID), timestamp);
+                        enemyIndex++;
+                        if (enemyIndex >= EnemyShipScratchpad.Count) enemyIndex = 0;
+                    }
                 }
             }
         }
 
-        private void ToggleCAP(TimeSpan timestamp)
+        private void CycleMode(TimeSpan timestamp)
         {
-            CAP = !CAP;
+            if (PassiveMode == DroneMode.None) PassiveMode = DroneMode.Recall;
+            else if (PassiveMode == DroneMode.Recall) PassiveMode = DroneMode.Escort;
+            else if (PassiveMode == DroneMode.Escort) PassiveMode = DroneMode.Patrol;
+            else if (PassiveMode == DroneMode.Patrol) PassiveMode = DroneMode.Attack;
+            else if (PassiveMode == DroneMode.Attack) PassiveMode = DroneMode.None;
+        }
+
+        private bool VitalsLow(FriendlyShipIntel ship)
+        {
+            return ship.HydroPowerInv.X < 25 || ship.HydroPowerInv.Y < 15 || ship.HydroPowerInv.Z < 8;
+        }
+
+        private bool VitalsHigh(FriendlyShipIntel ship)
+        {
+            return ship.HydroPowerInv.X > 95 && ship.HydroPowerInv.Y > 20 && ship.HydroPowerInv.Z > 50;
+        }
+
+        private void UpdatePatrolMatrices(double timeMod)
+        {
+            double theta = Math.PI * 2 * timeMod / PatrolSeconds;
+
+            PatrolXMatrix.M22 = (float)Math.Cos(theta);
+            PatrolXMatrix.M23 = (float)Math.Sin(theta);
+            PatrolXMatrix.M32 = -(float)Math.Sin(theta);
+            PatrolXMatrix.M33 = (float)Math.Cos(theta);
+
+            PatrolYMatrix.M11 = (float)Math.Cos(theta);
+            PatrolYMatrix.M13 = (float)Math.Sin(theta);
+            PatrolYMatrix.M31 = -(float)Math.Sin(theta);
+            PatrolYMatrix.M33 = (float)Math.Cos(theta);
+
+            PatrolZMatrix.M11 = (float)Math.Cos(theta);
+            PatrolZMatrix.M12 = (float)Math.Sin(theta);
+            PatrolZMatrix.M21 = -(float)Math.Sin(theta);
+            PatrolZMatrix.M22 = (float)Math.Cos(theta);
+        }
+
+        private Vector3D PatrolOffset(int index)
+        {
+            if (index == 0) return Vector3D.Transform(new Vector3D(PatrolRange, 0, 0), PatrolYMatrix);
+            if (index == 1) return Vector3D.Transform(new Vector3D(0, PatrolRange, 0), PatrolZMatrix);
+            if (index == 2) return Vector3D.Transform(new Vector3D(0, 0, PatrolRange), PatrolXMatrix);
+            if (index == 3) return Vector3D.Transform(new Vector3D(-PatrolRange, 0, 0), PatrolYMatrix);
+            if (index == 4) return Vector3D.Transform(new Vector3D(0, -PatrolRange, 0), PatrolZMatrix);
+            return Vector3D.Transform(new Vector3D(0, 0, -PatrolRange), PatrolXMatrix);
         }
     }
 }

@@ -40,8 +40,11 @@ namespace IngameScript
     [Flags]
     public enum AgentStatus
     {
+        None = 0,
         Idle = 1 << 0, // This agent is ready to receive and execute a command
+        DockedAtHome = 1 << 1, // This agent is docked
         Engaged = 1 << 10, // This agent is engaged in combat
+        Recalling = 1 << 11, // This agent is returning to base
     }
 
     public interface IAgentSubsystem
@@ -152,7 +155,8 @@ namespace IngameScript
                 myIntel.CommandChannelTag = CommandChannelTag;
                 myIntel.AcceptedTaskTypes = AvailableTasks;
                 myIntel.AgentClass = AgentClass;
-                if (TaskQueue.Count == 0) myIntel.AgentStatus = AgentStatus.Idle;
+                if (TaskQueue.Count == 0) myIntel.AgentStatus |= AgentStatus.Idle;
+                else if (TaskQueue.Peek() is MoveToAndDockTask) myIntel.AgentStatus |= AgentStatus.Recalling;
             }
         }
         #endregion

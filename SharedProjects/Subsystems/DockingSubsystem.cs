@@ -179,7 +179,11 @@ namespace IngameScript
         public void ProcessIntel(FriendlyShipIntel myIntel)
         {
             myIntel.HomeID = HomeID;
-            if (Connector.Status == MyShipConnectorStatus.Connected) myIntel.Radius = 0;
+            if (Connector.Status == MyShipConnectorStatus.Connected)
+            {
+                myIntel.Radius = 0;
+                if(Connector.OtherConnector.EntityId == HomeID) myIntel.AgentStatus |= AgentStatus.DockedAtHome;
+            }
             myIntel.HangarTags = HangarTags;
         }
         #endregion

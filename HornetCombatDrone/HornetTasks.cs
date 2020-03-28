@@ -71,8 +71,8 @@ namespace IngameScript
         {
             if (canonicalTime == TimeSpan.Zero) return;
 
-            if (MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.3 ||
-                MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) < 0.1 ||
+            if (MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.2 ||
+                MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) < 0.02 ||
                 MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.1)
             {
                 GoHome(canonicalTime);
@@ -82,11 +82,15 @@ namespace IngameScript
             IMyShipController controller = Autopilot.Controller;
             Vector3D linearVelocity = controller.GetShipVelocities().LinearVelocity;
             var currentPosition = controller.WorldMatrix.Translation;
+            LeadTask.Destination.MaxSpeed = 98;
 
             if (!TargetPositionSet)
             {
                 if (IntelKey.Item1 == IntelItemType.Waypoint && IntelItems.ContainsKey(IntelKey))
+                {
                     TargetPosition = IntelItems[IntelKey].GetPositionFromCanonicalTime(canonicalTime);
+                    PatrolMaxSpeed = ((Waypoint)IntelItems[IntelKey]).MaxSpeed;
+                }
                 TargetPositionSet = true;
             }
 
@@ -138,6 +142,7 @@ namespace IngameScript
                 }
                 else if (TargetPosition != Vector3.Zero)
                 {
+                    LeadTask.Destination.MaxSpeed = PatrolMaxSpeed;
                     LeadTask.Destination.Position = TargetPosition;
                 }
                 else
@@ -147,7 +152,8 @@ namespace IngameScript
                 }
 
                 Vector3D toTarget = LeadTask.Destination.Position - Program.Me.WorldMatrix.Translation;
-                LeadTask.Destination.Direction = toTarget;
+                if (toTarget.LengthSquared() > 400) LeadTask.Destination.Direction = toTarget;
+                else LeadTask.Destination.Direction = Vector3D.Zero;
 
                 LastAcceleration = Vector3D.Zero;
                 LastReference = MatrixD.Zero;
@@ -221,6 +227,8 @@ namespace IngameScript
         Vector3D LastLinearVelocity = Vector3D.Zero;
         Vector3D LastAcceleration = Vector3D.Zero;
         MatrixD LastReference = MatrixD.Zero;
+
+        float PatrolMaxSpeed = 98;
 
         public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider)
         {
