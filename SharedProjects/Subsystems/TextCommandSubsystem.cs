@@ -313,10 +313,8 @@ namespace IngameScript
 
         private void UpdatePassiveCommand(TimeSpan timestamp)
         {
-            debugBuilder.Clear();
             if (PassiveMode != DroneMode.None)
             {
-                debugBuilder.AppendLine(PatrolOffset(0).ToString());
                 FriendlyShipScratchpad.Clear();
                 DockIntelScratchpad.Clear();
                 EnemyShipScratchpad.Clear();
@@ -353,11 +351,8 @@ namespace IngameScript
 
                 if (PassiveMode == DroneMode.Patrol) UpdatePatrolMatrices(timestamp.TotalSeconds % PatrolSeconds);
 
-                debugBuilder.Append("FRIENDLY: " + FriendlyShipScratchpad.Count);
-
                 for (int i = 0;i < FriendlyShipScratchpad.Count(); i++)
                 {
-                    debugBuilder.Append($"{i} HOME ID {FriendlyShipScratchpad[i].HomeID}");
                     // Set home first
                     if (FriendlyShipScratchpad[i].HomeID == -1)
                     {
@@ -373,7 +368,6 @@ namespace IngameScript
                         continue;
                     }
 
-                    debugBuilder.Append($"{i} VITALS {FriendlyShipScratchpad[i].HydroPowerInv}");
                     // If low OR if we are on recall mode
                     if (VitalsLow(FriendlyShipScratchpad[i]) || PassiveMode == DroneMode.Recall)
                     {
@@ -382,7 +376,6 @@ namespace IngameScript
                         continue;
                     }
 
-                    debugBuilder.Append($"{i} DOCKED {(FriendlyShipScratchpad[i].AgentStatus & AgentStatus.DockedAtHome) != 0}");
                     // If docked
                     if ((FriendlyShipScratchpad[i].AgentStatus & AgentStatus.DockedAtHome) != 0 && (!VitalsHigh(FriendlyShipScratchpad[i]) || PassiveMode == DroneMode.Recall))
                     {

@@ -104,13 +104,14 @@ namespace IngameScript
                 return;
 
             string mutexes = Host.IniParser.Get("Hangar", "Mutex").ToString();
-            if (mutexes == string.Empty) return;
-
-            var split = mutexes.Split(',');
-            foreach (var i in split)
+            if (mutexes != string.Empty)
             {
-                int index;
-                if (int.TryParse(i, out index)) MutexHangars.Add(index);
+                var split = mutexes.Split(',');
+                foreach (var i in split)
+                {
+                    int index;
+                    if (int.TryParse(i, out index)) MutexHangars.Add(index);
+                }
             }
 
             float dist = Host.IniParser.Get("Hangar", "ClearanceDist").ToInt16();
@@ -255,8 +256,9 @@ namespace IngameScript
                 statusBuilder.Append(i).Append(' ');
 
             statusBuilder.AppendLine(((int)hangarStatus).ToString());
+            statusBuilder.AppendLine(((int)HangarTags).ToString());
 
-            display.WriteText(debugBuilder.ToString());
+            display.WriteText(statusBuilder.ToString());
         }
 
         public string Serialize()
