@@ -900,7 +900,7 @@ namespace IngameScript
             Builder.AppendLine("===== COMMAND =====");
             Builder.AppendLine();
             Builder.Append(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, -1)]).Append("    [").Append(AgentClassTags[AgentSelection_CurrentClass]).Append("]    ").AppendLine(AgentClassTags[AgentClassAdd(AgentSelection_CurrentClass, +1)]);
-            if (CurrentUIMode == UIMode.SelectAgent) Builder.AppendLine("[<A]           [D>]");
+            if (CurrentUIMode == UIMode.SelectAgent) Builder.AppendLine("[<4]           [6>]");
             else Builder.AppendLine();
 
             Builder.AppendLine();
@@ -935,7 +935,7 @@ namespace IngameScript
             if (AgentSelection_CurrentIndex < AgentSelection_FriendlyAgents.Count)
             {
                 Host.AppendPaddedLine(kRowLength, AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex].DisplayName, Builder);
-                if (CurrentUIMode == UIMode.SelectAgent) Host.AppendPaddedLine(kRowLength, "[SPACE] SELECT TGT", Builder);
+                if (CurrentUIMode == UIMode.SelectAgent) Host.AppendPaddedLine(kRowLength, "[NUM 0] SELECT TGT", Builder);
             }
             else
             {
@@ -1038,7 +1038,7 @@ namespace IngameScript
                 Append("    [").Append(TaskTypeTags[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]).Append("]    ").
                 AppendLine(TaskTypeTags[TargetSelection_TaskTypes[Host.CustomMod(TargetSelection_TaskTypesIndex + 1, TargetSelection_TaskTypes.Count)]]);
 
-            if (CurrentUIMode == UIMode.SelectTarget) Builder.AppendLine("[<A]           [D>]");
+            if (CurrentUIMode == UIMode.SelectTarget) Builder.AppendLine("[<4]           [6>]");
             else Builder.AppendLine();
             Builder.AppendLine();
 
@@ -1099,8 +1099,8 @@ namespace IngameScript
                 Host.AppendPaddedLine(kRowLength, TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex], Builder);
                 if (CurrentUIMode == UIMode.SelectTarget)
                 {
-                    Host.AppendPaddedLine(kRowLength, "[SPACE] SELECT", Builder);
-                    Host.AppendPaddedLine(kRowLength, "[C] CANCLE CMD", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[NUM 0] SELECT", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[7] CANCLE CMD", Builder);
                 }
             }
             else if (specialCount <= TargetSelection_TargetIndex && TargetSelection_TargetIndex < TargetSelection_Targets.Count + specialCount)
@@ -1108,8 +1108,8 @@ namespace IngameScript
                 Host.AppendPaddedLine(kRowLength, TargetSelection_Targets[TargetSelection_TargetIndex - specialCount].ID.ToString(), Builder);
                 if (CurrentUIMode == UIMode.SelectTarget)
                 {
-                    Host.AppendPaddedLine(kRowLength, "[SPACE] SEND CMD", Builder);
-                    Host.AppendPaddedLine(kRowLength, "[C] CANCLE CMD", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[NUM 0] SEND CMD", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[7] CANCLE CMD", Builder);
                 }
             }
             else
@@ -1374,13 +1374,13 @@ namespace IngameScript
                 Host.AppendPaddedLine(kRowLength, "STATUS: AVAILABLE", Builder);
                 int p = (int)(Host.ActiveLookingGlass.SecondaryCameras[Host.ActiveLookingGlass.Lidar_CameraIndex].AvailableScanRange * 10 / kScanDistance);
                 Builder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", Host.ActiveLookingGlass.SecondaryCameras[Host.ActiveLookingGlass.Lidar_CameraIndex].AvailableScanRange / 1000)).AppendLine("km");
-                Host.AppendPaddedLine(kRowLength, "[SPACE] SCAN", Builder);
+                Host.AppendPaddedLine(kRowLength, "[NUM 0] SCAN", Builder);
                 Host.AppendPaddedLine(kRowLength, Host.ActiveLookingGlass.LastDetectedInfo.Type.ToString(), Builder);
             }
             else
             {
                 Host.AppendPaddedLine(kRowLength, "STATUS: UNAVAILABLE", Builder);
-                Host.AppendPaddedLine(kRowLength, "[SPACE] CYCLE", Builder);
+                Host.AppendPaddedLine(kRowLength, "[NUM 0] CYCLE", Builder);
             }
 
             Host.ActiveLookingGlass.LeftHUD.WriteText(Builder.ToString());
@@ -1412,8 +1412,8 @@ namespace IngameScript
                 return;
             }
         
-            Builder.AppendLine("W/S: SELECT");
-            Builder.AppendLine("A/D: +/- PRIORITY");
+            Builder.AppendLine("8/5: SELECT");
+            Builder.AppendLine("4/6: +/- PRIORITY");
             Builder.AppendLine();
         
             for (int i = 0; i < 12; i++)

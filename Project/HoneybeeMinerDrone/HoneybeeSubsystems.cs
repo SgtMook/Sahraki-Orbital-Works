@@ -72,6 +72,7 @@ namespace IngameScript
         List<IMyShipDrill> Drills = new List<IMyShipDrill>();
         List<IMySensorBlock> Sensors = new List<IMySensorBlock>();
         List<IMySensorBlock> NearSensors = new List<IMySensorBlock>();
+        List<IMySensorBlock> FarSensors = new List<IMySensorBlock>();
 
         List<MyDetectedEntityInfo> DetectedEntityScratchpad = new List<MyDetectedEntityInfo>();
 
@@ -93,8 +94,9 @@ namespace IngameScript
             if (block is IMyShipDrill) Drills.Add((IMyShipDrill)block);
             if (block is IMySensorBlock)
             {
-                if (block.CustomName.Contains("[N]")) Sensors.Add((IMySensorBlock)block);
-                else NearSensors.Add((IMySensorBlock)block);
+                if (block.CustomName.Contains("[N]")) NearSensors.Add((IMySensorBlock)block);
+                else if (block.CustomName.Contains("[F]")) FarSensors.Add((IMySensorBlock)block);
+                else Sensors.Add((IMySensorBlock)block);
             }
             return false;
         }
@@ -151,6 +153,12 @@ namespace IngameScript
         {
             DetectedEntityScratchpad.Clear();
             foreach (var sensor in Sensors) sensor.DetectedEntities(DetectedEntityScratchpad);
+            return DetectedEntityScratchpad.Count == 0;
+        }
+        public bool SensorsFarClear()
+        {
+            DetectedEntityScratchpad.Clear();
+            foreach (var sensor in FarSensors) sensor.DetectedEntities(DetectedEntityScratchpad);
             return DetectedEntityScratchpad.Count == 0;
         }
         public bool SensorsBack()

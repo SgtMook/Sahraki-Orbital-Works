@@ -51,7 +51,7 @@ namespace IngameScript
         #region ITask
         public TaskStatus Status { get; private set; }
 
-        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime)
+        public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
             IMyShipController controller = Autopilot.Controller;
             var currentPosition = controller.WorldMatrix.Translation;
@@ -109,8 +109,10 @@ namespace IngameScript
                 }
             }
 
-            LeadTask.Do(IntelItems, canonicalTime);
+            LeadTask.Do(IntelItems, canonicalTime, profiler);
         }
+
+        public string Name => "LocustAttackTask";
         #endregion
 
         WaypointTask LeadTask;

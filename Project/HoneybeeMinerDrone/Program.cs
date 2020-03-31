@@ -48,10 +48,10 @@ namespace IngameScript
             undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(this, autopilotSubsystem));
             DockTaskGenerator dockTaskGenerator = new DockTaskGenerator(this, autopilotSubsystem, dockingSubsystem);
             undockingTaskGenerator.AddTaskGenerator(dockTaskGenerator);
-            undockingTaskGenerator.AddTaskGenerator(new HoneybeeMiningTaskGenerator(this, miningSubsystem, autopilotSubsystem, agentSubsystem, dockTaskGenerator, intelSubsystem, monitorSubsystem));
 
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));
+            agentSubsystem.AddTaskGenerator(new HoneybeeMiningTaskGenerator(this, miningSubsystem, autopilotSubsystem, agentSubsystem, dockTaskGenerator, undockingTaskGenerator, intelSubsystem, monitorSubsystem));
             subsystemManager.AddSubsystem("agent", agentSubsystem);
 
             subsystemManager.AddSubsystem("indicator", new StatusIndicatorSubsystem(dockingSubsystem, intelSubsystem));

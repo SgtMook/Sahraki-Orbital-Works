@@ -197,13 +197,19 @@ namespace IngameScript
             if (DockingSubsystem.Connector.Status != MyShipConnectorStatus.Connected) return mainTask;
 
             CompoundTask.Reset();
-            UndockSeperationTask.Reset(canonicalTime);
-            CompoundTask.TaskQueue.Enqueue(UndockSeperationTask);
+            
+            CompoundTask.TaskQueue.Enqueue(GenerateUndockTask(canonicalTime));
             CompoundTask.TaskQueue.Enqueue(mainTask);
 
             return CompoundTask;
         }
         #endregion
+
+        public ITask GenerateUndockTask(TimeSpan canonicalTime)
+        {
+            UndockSeperationTask.Reset(canonicalTime);
+            return UndockSeperationTask;
+        }
 
         readonly IAutopilot Autopilot;
         readonly MyGridProgram Program;
@@ -714,7 +720,7 @@ namespace IngameScript
 
             Vector3 approachPoint = dock.WorldMatrix.Forward * dock.UndockFar + dockPosition;
             Vector3 entryPoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f) + 1) + dockPosition;
-            Vector3 closePoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1.25f : 0.5f)) + dockPosition;
+            Vector3 closePoint = dock.WorldMatrix.Forward * (dock.UndockNear + (DockSize == MyCubeSize.Large ? 1f : 0.25f)) + dockPosition;
 
             Vector3 dockDirection = dock.WorldMatrix.Backward;
 

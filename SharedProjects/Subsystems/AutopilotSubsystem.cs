@@ -32,6 +32,7 @@ namespace IngameScript
         void Clear();
 
         float GetBrakingDistance();
+        float GetMaxSpeedFromBrakingDistance(float maxSpeed);
 
         IMyShipController Controller { get; }
         IMyTerminalBlock Reference { get; set; }
@@ -203,6 +204,15 @@ namespace IngameScript
             float aMax = 0.8f * maxThrust / controller.CalculateShipMass().PhysicalMass;
             float decelTime = speed / aMax;
             return speed * decelTime - 0.5f * aMax * decelTime * decelTime;
+        }
+
+        public float GetMaxSpeedFromBrakingDistance(float distance)
+        {
+            var speed = (float)controller.GetShipVelocities().LinearVelocity.Length();
+            var maxThrust = thrusts[0];
+            float aMax = 0.8f * maxThrust / controller.CalculateShipMass().PhysicalMass;
+
+            return (float)Math.Sqrt(2 * distance * aMax);
         }
 
         public IMyShipController Controller => controller;

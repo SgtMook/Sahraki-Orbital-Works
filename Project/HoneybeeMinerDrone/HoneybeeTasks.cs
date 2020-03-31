@@ -45,9 +45,7 @@ namespace IngameScript
 
             if (host == null) return new NullTask();
 
-            var dockTask = DockTaskGenerator.GenerateMoveToAndDockTask(MyTuple.Create(IntelItemType.NONE, (long)0), IntelItems, 40);
-
-            return new HoneyMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, dockTask, IntelProvider, MonitorSubsystem);
+            return new HoneybeeMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, IntelProvider, MonitorSubsystem, DockTaskGenerator, UndockTaskGenerator);
         }
         #endregion
 
@@ -56,45 +54,45 @@ namespace IngameScript
         IAutopilot Autopilot;
         IAgentSubsystem AgentSubsystem;
         DockTaskGenerator DockTaskGenerator;
+        UndockFirstTaskGenerator UndockTaskGenerator;
         IIntelProvider IntelProvider;
         IMonitorSubsystem MonitorSubsystem;
 
-        public HoneybeeMiningTaskGenerator(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, DockTaskGenerator dockTaskGenerator, IIntelProvider intelProvder, IMonitorSubsystem monitorSubsystem)
+        public HoneybeeMiningTaskGenerator(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, DockTaskGenerator dockTaskGenerator, UndockFirstTaskGenerator undockTaskGenerator, IIntelProvider intelProvder, IMonitorSubsystem monitorSubsystem)
         {
             Program = program;
             MiningSystem = miningSystem;
             Autopilot = autopilot;
             AgentSubsystem = agentSubsystem;
             DockTaskGenerator = dockTaskGenerator;
+            UndockTaskGenerator = undockTaskGenerator;
             IntelProvider = intelProvder;
             MonitorSubsystem = monitorSubsystem;
         }
     }
 
 
-    public class HoneyMiningTask : ITask
+    public class HoneybeeMiningTask : ITask
     {
         #region ITask
         public TaskStatus Status { get; private set; }
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
-            if (state < 3 && MiningSystem.Recalling > 0)
+            AgentSubsystem.Status = state.ToString();
+            if (MiningSystem.Recalling > 0 || currentPosition >= minePositions.Length)
             {
-                state = 3;
+                Recalling = true;
             }
-            if (state == 0) // Approaching asteroid
-            {
-                LeadTask.Do(IntelItems, canonicalTime, profiler);
-                if (LeadTask.Status == TaskStatus.Complete) state = 1;
-            }
-            else if (state == 1) // Diving to surface of asteroid
+            if (Recalling && state < 3) state = 3;
+            if (state == 1) // Diving to surface of asteroid
             {
                 MineTask.Do(IntelItems, canonicalTime, profiler);
+                MineTask.Destination.MaxSpeed = Autopilot.GetMaxSpeedFromBrakingDistance(kFarSensorDist);
 
-                if (MineTask.Status == TaskStatus.Complete || !MiningSystem.SensorsClear())
+                if (MineTask.Status == TaskStatus.Complete || !MiningSystem.SensorsFarClear())
                 {
-                    EntryPoint = Autopilot.Reference.WorldMatrix.Translation;
+                    EntryPoint = Autopilot.Reference.WorldMatrix.Translation + MineTask.Destination.Direction * (kFarSensorDist - 10);
                     MineTask.Destination.MaxSpeed = 1f;
                     state = 2;
                 }
@@ -113,6 +111,7 @@ namespace IngameScript
 
                 if (GoHomeCheck() || (Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 20)
                 {
+                    if ((Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 20) currentPosition++;
                     state = 3;
                     MineTask.Destination.MaxSpeed = 1;
                 }
@@ -131,20 +130,18 @@ namespace IngameScript
                     }
                     else
                     {
-                        if (GoHomeCheck()) state = 4;
-                        else state = 10;
+                        state = 10;
                     }
                 }
             }
             else if (state == 10) // Resuming to approach point
             {
-                LeadTask.Destination.Position = ApproachPoint;
-                LeadTask.Do(IntelItems, canonicalTime, profiler);
-                if (LeadTask.Status == TaskStatus.Complete)
+                if (GoHomeCheck() || Recalling) state = 4;
+                else
                 {
-                    currentPosition++;
-                    if (currentPosition >= minePositions.Length) state = 4;
-                    else
+                    LeadTask.Destination.Position = ApproachPoint;
+                    LeadTask.Do(IntelItems, canonicalTime, profiler);
+                    if (LeadTask.Status == TaskStatus.Complete)
                     {
                         LeadTask.Destination.Position = ApproachPoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist);
                         LeadTask.Destination.MaxSpeed = 10;
@@ -155,21 +152,50 @@ namespace IngameScript
             }
             else if (state == 11) // Search for the digging spot
             {
-                if (GoHomeCheck()) state = 4;
-                LeadTask.Do(IntelItems, canonicalTime, profiler);
-                if (LeadTask.Status == TaskStatus.Complete)
+                if (GoHomeCheck() || Recalling) state = 4;
+                else
                 {
-                    state = 1;
-                    MineTask.Destination.Position = SurfacePoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist) - MineTask.Destination.Direction * MiningSystem.CloseDist;
-                    MiningEnd = SurfacePoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist) + MineTask.Destination.Direction * MiningDepth;
+                    LeadTask.Do(IntelItems, canonicalTime, profiler);
+                    if (LeadTask.Status == TaskStatus.Complete)
+                    {
+                        state = 1;
+                        MineTask.Destination.Position = SurfacePoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist) - MineTask.Destination.Direction * MiningSystem.CloseDist;
+                        MiningEnd = SurfacePoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist) + MineTask.Destination.Direction * MiningDepth;
+                    }
                 }
             }
             else if (state == 4) // Going home
             {
+                if (HomeTask == null)
+                {
+                    HomeTask = DockTaskGenerator.GenerateMoveToAndDockTask(MyTuple.Create(IntelItemType.NONE, (long)0), IntelItems, 40);
+                }
                 HomeTask.Do(IntelItems, canonicalTime, profiler);
-                if (HomeTask.Status != TaskStatus.Incomplete) state = 5;
+                if (HomeTask.Status != TaskStatus.Incomplete)
+                {
+                    HomeTask = null;
+                    state = 5;
+                }
             }
-            else
+            else if (state == 5) // Waiting for refuel/unload
+            {
+                if (Recalling) state = 9999;
+                if (LeaveHomeCheck()) state = 6;
+            }
+            else if (state == 6) // Undocking
+            { 
+                if (UndockTask == null)
+                {
+                    UndockTask = UndockTaskGenerator.GenerateUndockTask(canonicalTime);
+                }
+                UndockTask.Do(IntelItems, canonicalTime, profiler);
+                if (UndockTask.Status != TaskStatus.Incomplete)
+                {
+                    UndockTask = null;
+                    state = 10;
+                }
+            }
+            else if (state == 9999)
             {
                 Status = TaskStatus.Complete;
             }
@@ -193,14 +219,22 @@ namespace IngameScript
         Vector3D MiningEnd;
         Vector3D Perpendicular;
         Vector3D SurfacePoint;
-        ITask HomeTask;
+        ITask HomeTask = null;
+        ITask UndockTask = null;
+
+        DockTaskGenerator DockTaskGenerator;
+        UndockFirstTaskGenerator UndockTaskGenerator;
 
         int currentPosition = 0;
         
         double MiningDepth;
         double SurfaceDist;
 
-        int state = 0;
+        int state = 6;
+
+        bool Recalling = false;
+
+        const int kFarSensorDist = 40;
 
         Vector2I[] minePositions = new Vector2I[]
         {
@@ -228,10 +262,28 @@ namespace IngameScript
             new Vector2I(-2,-1),
             new Vector2I(-2,0),
             new Vector2I(-2,1),
-            new Vector2I(-2,2)
+            new Vector2I(-2,2),
+            new Vector2I(-3,-2),
+            new Vector2I(-3,-1),
+            new Vector2I(-3,0),
+            new Vector2I(-3,1),
+            new Vector2I(-3,2),
+            new Vector2I(-3,3),
+            new Vector2I(-2,3),
+            new Vector2I(-1,3),
+            new Vector2I(-0,3),
+            new Vector2I(1,3),
+            new Vector2I(2,3),
+            new Vector2I(3,3),
+            new Vector2I(3,2),
+            new Vector2I(3,1),
+            new Vector2I(3,0),
+            new Vector2I(3,-1),
+            new Vector2I(3,-2),
+            new Vector2I(3,-3),
         };
 
-        public HoneyMiningTask(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, Waypoint target, AsteroidIntel host, ITask homeTask, IIntelProvider intelProvider, IMonitorSubsystem monitorSubsystem)
+        public HoneybeeMiningTask(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, Waypoint target, AsteroidIntel host, IIntelProvider intelProvider, IMonitorSubsystem monitorSubsystem, DockTaskGenerator dockTaskGenerator, UndockFirstTaskGenerator undockTaskGenerator)
         {
             Program = program;
             MiningSystem = miningSystem;
@@ -277,7 +329,8 @@ namespace IngameScript
 
             AgentSubsystem.Status = Perpendicular.Dot(target.Direction).ToString() + " " + Perpendicular.Cross(MineTask.Destination.Direction).Dot(target.Direction).ToString();
 
-            HomeTask = homeTask;
+            DockTaskGenerator = dockTaskGenerator;
+            UndockTaskGenerator = undockTaskGenerator;
         }
 
         // https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
@@ -292,6 +345,13 @@ namespace IngameScript
             return MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) > 0.96 ||
                    MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.2 ||
                    MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.2;
+        }
+
+        private bool LeaveHomeCheck()
+        {
+            return MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) < 0.01 &&
+                   MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) > 0.9 &&
+                   MonitorSubsystem.GetPercentage(MonitorOptions.Power) > 0.4;
         }
 
         private Vector3D GetPerpendicular(Vector3D vector)
