@@ -143,6 +143,7 @@ namespace IngameScript
             if (block is IMyInteriorLight && (DirectionIndicator == null || block.CustomName.Contains("[D]"))) DirectionIndicator = (IMyInteriorLight)block;
 
             if (block is IMyThrust) TurnOnOffList.Add((IMyFunctionalBlock)block);
+            if (block is IMyCameraBlock) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyRadioAntenna) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyGyro) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyLargeTurretBase) TurnOnOffList.Add((IMyFunctionalBlock)block);

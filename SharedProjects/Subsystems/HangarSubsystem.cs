@@ -31,6 +31,7 @@ namespace IngameScript
         Unclaim,
         Reserve,
         Open,
+        RequestLaunch,
     }
 
     public class Hangar
@@ -53,7 +54,9 @@ namespace IngameScript
         public HangarSubsystem Host;
 
         TimeSpan lastClaimTime;
+        TimeSpan lastLaunchTime;
         TimeSpan kClaimTimeout = TimeSpan.FromSeconds(1);
+        TimeSpan kLaunchTimeout = TimeSpan.FromSeconds(3);
 
         List<int> MutexHangars = new List<int>();
         public float ClearanceDist = 40;
@@ -152,7 +155,7 @@ namespace IngameScript
             {
                 if (OwnerID != -1 && OwnerID != requesterID) return;
                 Claim(requesterID, timestamp);
-                MakeReady();
+                MakeReadyToDock();
             }
             else if (request == HangarRequest.Reserve)
             {
@@ -165,24 +168,34 @@ namespace IngameScript
                 if (OwnerID != requesterID) return;
                 Unclaim();
             }
+            else if (request == HangarRequest.RequestLaunch)
+            {
+                lastLaunchTime = timestamp;
+                MakeReadyToLaunch();
+            }
         }
 
-        private bool CanDock()
+        private bool HasClearance()
         {
             bool ready = true;
             foreach (var index in MutexHangars)
             {
                 if (Host.Hangars[index] == null) continue;
-                if ((Host.Hangars[index].hangarStatus & HangarStatus.Docking) == 0) continue;
+                if ((Host.Hangars[index].hangarStatus & (HangarStatus.Docking | HangarStatus.Launching)) == 0) continue;
                 // Check gates here or something
                 ready = false;
             }
             return ready;
         }
 
-        private void MakeReady()
+        private void MakeReadyToDock()
         {
-            if (CanDock()) hangarStatus |= HangarStatus.Docking;
+            if (HasClearance()) hangarStatus |= HangarStatus.Docking;
+        }
+
+        private void MakeReadyToLaunch()
+        {
+            if (HasClearance()) hangarStatus |= HangarStatus.Launching;
         }
 
         private void Claim(long requesterID, TimeSpan timestamp)
@@ -205,6 +218,7 @@ namespace IngameScript
         private void UpdateHangarStatus(TimeSpan timestamp, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems)
         {
             bool ClaimElapsed = lastClaimTime + kClaimTimeout < timestamp;
+            bool LaunchElapsed = lastLaunchTime + kLaunchTimeout < timestamp;
             if ((hangarStatus & HangarStatus.Reserved) == 0)
             {
                 if (ClaimElapsed && Connector.Status != MyShipConnectorStatus.Connected)
@@ -234,8 +248,14 @@ namespace IngameScript
             {
                 hangarStatus &= ~HangarStatus.Docking;
             }
-            if (OwnerID == -1) SetLights(Color.Red);
-            else if (hangarStatus != HangarStatus.Reserved) SetLights(Color.Yellow);
+            if (LaunchElapsed)
+            {
+                hangarStatus &= ~HangarStatus.Launching;
+            }
+
+
+            if ((hangarStatus & (HangarStatus.Docking | HangarStatus.Launching)) != 0) SetLights(Color.Yellow);
+            else if (!HasClearance()) SetLights(Color.Red);
             else SetLights(Color.Green);
         }
 

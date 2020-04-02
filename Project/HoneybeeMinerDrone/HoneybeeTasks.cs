@@ -45,7 +45,7 @@ namespace IngameScript
 
             if (host == null) return new NullTask();
 
-            return new HoneybeeMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, IntelProvider, MonitorSubsystem, DockTaskGenerator, UndockTaskGenerator);
+            return new HoneybeeMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, IntelProvider, MonitorSubsystem, DockingSubsystem, DockTaskGenerator, UndockTaskGenerator);
         }
         #endregion
 
@@ -53,12 +53,13 @@ namespace IngameScript
         HoneybeeMiningSystem MiningSystem;
         IAutopilot Autopilot;
         IAgentSubsystem AgentSubsystem;
+        IDockingSubsystem DockingSubsystem;
         DockTaskGenerator DockTaskGenerator;
         UndockFirstTaskGenerator UndockTaskGenerator;
         IIntelProvider IntelProvider;
         IMonitorSubsystem MonitorSubsystem;
 
-        public HoneybeeMiningTaskGenerator(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, DockTaskGenerator dockTaskGenerator, UndockFirstTaskGenerator undockTaskGenerator, IIntelProvider intelProvder, IMonitorSubsystem monitorSubsystem)
+        public HoneybeeMiningTaskGenerator(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IDockingSubsystem dockingSubsystem, DockTaskGenerator dockTaskGenerator, UndockFirstTaskGenerator undockTaskGenerator, IIntelProvider intelProvder, IMonitorSubsystem monitorSubsystem)
         {
             Program = program;
             MiningSystem = miningSystem;
@@ -68,6 +69,7 @@ namespace IngameScript
             UndockTaskGenerator = undockTaskGenerator;
             IntelProvider = intelProvder;
             MonitorSubsystem = monitorSubsystem;
+            DockingSubsystem = dockingSubsystem;
         }
     }
 
@@ -109,7 +111,7 @@ namespace IngameScript
                 MiningSystem.Drill();
                 MineTask.Do(IntelItems, canonicalTime, profiler);
 
-                if (GoHomeCheck() || (Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 20)
+                if (GoHomeCheck() || MiningSystem.SensorsFarClear() || (Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 20)
                 {
                     if ((Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 20) currentPosition++;
                     state = 3;
@@ -166,32 +168,51 @@ namespace IngameScript
             }
             else if (state == 4) // Going home
             {
-                if (HomeTask == null)
+                if (DockingSubsystem.HomeID == -1)
                 {
-                    HomeTask = DockTaskGenerator.GenerateMoveToAndDockTask(MyTuple.Create(IntelItemType.NONE, (long)0), IntelItems, 40);
+                    state = 9999;
                 }
-                HomeTask.Do(IntelItems, canonicalTime, profiler);
-                if (HomeTask.Status != TaskStatus.Incomplete)
+                else
                 {
-                    HomeTask = null;
-                    state = 5;
+                    if (HomeTask == null)
+                    {
+                        HomeTask = DockTaskGenerator.GenerateMoveToAndDockTask(MyTuple.Create(IntelItemType.NONE, (long)0), IntelItems, 40);
+                    }
+                    HomeTask.Do(IntelItems, canonicalTime, profiler);
+                    if (HomeTask.Status != TaskStatus.Incomplete)
+                    {
+                        HomeTask = null;
+                        state = 5;
+                    }
                 }
             }
             else if (state == 5) // Waiting for refuel/unload
             {
                 if (Recalling) state = 9999;
+                if ((Program.Me.WorldMatrix.Translation - EntryPoint).LengthSquared() > MiningSystem.CancelDist * MiningSystem.CancelDist) state = 9999;
                 if (LeaveHomeCheck()) state = 6;
             }
             else if (state == 6) // Undocking
             { 
-                if (UndockTask == null)
+                if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected)
                 {
-                    UndockTask = UndockTaskGenerator.GenerateUndockTask(canonicalTime);
+                    if (UndockTask == null)
+                    {
+                        UndockTask = UndockTaskGenerator.GenerateUndockTask(canonicalTime);
+                    }
                 }
-                UndockTask.Do(IntelItems, canonicalTime, profiler);
-                if (UndockTask.Status != TaskStatus.Incomplete)
+
+                if (UndockTask != null)
                 {
-                    UndockTask = null;
+                    UndockTask.Do(IntelItems, canonicalTime, profiler);
+                    if (UndockTask.Status != TaskStatus.Incomplete)
+                    {
+                        UndockTask = null;
+                        state = 10;
+                    }
+                }
+                else
+                {
                     state = 10;
                 }
             }
@@ -211,6 +232,7 @@ namespace IngameScript
         IAutopilot Autopilot;
         IAgentSubsystem AgentSubsystem;
         IMonitorSubsystem MonitorSubsystem;
+        IDockingSubsystem DockingSubsystem;
         MyTuple<IntelItemType, long> IntelKey;
         AsteroidIntel Host;
         Vector3D EntryPoint;
@@ -283,7 +305,7 @@ namespace IngameScript
             new Vector2I(3,-3),
         };
 
-        public HoneybeeMiningTask(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, Waypoint target, AsteroidIntel host, IIntelProvider intelProvider, IMonitorSubsystem monitorSubsystem, DockTaskGenerator dockTaskGenerator, UndockFirstTaskGenerator undockTaskGenerator)
+        public HoneybeeMiningTask(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, Waypoint target, AsteroidIntel host, IIntelProvider intelProvider, IMonitorSubsystem monitorSubsystem, IDockingSubsystem dockingSubsystem, DockTaskGenerator dockTaskGenerator, UndockFirstTaskGenerator undockTaskGenerator)
         {
             Program = program;
             MiningSystem = miningSystem;
@@ -292,6 +314,7 @@ namespace IngameScript
             MonitorSubsystem = monitorSubsystem;
             Host = host;
             MiningDepth = MiningSystem.MineDepth;
+            DockingSubsystem = dockingSubsystem;
 
             Status = TaskStatus.Incomplete;
 

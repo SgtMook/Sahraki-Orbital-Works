@@ -225,7 +225,7 @@ namespace IngameScript
             CompoundTask.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
             CompoundTask.Reset();
 
-            UndockSeperationTask = new UndockSeperationTask(Autopilot, DockingSubsystem);
+            UndockSeperationTask = new UndockSeperationTask(Autopilot, DockingSubsystem, program);
             UndockSeperationTask.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
             DockingSubsystem.Undock(true);
         }
@@ -504,17 +504,36 @@ namespace IngameScript
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
             if (canonicalTime == TimeSpan.Zero) return;
-            if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected) DockingSubsystem.Undock();
 
-            AutopilotSubsystem.Drift(Drift);
-            AutopilotSubsystem.Controller.DampenersOverride = false;
-
-            var deltaT = canonicalTime - StartTime;
-
-            if ((DockingSubsystem.Connector.WorldMatrix.Translation - (ExpectedPosition + ExpectedVelocity * deltaT.TotalSeconds)).Length() > 80)
+            if (WaitTask.Status == TaskStatus.Incomplete)
             {
-                AutopilotSubsystem.Clear();
-                Status = TaskStatus.Complete;
+                var dockKey = MyTuple.Create(IntelItemType.Dock, DockingSubsystem.Connector.OtherConnector.EntityId);
+
+                if (!IntelItems.ContainsKey(dockKey))
+                {
+                    WaitTask.Status = TaskStatus.Complete;
+                }
+                else
+                {
+                    dock = (DockIntel)IntelItems[dockKey];
+                    if ((dock.Status & HangarStatus.Launching) != 0) WaitTask.Status = TaskStatus.Complete;
+                    else Program.IGC.SendBroadcastMessage(dock.HangarChannelTag, MyTuple.Create(Program.Me.CubeGrid.EntityId, dock.ID, (int)HangarRequest.RequestLaunch));
+                }
+            }
+            else
+            {
+                if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected) DockingSubsystem.Undock();
+
+                AutopilotSubsystem.Drift(Drift);
+                AutopilotSubsystem.Controller.DampenersOverride = false;
+
+                var deltaT = canonicalTime - StartTime;
+
+                if ((DockingSubsystem.Connector.WorldMatrix.Translation - (ExpectedPosition + ExpectedVelocity * deltaT.TotalSeconds)).Length() > 80)
+                {
+                    AutopilotSubsystem.Clear();
+                    Status = TaskStatus.Complete;
+                }
             }
         }
 
@@ -524,15 +543,21 @@ namespace IngameScript
         TimeSpan StartTime;
         IAutopilot AutopilotSubsystem;
         IDockingSubsystem DockingSubsystem;
+        WaitTask WaitTask;
+        MyGridProgram Program;
 
         Vector3D Drift;
         Vector3D ExpectedPosition;
         Vector3D ExpectedVelocity;
 
-        public UndockSeperationTask(IAutopilot autopilotSubsystem, IDockingSubsystem dockingSubsystem)
+        DockIntel dock;
+
+        public UndockSeperationTask(IAutopilot autopilotSubsystem, IDockingSubsystem dockingSubsystem, MyGridProgram program)
         {
             AutopilotSubsystem = autopilotSubsystem;
             DockingSubsystem = dockingSubsystem;
+            WaitTask = new WaitTask();
+            Program = program;
         }
 
         public void Reset(TimeSpan canonicalTime)
@@ -542,6 +567,8 @@ namespace IngameScript
             ExpectedVelocity = AutopilotSubsystem.Controller.GetShipVelocities().LinearVelocity;
             Drift = ExpectedVelocity + (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected ? (DockingSubsystem.Connector.OtherConnector.WorldMatrix.Forward) : (DockingSubsystem.Connector.WorldMatrix.Backward)) * 30;
             ExpectedPosition = DockingSubsystem.Connector.WorldMatrix.Translation;
+            WaitTask.Status = TaskStatus.Incomplete;
+            dock = null;
         }
     }
 

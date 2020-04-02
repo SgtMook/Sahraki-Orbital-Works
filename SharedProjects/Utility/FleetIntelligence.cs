@@ -636,6 +636,7 @@ namespace IngameScript
         Reserved = 1 << 1,
         ReadyToDock = 1 << 2,
         Docking = 1 << 3,
+        Launching = 1 << 4,
     }
 
     [Flags]

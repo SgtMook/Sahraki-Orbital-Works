@@ -66,6 +66,7 @@ namespace IngameScript
         public int CloseDist = 15;
         public int MineDepth = 100;
         public int OffsetDist = 10;
+        public int CancelDist = 15000;
 
         MyGridProgram Program;
 
@@ -105,6 +106,7 @@ namespace IngameScript
         // CloseDist = 15
         // MineDepth = 100
         // OffsetDist = 10
+        // CancelDist = 15000
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -120,6 +122,9 @@ namespace IngameScript
 
             dist = Parser.Get("Honeybee", "OffsetDist").ToInt16();
             if (dist != 0) OffsetDist = dist;
+
+            var longDist = Parser.Get("Honeybee", "CancelDist").ToInt32();
+            if (longDist != 0) CancelDist = longDist;
         }
 
         private void UpdateDrills()

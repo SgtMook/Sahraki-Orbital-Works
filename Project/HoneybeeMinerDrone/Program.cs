@@ -51,7 +51,7 @@ namespace IngameScript
 
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(this, dockingSubsystem));
-            agentSubsystem.AddTaskGenerator(new HoneybeeMiningTaskGenerator(this, miningSubsystem, autopilotSubsystem, agentSubsystem, dockTaskGenerator, undockingTaskGenerator, intelSubsystem, monitorSubsystem));
+            agentSubsystem.AddTaskGenerator(new HoneybeeMiningTaskGenerator(this, miningSubsystem, autopilotSubsystem, agentSubsystem, dockingSubsystem, dockTaskGenerator, undockingTaskGenerator, intelSubsystem, monitorSubsystem));
             subsystemManager.AddSubsystem("agent", agentSubsystem);
 
             subsystemManager.AddSubsystem("indicator", new StatusIndicatorSubsystem(dockingSubsystem, intelSubsystem));
