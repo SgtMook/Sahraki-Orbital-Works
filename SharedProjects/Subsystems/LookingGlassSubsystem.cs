@@ -755,6 +755,7 @@ namespace IngameScript
             else if (CurrentUIMode == UIMode.SelectWaypoint)
             {
                 CursorDist -= 200;
+                if (CursorDist < 200) CursorDist = 200;
             }
         }
 

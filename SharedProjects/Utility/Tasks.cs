@@ -41,7 +41,7 @@ namespace IngameScript
     }
 
     #region Task Generators
-    // A task generator consumes commands in the form of a type and an intel ID, and emits a task
+    // A task generator consumes commands in the form of a type an intel ID, and emits a task
     public interface ITaskGenerator
     {
         TaskType AcceptedTypes { get; }

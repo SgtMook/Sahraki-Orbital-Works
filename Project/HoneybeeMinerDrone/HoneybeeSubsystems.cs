@@ -172,6 +172,13 @@ namespace IngameScript
             foreach (var sensor in NearSensors) sensor.DetectedEntities(DetectedEntityScratchpad);
             return DetectedEntityScratchpad.Count > 0;
         }
+
+        public void SensorsOn()
+        {
+            foreach (var sensor in Sensors) sensor.Enabled = true;
+            foreach (var sensor in FarSensors) sensor.Enabled = true;
+            foreach (var sensor in NearSensors) sensor.Enabled = true;
+        }
         #endregion
     }
 }

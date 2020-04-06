@@ -161,6 +161,7 @@ namespace IngameScript
                     if (LeadTask.Status == TaskStatus.Complete)
                     {
                         state = 1;
+                        MiningSystem.SensorsOn();
                         MineTask.Destination.Position = SurfacePoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist) - MineTask.Destination.Direction * MiningSystem.CloseDist;
                         MiningEnd = SurfacePoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist) + MineTask.Destination.Direction * MiningDepth;
                     }
