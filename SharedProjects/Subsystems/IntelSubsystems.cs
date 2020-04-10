@@ -110,7 +110,7 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            if (runs % 3 == 0 && (updateFlags & UpdateFrequency.Update10) != 0)
+            if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
                 UpdateIntelFromReports(timestamp);
                 SendSyncMessage(timestamp);
@@ -122,7 +122,6 @@ namespace IngameScript
                 ReceivePriorityRequests();
                 SendPriorities();
             }
-            runs++;
         }
 
         public bool HasMaster => true;
@@ -355,7 +354,7 @@ namespace IngameScript
     
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            if (runs % 3 == 0 && (updateFlags & UpdateFrequency.Update10) != 0)
+            if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
                 GetSyncMessages(timestamp);
                 UpdateMyIntel(timestamp);
@@ -365,7 +364,6 @@ namespace IngameScript
                 TimeoutIntelItems(timestamp);
                 UpdatePriorities();
             }
-            runs++;
 
             //profiler.StartSectionWatch("Baseline");
             //profiler.StopSectionWatch("Baseline");

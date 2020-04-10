@@ -127,7 +127,7 @@ namespace IngameScript
         {
             foreach (KeyValuePair<string, SectionValues> entry in AverageBreakdown)
             {
-                double runtime = entry.Value.MaxRuntime;
+                double runtime = entry.Value.AccumulatedRuntime/ entry.Value.AccumulatedCount;
                 sb.AppendLine($"{entry.Key} = {runtime:0.0000}ms");
             }
         }

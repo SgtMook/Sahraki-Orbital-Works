@@ -135,13 +135,13 @@ namespace IngameScript
 
         private bool CollectParts(IMyTerminalBlock block)
         {
+            if (block is IMySmallGatlingGun && block.IsSameConstructAs(Program.Me))
+                Guns.Add((IMySmallGatlingGun)block);
+
             if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyRadioAntenna)
                 Antenna = (IMyRadioAntenna)block;
-
-            if (block is IMySmallGatlingGun)
-                Guns.Add((IMySmallGatlingGun)block);
 
             if (block is IMySmallMissileLauncher)
                 Launchers.Add((IMySmallMissileLauncher)block);

@@ -79,10 +79,30 @@ namespace IngameScript
         #region ITask
         public TaskStatus Status { get; private set; }
 
+
+        StringBuilder debugBuilder = new StringBuilder();
+
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
-            AgentSubsystem.Status = state.ToString();
-            if (MiningSystem.Recalling > 0 || currentPosition >= minePositions.Length)
+            // DEBUG
+            //debugBuilder.Clear();
+            //for (int i = 0; i < 11; i++)
+            //{
+            //    for (int j = 0; j < 11; j++)
+            //    {
+            //        debugBuilder.Append(miningMatrix[i, j]);
+            //    }
+            //    debugBuilder.AppendLine();
+            //}
+            //
+            //foreach (var percentage in LastSampleCargoPercentages)
+            //{
+            //    debugBuilder.AppendLine(percentage.ToString());
+            //}
+            //
+            //AgentSubsystem.Status = debugBuilder.ToString();
+            // DEBUG
+            if (MiningSystem.Recalling > 0 || currentPosition > 120)
             {
                 Recalling = true;
             }
@@ -101,21 +121,86 @@ namespace IngameScript
             }
             else if (state == 2) // Boring tunnel
             {
+                bool sampleHome = false;
+                double distToMiningEnd = (Autopilot.Reference.WorldMatrix.Translation - MiningEnd).Length();
                 if (MiningSystem.SensorsClear())
+                {
                     MineTask.Destination.Position = MiningEnd;
+                }
                 else if (MiningSystem.SensorsBack())
+                {
                     MineTask.Destination.Position = EntryPoint;
+                }
                 else
+                {
                     MineTask.Destination.Position = Vector3D.Zero;
+                    if (SampleCount <= 0)
+                    {
+                        SampleCount = kSampleFrequency;
+                        var cargoPercentage = MonitorSubsystem.GetPercentage(MonitorOptions.Cargo);
+                        if (LastSampleCargoPercentages.Count >= kMaxSampleCount)
+                        {
+                            LastSampleCargoPercentages.Enqueue(cargoPercentage);
+
+                            var sampleGreater = 0;
+                            var sampleLesser = 0;
+                            var comparePercentage = LastSampleCargoPercentages.Dequeue() + 0.00001;
+                            foreach (var percentage in LastSampleCargoPercentages)
+                            {
+                                if (percentage > comparePercentage) sampleGreater++;
+                                else sampleLesser++;
+                            }
+
+                            if (sampleGreater > sampleLesser)
+                            {
+                                if (!HitOre)
+                                {
+                                    HitOre = true;
+                                    var currentCoords = GetMiningPosition(currentPosition);
+                                    miningMatrix[currentCoords.X + 5, currentCoords.Y + 5] = 1;
+                                }
+                                if (LowestExpectedOreDist == -1)
+                                    LowestExpectedOreDist = (float)distToMiningEnd - 5;
+                            }
+                            else
+                            {
+                                if (HitOre || distToMiningEnd < LowestExpectedOreDist)
+                                {
+                                    sampleHome = true;
+
+                                    if (!HitOre)
+                                    {
+                                        var currentCoords = GetMiningPosition(currentPosition);
+                                        miningMatrix[currentCoords.X + 5, currentCoords.Y + 5] = 2;
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            LastSampleCargoPercentages.Enqueue(cargoPercentage);
+                        }
+                    }
+                    else
+                    {
+                        SampleCount--;
+                    }
+                }
 
                 MiningSystem.Drill();
                 MineTask.Do(IntelItems, canonicalTime, profiler);
 
-                if (GoHomeCheck() || MiningSystem.SensorsFarClear() || (Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 20)
+                if (GoHomeCheck() || MiningSystem.SensorsFarClear() || distToMiningEnd < 4 || sampleHome)
                 {
-                    if ((Autopilot.Reference.WorldMatrix.Translation - MiningEnd).LengthSquared() < 20) currentPosition++;
+                    if (MiningSystem.SensorsFarClear() || distToMiningEnd < 4 || sampleHome)
+                    {
+                        UpdateMiningMatrix(currentPosition);
+                        IncrementCurrentPosition();
+                        HitOre = false;
+                    }
                     state = 3;
                     MineTask.Destination.MaxSpeed = 1;
+                    LastSampleCargoPercentages.Clear();
                 }
             }
             else if (state == 3) // Exiting tunnel
@@ -145,7 +230,8 @@ namespace IngameScript
                     LeadTask.Do(IntelItems, canonicalTime, profiler);
                     if (LeadTask.Status == TaskStatus.Complete)
                     {
-                        LeadTask.Destination.Position = ApproachPoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist);
+                        var position = GetMiningPosition(currentPosition);
+                        LeadTask.Destination.Position = ApproachPoint + (Perpendicular * position.X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * position.Y * MiningSystem.OffsetDist);
                         LeadTask.Destination.MaxSpeed = 10;
                         ExitPoint = LeadTask.Destination.Position;
                         state = 11;
@@ -162,8 +248,9 @@ namespace IngameScript
                     {
                         state = 1;
                         MiningSystem.SensorsOn();
-                        MineTask.Destination.Position = SurfacePoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist) - MineTask.Destination.Direction * MiningSystem.CloseDist;
-                        MiningEnd = SurfacePoint + (Perpendicular * minePositions[currentPosition].X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * minePositions[currentPosition].Y * MiningSystem.OffsetDist) + MineTask.Destination.Direction * MiningDepth;
+                        var position = GetMiningPosition(currentPosition);
+                        MineTask.Destination.Position = SurfacePoint + (Perpendicular * position.X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * position.Y * MiningSystem.OffsetDist) - MineTask.Destination.Direction * MiningSystem.CloseDist;
+                        MiningEnd = SurfacePoint + (Perpendicular * position.X * MiningSystem.OffsetDist + Perpendicular.Cross(MineTask.Destination.Direction) * position.Y * MiningSystem.OffsetDist) + MineTask.Destination.Direction * MiningDepth;
                     }
                 }
             }
@@ -183,6 +270,7 @@ namespace IngameScript
                     if (HomeTask.Status != TaskStatus.Incomplete)
                     {
                         HomeTask = null;
+                        homeCheck = false;
                         state = 5;
                     }
                 }
@@ -223,7 +311,7 @@ namespace IngameScript
             }
         }
 
-        public string Name => "HoneyMiningTask";
+        public string Name => "HoneybeeMiningTask";
         #endregion
 
         WaypointTask LeadTask;
@@ -259,52 +347,18 @@ namespace IngameScript
 
         const int kFarSensorDist = 40;
 
-        Vector2I[] minePositions = new Vector2I[]
-        {
-            new Vector2I(0,0),
-            new Vector2I(0,1),
-            new Vector2I(1,0),
-            new Vector2I(0,-1),
-            new Vector2I(-1,0),
-            new Vector2I(1,1),
-            new Vector2I(1,-1),
-            new Vector2I(-1,1),
-            new Vector2I(-1,-1),
-            new Vector2I(-1,2),
-            new Vector2I(0,2),
-            new Vector2I(1,2),
-            new Vector2I(2,2),
-            new Vector2I(2,1),
-            new Vector2I(2,0),
-            new Vector2I(2,-1),
-            new Vector2I(2,-2),
-            new Vector2I(1,-2),
-            new Vector2I(0,-2),
-            new Vector2I(-1,-2),
-            new Vector2I(-2,-2),
-            new Vector2I(-2,-1),
-            new Vector2I(-2,0),
-            new Vector2I(-2,1),
-            new Vector2I(-2,2),
-            new Vector2I(-3,-2),
-            new Vector2I(-3,-1),
-            new Vector2I(-3,0),
-            new Vector2I(-3,1),
-            new Vector2I(-3,2),
-            new Vector2I(-3,3),
-            new Vector2I(-2,3),
-            new Vector2I(-1,3),
-            new Vector2I(-0,3),
-            new Vector2I(1,3),
-            new Vector2I(2,3),
-            new Vector2I(3,3),
-            new Vector2I(3,2),
-            new Vector2I(3,1),
-            new Vector2I(3,0),
-            new Vector2I(3,-1),
-            new Vector2I(3,-2),
-            new Vector2I(3,-3),
-        };
+        const int kMaxSampleCount = 5;
+        const int kSampleFrequency = 1;
+        int SampleCount = 0;
+
+        Queue<float> LastSampleCargoPercentages = new Queue<float>(4);
+        bool HitOre = false;
+        float LowestExpectedOreDist = -1;
+
+        Vector2I[] Orientations = { new Vector2I(1, 0), new Vector2I(0, 1), new Vector2I(-1, 0), new Vector2I(0, -1) };
+        Vector2I[] OrientationsUp = { new Vector2I(0, 1), new Vector2I(-1, 0), new Vector2I(0, -1), new Vector2I(1, 0) };
+
+        bool homeCheck = false;
 
         public HoneybeeMiningTask(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, Waypoint target, AsteroidIntel host, IIntelProvider intelProvider, IMonitorSubsystem monitorSubsystem, IDockingSubsystem dockingSubsystem, DockTaskGenerator dockTaskGenerator, UndockFirstTaskGenerator undockTaskGenerator)
         {
@@ -315,6 +369,7 @@ namespace IngameScript
             MonitorSubsystem = monitorSubsystem;
             Host = host;
             MiningDepth = MiningSystem.MineDepth;
+            LowestExpectedOreDist = (float)MiningDepth;
             DockingSubsystem = dockingSubsystem;
 
             Status = TaskStatus.Incomplete;
@@ -351,8 +406,6 @@ namespace IngameScript
             MineTask.Destination.DirectionUp = Perpendicular;
             MineTask.Destination.Position = EntryPoint;
 
-            AgentSubsystem.Status = Perpendicular.Dot(target.Direction).ToString() + " " + Perpendicular.Cross(MineTask.Destination.Direction).Dot(target.Direction).ToString();
-
             DockTaskGenerator = dockTaskGenerator;
             UndockTaskGenerator = undockTaskGenerator;
         }
@@ -366,9 +419,15 @@ namespace IngameScript
 
         private bool GoHomeCheck()
         {
-            return MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) > 0.96 ||
-                   MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.2 ||
-                   MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.2;
+            if (homeCheck) return true;
+            if (MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) > 0.96 ||
+                MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.2 ||
+                MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.2)
+            {
+                homeCheck = true;
+                return true;
+            }
+            return false;
         }
 
         private bool LeaveHomeCheck()
@@ -383,6 +442,137 @@ namespace IngameScript
             Vector3D result = new Vector3D(1, 1, -(vector.X + vector.Y) / vector.Z);
             result.Normalize();
             return result;
+        }
+
+        private Vector2I GetMiningPosition(int index)
+        {
+            if (index == 0) return Vector2I.Zero;
+            index -= 1;
+            int rem = index % 4;
+            int subIndex = index / 4;
+
+            int col = 1;
+            int space = 0;
+            for (int i = 0; i < subIndex; i++)
+            {
+                space++;
+                if (space > col)
+                {
+                    col++;
+                    space = 1 - col;
+                }
+            }
+            return Orientations[rem] * col + OrientationsUp[rem] * space;
+        }
+
+        // 0 = Not to mine
+        // 1 = Mined - Has Ore
+        // 2 = Mined - No Ore
+        // 3 = To mine
+        int[,] miningMatrix = new int[11, 11];
+
+        private void UpdateMiningMatrix(int currentPosition)
+        {
+            var currentCoords = GetMiningPosition(currentPosition) + 5;
+            if (miningMatrix[currentCoords.X, currentCoords.Y] == 1)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    var offsetCoords = Orientations[i] + currentCoords;
+                    if (offsetCoords.X >= 0 && offsetCoords.X < 11 && offsetCoords.Y >= 0 && offsetCoords.Y < 11 && miningMatrix[offsetCoords.X, offsetCoords.Y] == 0)
+                    {
+                        miningMatrix[offsetCoords.X, offsetCoords.Y] = 3;
+                    }
+                }
+            }
+            //if (miningMatrix[currentCoords.X, currentCoords.Y] == 2)
+            //{
+            //    for (int i = 0; i < 4; i++)
+            //    {
+            //        var offsetCoords = Orientations[i] + currentCoords;
+            //        if (miningMatrix[offsetCoords.X, offsetCoords.Y] == 1)
+            //        {
+            //            // Check in line
+            //            for (int j = 0; j < 11; j++)
+            //            {
+            //                var setCoords = -Orientations[i] * j + currentCoords;
+            //                if (setCoords.X >= 0 && setCoords.X < 11 && setCoords.Y >= 0 && setCoords.Y < 11)
+            //                {
+            //                    miningMatrix[setCoords.X, setCoords.Y] = 3;
+            //                }
+            //                else
+            //                {
+            //                    break;
+            //                }
+            //            }
+            //
+            //            // Check upper corner
+            //            offsetCoords = Orientations[i] + OrientationsUp[i] + currentCoords;
+            //
+            //            if (miningMatrix[offsetCoords.X, offsetCoords.Y] == 2)
+            //            {
+            //                for (int j = 0; j < 11; j++)
+            //                {
+            //                    for (int k = 0; k < 11; k++)
+            //                    {
+            //                        var setCoords = -Orientations[i] * j + OrientationsUp[i] * k + currentCoords;
+            //                        if (setCoords.X >= 0 && setCoords.X < 11 && setCoords.Y >= 0 && setCoords.Y < 11)
+            //                        {
+            //                            miningMatrix[setCoords.X, setCoords.Y] = 3;
+            //                        }
+            //                        else
+            //                        {
+            //                            break;
+            //                        }
+            //                    }
+            //                }
+            //            }
+            //
+            //            // Check lower corner
+            //            offsetCoords = Orientations[i] - OrientationsUp[i] + currentCoords;
+            //
+            //            if (miningMatrix[offsetCoords.X, offsetCoords.Y] == 2)
+            //            {
+            //                for (int j = 0; j < 11; j++)
+            //                {
+            //                    for (int k = 0; k < 11; k++)
+            //                    {
+            //                        var setCoords = -Orientations[i] * j - OrientationsUp[i] * k + currentCoords;
+            //                        if (setCoords.X >= 0 && setCoords.X < 11 && setCoords.Y >= 0 && setCoords.Y < 11)
+            //                        {
+            //                            miningMatrix[setCoords.X, setCoords.Y] = 3;
+            //                        }
+            //                        else
+            //                        {
+            //                            break;
+            //                        }
+            //                    }
+            //                }
+            //            }
+            //        }
+            //    }
+            //}
+        }
+
+        private void IncrementCurrentPosition()
+        {
+            while (currentPosition <= 120)
+            {
+                currentPosition++;
+                var currentCoords = GetMiningPosition(currentPosition) + 5;
+
+                if (currentCoords.X >= 0 && currentCoords.X < 11 && currentCoords.Y >= 0 && currentCoords.Y < 11 && miningMatrix[currentCoords.X, currentCoords.Y] == 3) return;
+
+                //for (int i = 0; i < 4; i++)
+                //{
+                //    var offsetCoords = Orientations[i] + currentCoords;
+                //    if (offsetCoords.X >= 0 && offsetCoords.X < 11 && offsetCoords.Y >= 0 && offsetCoords.Y < 11 && miningMatrix[offsetCoords.X, offsetCoords.Y] == 3)
+                //        return;
+                //}
+
+                //if (currentCoords.X >= 0 && currentCoords.X < 11 && currentCoords.Y >= 0 && currentCoords.Y < 11 &&
+                //    miningMatrix[currentCoords.X, currentCoords.Y] == 0) return;
+            }
         }
     }
 }
