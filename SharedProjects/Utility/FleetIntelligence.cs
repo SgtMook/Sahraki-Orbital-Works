@@ -860,7 +860,7 @@ namespace IngameScript
         public void FromDetectedInfo(MyDetectedEntityInfo info, TimeSpan canonicalTime, bool updateSize = false)
         {
             if (info.Type != MyDetectedEntityType.SmallGrid && info.Type != MyDetectedEntityType.LargeGrid) return;
-            if (info.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) return;
+            if (info.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies && info.Relationship != MyRelationsBetweenPlayerAndBlock.Neutral) return;
 
             if (ID != info.EntityId)
             {

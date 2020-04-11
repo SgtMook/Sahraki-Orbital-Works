@@ -591,7 +591,7 @@ namespace IngameScript
                 Network.ReportIntel(astr, timestamp);
             }
             else if ((LastDetectedInfo.Type == MyDetectedEntityType.LargeGrid || LastDetectedInfo.Type == MyDetectedEntityType.SmallGrid)
-                && LastDetectedInfo.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies)
+                && (LastDetectedInfo.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies || LastDetectedInfo.Relationship == MyRelationsBetweenPlayerAndBlock.Neutral))
             {
                 var intelDict = Network.IntelProvider.GetFleetIntelligences(timestamp);
                 var key = MyTuple.Create(IntelItemType.Enemy, LastDetectedInfo.EntityId);

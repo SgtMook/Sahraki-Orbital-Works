@@ -262,7 +262,7 @@ namespace IngameScript
         {
             if (Designator == null) return;
             var designateInfo = Designator.Raycast(10000);
-            if (designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) return;
+            if (designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies && designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Neutral) return;
             var intelDict = IntelProvider.GetFleetIntelligences(localTime);
             var key = MyTuple.Create(IntelItemType.Enemy, designateInfo.EntityId);
             var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
