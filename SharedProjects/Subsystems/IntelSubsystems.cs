@@ -106,6 +106,15 @@ namespace IngameScript
             GetParts();
             UpdateMyIntel(TimeSpan.Zero);
             ParseConfigs();
+
+            AsteroidIntel.IGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3);
+            FriendlyShipIntel.IGCUnpack(FriendlyShipIntel.IGCPackGeneric(new FriendlyShipIntel()).Item3);
+            EnemyShipIntel.IGCUnpack(EnemyShipIntel.IGCPackGeneric(new EnemyShipIntel()).Item3);
+            DockIntel.IGCUnpack(DockIntel.IGCPackGeneric(new DockIntel()).Item3);
+            Waypoint.IGCUnpack(Waypoint.IGCPackGeneric(new Waypoint()).Item3);
+
+            FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(123, IntelItems, ref KeyScratchpad, 0);
+            FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(123, IntelItems, 0);
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -113,8 +122,12 @@ namespace IngameScript
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
                 UpdateIntelFromReports(timestamp);
-                SendSyncMessage(timestamp);
-                UpdateMyIntel(timestamp);
+                if (runs % 3 == 0)
+                {
+                    SendSyncMessage(timestamp);
+                    UpdateMyIntel(timestamp);
+                }
+                runs++;
             }
             if ((updateFlags & UpdateFrequency.Update100) != 0)
             {
@@ -350,21 +363,32 @@ namespace IngameScript
             GetParts();
 
             profiler = new Profiler(Program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
+            AsteroidIntel.IGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3);
+            FriendlyShipIntel.IGCUnpack(FriendlyShipIntel.IGCPackGeneric(new FriendlyShipIntel()).Item3);
+            EnemyShipIntel.IGCUnpack(EnemyShipIntel.IGCPackGeneric(new EnemyShipIntel()).Item3);
+            DockIntel.IGCUnpack(DockIntel.IGCPackGeneric(new DockIntel()).Item3);
+            Waypoint.IGCUnpack(Waypoint.IGCPackGeneric(new Waypoint()).Item3);
+
+            FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(123, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID);
+            FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(123, IntelItems, CanonicalTimeSourceID);
         }
     
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
-                GetSyncMessages(timestamp);
-                UpdateMyIntel(timestamp);
+                if (runs % 3 == 0)
+                {
+                    GetSyncMessages(timestamp);
+                    UpdateMyIntel(timestamp);
+                }
+                runs++;
             }
             if ((updateFlags & UpdateFrequency.Update100) != 0)
             {
                 TimeoutIntelItems(timestamp);
                 UpdatePriorities();
             }
-
             //profiler.StartSectionWatch("Baseline");
             //profiler.StopSectionWatch("Baseline");
             //

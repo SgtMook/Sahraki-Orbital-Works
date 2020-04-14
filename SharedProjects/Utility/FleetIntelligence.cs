@@ -65,8 +65,6 @@ namespace IngameScript
                 IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, AsteroidIntel.IGCPackGeneric((AsteroidIntel)item)));
             else if (item is EnemyShipIntel)
                 IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, EnemyShipIntel.IGCPackGeneric((EnemyShipIntel)item)));
-            else
-                throw new Exception("Bad type when sending fleet intel");
         }
 
         /// <summary>
@@ -187,8 +185,7 @@ namespace IngameScript
                 }
             }
 
-
-            throw new Exception($"Bad type when receiving fleet intel: {data.GetType().ToString()}");
+            return MyTuple.Create(IntelItemType.NONE, (long)0);
         }
 
         public static void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID, IGCSyncPacker packer)
@@ -211,8 +208,6 @@ namespace IngameScript
                     packer.AsteroidIntelArrayBuilder.Add(MyTuple.Create(masterID, AsteroidIntel.IGCPackGeneric((AsteroidIntel)kvp.Value)));
                 else if (kvp.Key.Item1 == IntelItemType.Enemy)
                     packer.EnemyShipIntelArrayBuilder.Add(MyTuple.Create(masterID, EnemyShipIntel.IGCPackGeneric((EnemyShipIntel)kvp.Value)));
-                else
-                    throw new Exception("Bad type when sending sync package");
             }
 
             IGC.SendBroadcastMessage(IntelSyncChannelTag, packer.WaypointArrayBuilder.ToImmutable());
@@ -271,10 +266,6 @@ namespace IngameScript
                     var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
                     if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
                 }
-            }
-            else
-            {
-                throw new Exception("Bad type when receiving sync package");
             }
         }
 

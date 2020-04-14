@@ -37,6 +37,9 @@ namespace IngameScript
         IMyShipController Controller { get; }
         IMyTerminalBlock Reference { get; set; }
 
+        float CruiseSpeed { get; }
+        float CombatSpeed { get; }
+
     }
 
     public class AutopilotSubsystem : ISubsystem, IAutopilot
@@ -67,7 +70,7 @@ namespace IngameScript
 
             ParseConfigs();
 
-            currentMaxSpeed = MaxSpeed;
+            currentMaxSpeed = MaxCruiseSpeed;
 
             Vector3D AutopilotMoveIndicator;
             GetMovementVectors(targetPosition, controller, reference, thrusts[0], currentMaxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
@@ -190,7 +193,7 @@ namespace IngameScript
             targetPosition = Vector3D.Zero;
             targetDrift = Vector3D.Zero;
             reference = controller;
-            currentMaxSpeed = MaxSpeed;
+            currentMaxSpeed = MaxCruiseSpeed;
             IYaw = 0;
             IPitch = 0;
             ITranslate = Vector3D.Zero;
@@ -231,6 +234,9 @@ namespace IngameScript
                     reference = controller;
             }
         }
+
+        public float CruiseSpeed => MaxCruiseSpeed;
+        public float CombatSpeed => MaxCombatSpeed;
         #endregion
 
         MyGridProgram Program;
@@ -271,7 +277,8 @@ namespace IngameScript
         float RI = 0.2f;
         float RD = 2;
 
-        float MaxSpeed = 98;
+        float MaxCruiseSpeed = 98;
+        float MaxCombatSpeed = 98;
 
 
         // Helpers
@@ -339,7 +346,7 @@ namespace IngameScript
         // RP = 5
         // RI = 0.2
         // RD = 2
-        // MaxSpeed = 98
+        // CosmicSpeedLimit = 98
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -374,8 +381,11 @@ namespace IngameScript
             flo = Parser.Get("Autopilot", "RD").ToDecimal();
             if (flo != 0) RD = (float)flo;
             
-            flo = Parser.Get("Autopilot", "MaxSpeed").ToDecimal();
-            if (flo != 0) MaxSpeed = (float)flo;
+            flo = Parser.Get("Autopilot", "MaxCruiseSpeed").ToDecimal();
+            if (flo != 0) MaxCruiseSpeed = (float)flo;
+
+            flo = Parser.Get("Autopilot", "MaxCombatSpeed").ToDecimal();
+            if (flo != 0) MaxCombatSpeed = (float)flo;
         }
 
         void SetThrusterPowers()

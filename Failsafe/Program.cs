@@ -36,6 +36,7 @@ namespace IngameScript
             statusBuilder.AppendLine("===============");
 
             setupString = statusBuilder.ToString();
+            CheckSystems();
         }
 
         public void Save()
@@ -87,7 +88,7 @@ namespace IngameScript
         StringBuilder statusBuilder = new StringBuilder();
 
         int run = 0;
-        int ticksPerCheck = 60;
+        int ticksPerCheck = 100;
 
         int elipses = 0;
 

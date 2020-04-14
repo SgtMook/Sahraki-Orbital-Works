@@ -82,7 +82,7 @@ namespace IngameScript
             IMyShipController controller = Autopilot.Controller;
             Vector3D linearVelocity = controller.GetShipVelocities().LinearVelocity;
             var currentPosition = controller.WorldMatrix.Translation;
-            LeadTask.Destination.MaxSpeed = 98;
+            LeadTask.Destination.MaxSpeed = Autopilot.CruiseSpeed;
 
             if (!TargetPositionSet)
             {
@@ -115,22 +115,6 @@ namespace IngameScript
                 }
             }
 
-            //if (combatIntel == null)
-            //{
-            //    foreach (var intel in IntelItems)
-            //    {
-            //        if (intel.Key.Item1 != IntelItemType.Enemy) continue;
-            //        var enemyIntel = (EnemyShipIntel)intel.Value;
-            //
-            //        double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
-            //        if (dist < closestIntelDist)
-            //        {
-            //            closestIntelDist = dist;
-            //            combatIntel = enemyIntel;
-            //        }
-            //    }
-            //}
-
             if (combatIntel == null && CombatSystem.TargetIntel != null && IntelProvider.GetPriority(CombatSystem.TargetIntel.ID) >= 2) combatIntel = CombatSystem.TargetIntel;
 
             if (combatIntel == null)
@@ -138,7 +122,7 @@ namespace IngameScript
                 if (IntelKey.Item1 == IntelItemType.Enemy && IntelItems.ContainsKey(IntelKey) && EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)IntelItems[IntelKey]) && IntelProvider.GetPriority(IntelKey.Item2) >= 2)
                 {
                     var target = IntelItems[IntelKey];
-                    LeadTask.Destination.Position = currentPosition + AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, 98);
+                    LeadTask.Destination.Position = currentPosition + AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, Autopilot.CruiseSpeed);
                 }
                 else if (TargetPosition != Vector3.Zero)
                 {
@@ -157,13 +141,11 @@ namespace IngameScript
 
                 LastAcceleration = Vector3D.Zero;
                 LastReference = MatrixD.Zero;
-
-                //LastSwapTime = TimeSpan.Zero;
-                //NextSwapTime = TimeSpan.Zero;
             }
             else
             {
                 CombatSystem.MarkEngaged();
+                LeadTask.Destination.MaxSpeed = Autopilot.CombatSpeed;
                 Vector3D targetPosition = combatIntel.GetPositionFromCanonicalTime(canonicalTime);
 
                 var Acceleration = linearVelocity - LastLinearVelocity;
@@ -190,12 +172,6 @@ namespace IngameScript
                 LeadTask.Destination.Velocity = combatIntel.GetVelocity() * 0.5;
 
                 LastReference = controller.WorldMatrix;
-
-                //if (NextSwapTime < canonicalTime)
-                //{
-                //    NextSwapTime = canonicalTime + kSwapTimeMin + TimeSpan.FromSeconds(random.Next(0, kSwapTimeDelta));
-                //    kRotateTheta *= -1;
-                //}
             }
 
             LastLinearVelocity = linearVelocity;
