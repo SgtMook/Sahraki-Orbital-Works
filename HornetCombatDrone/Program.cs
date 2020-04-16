@@ -56,6 +56,8 @@ namespace IngameScript
             subsystemManager.AddSubsystem("agent", agentSubsystem);
             subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem));
 
+            subsystemManager.AddSubsystem("weapons", new DRMSubsystem(intelSubsystem));
+
             subsystemManager.DeserializeManager(Storage);
         }
         MyCommandLine commandLine = new MyCommandLine();
