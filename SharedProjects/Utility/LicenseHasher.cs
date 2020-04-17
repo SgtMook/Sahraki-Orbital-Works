@@ -71,6 +71,11 @@ namespace IngameScript
             return "The license you are trying to use does not belong to you or your faction.";
         }
 
+        public static string GetExceedCombatDroneError()
+        {
+            return "You have exceeded the maximum number of combat drones your license allows.";
+        }
+
         public static string GetLicenseField()
         {
             return "License";

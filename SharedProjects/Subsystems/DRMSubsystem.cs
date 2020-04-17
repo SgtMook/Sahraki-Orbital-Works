@@ -50,7 +50,7 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            CheckLicenseDisable();
+            CheckLicenseDisable(timestamp);
         }
         #endregion
 
@@ -85,6 +85,7 @@ namespace IngameScript
             {
                 Crash(LicenseHasher.GetWrongKeyError());
                 EchoError();
+                Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, DisableParts);
                 return;
             }
 
@@ -93,6 +94,7 @@ namespace IngameScript
             {
                 Crash(LicenseHasher.GetWrongOwnerError());
                 EchoError();
+                Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, DisableParts);
                 return;
             }
 
@@ -104,6 +106,7 @@ namespace IngameScript
             {
                 Crash(LicenseHasher.GetElapsedError());
                 EchoError();
+                Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, DisableParts);
                 return;
             }
 
@@ -155,8 +158,31 @@ namespace IngameScript
             return block.GetOwnerFactionTag;
         }
 
-        private void CheckLicenseDisable()
+        private void CheckLicenseDisable(TimeSpan localTime)
         {
+            if (NumCombatDrones < 99)
+            {
+                var currentCombatDrones = 0;
+                var intels = IntelProvider.GetFleetIntelligences(localTime);
+                foreach (var kvp in intels)
+                {
+                    if (kvp.Value.IntelItemType == IntelItemType.Friendly)
+                    {
+                        var fsi = (FriendlyShipIntel)kvp.Value;
+                        if (fsi.AgentClass == AgentClass.Fighter) currentCombatDrones++;
+                        if (currentCombatDrones > NumCombatDrones) break;
+                    }
+                }
+
+                if (currentCombatDrones > NumCombatDrones)
+                {
+                    ErrorMsg = LicenseHasher.GetExceedCombatDroneError();
+                    EchoError();
+                    Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, DisableParts);
+                    return;
+                }
+            }
+
             if (ErrorMsg != "")
             {
                 ParseConfigs();
@@ -188,7 +214,6 @@ namespace IngameScript
             stringBuilder.AppendLine("<< All blocks on this grid has been disabled. >>");
             stringBuilder.AppendLine("<< Please contact AKI for assistance. >>");
             Program.Echo(stringBuilder.ToString());
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, DisableParts);
         }
     }
 }

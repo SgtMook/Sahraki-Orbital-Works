@@ -346,7 +346,8 @@ namespace IngameScript
         // RP = 5
         // RI = 0.2
         // RD = 2
-        // CosmicSpeedLimit = 98
+        // MaxCruiseSpeed = 98
+        // MaxCombatSpeed = 98
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();

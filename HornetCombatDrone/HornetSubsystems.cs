@@ -200,8 +200,16 @@ namespace IngameScript
         {
             if (fireCounter == -1)
             {
-                foreach (var gun in Guns) TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
-                foreach (var launcher in Launchers) TerminalPropertiesHelper.SetValue(launcher, "Shoot", true);
+                foreach (var gun in Guns)
+                {
+                    gun.Enabled = true;
+                    TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
+                }
+                foreach (var launcher in Launchers)
+                {
+                    launcher.Enabled = true;
+                    TerminalPropertiesHelper.SetValue(launcher, "Shoot", true);
+                }
             }
             fireCounter = 6;
         }
