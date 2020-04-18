@@ -61,6 +61,7 @@ namespace IngameScript
             if (command == "recall") RecallCrafts(timestamp);
             if (command == "autohome") AutoHomeCrafts(timestamp);
             if (command == "cyclemode") CycleMode(timestamp);
+            if (command == "recallmode") CycleMode(timestamp);
         }
 
         public void DeserializeSubsystem(string serialized)

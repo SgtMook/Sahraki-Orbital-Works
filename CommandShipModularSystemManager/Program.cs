@@ -74,6 +74,13 @@ namespace IngameScript
                 subsystemManager.AddSubsystem("inventory", inventorySubsystem);
             }
 
+            // Torpedo system setup
+            if (Torpedos)
+            {
+                TorpedoSubsystem torpedoSubsystem = new TorpedoSubsystem(intelSubsystem);
+                subsystemManager.AddSubsystem("torpedo", torpedoSubsystem);
+            }
+
             // Command system setup
             TextCommandSubsystem textCommandSubsystem = new TextCommandSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("command", textCommandSubsystem);
@@ -88,6 +95,7 @@ namespace IngameScript
         bool Scanner = true;
         bool Inventory = true;
         bool Forge = true;
+        bool Torpedos = false;
         // [Setup]
         // IsMaster = true
         // LookingGlass = true
@@ -96,6 +104,7 @@ namespace IngameScript
         // Scanner = true
         // Inventory = true
         // Forge = true
+        // Torpedos = true
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -110,6 +119,7 @@ namespace IngameScript
             Scanner = Parser.Get("Setup", "Scanner").ToBoolean();
             Inventory = Parser.Get("Setup", "Inventory").ToBoolean();
             Forge = Parser.Get("Setup", "Forge").ToBoolean();
+            Torpedos = Parser.Get("Setup", "Torpedos").ToBoolean();
         }
 
         MyCommandLine commandLine = new MyCommandLine();
