@@ -253,7 +253,6 @@ namespace IngameScript
                 hangarStatus &= ~HangarStatus.Launching;
             }
 
-
             if ((hangarStatus & (HangarStatus.Docking | HangarStatus.Launching)) != 0) SetLights(Color.Yellow);
             else if (!HasClearance()) SetLights(Color.Red);
             else SetLights(Color.Green);

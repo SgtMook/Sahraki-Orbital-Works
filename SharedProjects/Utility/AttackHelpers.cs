@@ -49,8 +49,6 @@ namespace IngameScript
 
             if (t == double.MaxValue) return Vector3D.Zero;
 
-            // throw new Exception($"{relativePosition + relativeVelocity * t} {t} {(relativePosition + relativeVelocity * t).Length()}");
-
             return relativePosition + relativeVelocity * t;
         }
     }
