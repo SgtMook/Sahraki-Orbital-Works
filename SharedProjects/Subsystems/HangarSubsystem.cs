@@ -289,7 +289,11 @@ namespace IngameScript
             var split = serialized.Split('|');
             hangarStatus = (HangarStatus)int.Parse(split[0]);
             OwnerID = long.Parse(split[1]);
-            if (Connector.Status == MyShipConnectorStatus.Connected) OwnerID = Connector.OtherConnector.CubeGrid.EntityId;
+            if (Connector.Status == MyShipConnectorStatus.Connected)
+            {
+                if (OwnerID == -1) hangarStatus &= HangarStatus.Reserved;
+                OwnerID = Connector.OtherConnector.CubeGrid.EntityId;
+            }
         }
     }
 

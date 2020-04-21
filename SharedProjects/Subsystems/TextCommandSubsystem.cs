@@ -50,7 +50,7 @@ namespace IngameScript
         }
     }
 
-    public class TextCommandSubsystem : ISubsystem
+    public class TacticalCommandSubsystem : ISubsystem
     {
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update100;
@@ -91,7 +91,7 @@ namespace IngameScript
         }
         #endregion
 
-        public TextCommandSubsystem(IIntelProvider intelProvider)
+        public TacticalCommandSubsystem(IIntelProvider intelProvider)
         {
             IntelProvider = intelProvider;
             Prioritizer = new EnemyPrioritizer(intelProvider);

@@ -82,8 +82,8 @@ namespace IngameScript
             }
 
             // Command system setup
-            TextCommandSubsystem textCommandSubsystem = new TextCommandSubsystem(intelSubsystem);
-            subsystemManager.AddSubsystem("command", textCommandSubsystem);
+            TacticalCommandSubsystem tacticalSubsystem = new TacticalCommandSubsystem(intelSubsystem);
+            subsystemManager.AddSubsystem("command", tacticalSubsystem);
 
             subsystemManager.DeserializeManager(Storage);
         }

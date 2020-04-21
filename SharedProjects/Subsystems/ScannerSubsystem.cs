@@ -251,7 +251,7 @@ namespace IngameScript
             var cameraFinalPosition = cameraToTarget * (cameraDist + 30) + camera.WorldMatrix.Translation;
             if (!camera.CanScan(targetPosition)) return TryScanResults.CannotScan;
 
-            var info = camera.Raycast(targetPosition);
+            var info = camera.Raycast(cameraFinalPosition);
             if (info.EntityId != enemy.ID) return TryScanResults.Obstructed;
             enemy.FromDetectedInfo(info, localTime + intelProvider.CanonicalTimeDiff, true);
             intelProvider.ReportFleetIntelligence(enemy, localTime);

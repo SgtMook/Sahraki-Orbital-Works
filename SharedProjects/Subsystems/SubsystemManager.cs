@@ -33,7 +33,6 @@ namespace IngameScript
         MyGridProgram Program;
 
         Dictionary<string, ISubsystem> Subsystems = new Dictionary<string, ISubsystem>(StringComparer.OrdinalIgnoreCase);
-        Dictionary<string, HashSet<string>> CommandMultiplexors = new Dictionary<string, HashSet<string>>();
 
         int UpdateCounter = 0;
 
@@ -109,20 +108,6 @@ namespace IngameScript
 
             Parser.Delete("Manager", "StartActive");
             Program.Me.CustomData = Parser.ToString();
-        }
-
-        /// <summary>
-        /// A multiplexor is used to send one command to multiple subsystems.
-        /// For example:
-        /// AddCommandMultiplexor("group1", "subsystem1");
-        /// AddCommandMultiplexor("group1", "subsystem2");
-        /// Command("group1", "Hello", "HelloArgs");
-        /// Will send the command "Hello" with argument "HelloArgs" to both subsystem1 and subsystem 2
-        /// </summary>
-        public void AddCommandMultiplexor(string multiplexorName, string subsystemName)
-        {
-            if (!CommandMultiplexors.ContainsKey(multiplexorName)) CommandMultiplexors[multiplexorName] = new HashSet<string>();
-            CommandMultiplexors[multiplexorName].Add(subsystemName);
         }
 
         public string SerializeManager()
@@ -269,10 +254,6 @@ namespace IngameScript
             else if (Subsystems.ContainsKey(subsystem))
             {
                 Subsystems[subsystem].Command(Timestamp, command, argument);
-            }
-            else if (CommandMultiplexors.ContainsKey(subsystem))
-            {
-                foreach (var system in CommandMultiplexors[subsystem]) Command(system, command, argument);
             }
         }
 
