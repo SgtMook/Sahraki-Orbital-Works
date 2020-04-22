@@ -85,6 +85,10 @@ namespace IngameScript
             TacticalCommandSubsystem tacticalSubsystem = new TacticalCommandSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("command", tacticalSubsystem);
 
+            // Black ops
+            //ECMInterfaceSubsystem ECM = new ECMInterfaceSubsystem(intelSubsystem);
+            //subsystemManager.AddSubsystem("ECM", ECM);
+
             subsystemManager.DeserializeManager(Storage);
         }
 

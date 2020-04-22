@@ -51,14 +51,14 @@ namespace IngameScript
             //debugBuilder.AppendLine(PartsScratchpad.Count().ToString());
             //debugBuilder.AppendLine(TorpedoTubes[1].LoadedTorpedo == null ? "NULL Torpedo" : TorpedoTubes[1].LoadedTorpedo.SubTorpedos.Count.ToString());
 
-            //foreach (var t in Torpedos)
-            //{
-            //    if (t.Target == null) debugBuilder.AppendLine("NULL");
-            //    else debugBuilder.AppendLine(t.Target.DisplayName);
-            //
-            //    debugBuilder.AppendLine(Vector3D.TransformNormal(t.AccelerationVector, MatrixD.Transpose(t.Controller.WorldMatrix)).ToString());
-            //    debugBuilder.Append("===");
-            //}
+            foreach (var t in Torpedos)
+            {
+                if (t.Camera == null) debugBuilder.AppendLine("NULL");
+                else debugBuilder.AppendLine(t.Camera.DisplayName);
+            
+                debugBuilder.AppendLine(Vector3D.TransformNormal(t.AccelerationVector, MatrixD.Transpose(t.Controller.WorldMatrix)).ToString());
+                debugBuilder.Append("===");
+            }
             return debugBuilder.ToString();
         }
 
@@ -75,68 +75,88 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            // Update Torpedos
-            TorpedoScratchpad.Clear();
-
-            var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
-            var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
-
-            foreach (var torp in Torpedos)
+            if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
-                if (torp.Target != null)
+                // Update Torpedos
+                TorpedoScratchpad.Clear();
+
+                var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+                var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
+
+                foreach (var torp in Torpedos)
                 {
-                    var intelKey = MyTuple.Create(IntelItemType.Enemy, torp.Target.ID);
-                    if (!intelItems.ContainsKey(intelKey))
+                    if (torp.Target != null)
                     {
-                        torp.Target = null;
-                    }
-                    else
-                    {
-                        torp.Update((EnemyShipIntel)intelItems[intelKey], canonicalTime);
-                    }
-                }
-
-                if (torp.Target == null)
-                {
-                    EnemyShipIntel combatIntel = null;
-                    double closestIntelDist = double.MaxValue;
-                    foreach (var intel in intelItems)
-                    {
-                        if (intel.Key.Item1 != IntelItemType.Enemy) continue;
-                        var enemyIntel = (EnemyShipIntel)intel.Value;
-
-                        if (!EnemyShipIntel.PrioritizeTarget(enemyIntel)) continue;
-
-                        if (IntelProvider.GetPriority(enemyIntel.ID) < 2) continue;
-
-                        double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - torp.Controller.WorldMatrix.Translation).Length();
-                        if (dist < closestIntelDist)
+                        var intelKey = MyTuple.Create(IntelItemType.Enemy, torp.Target.ID);
+                        if (!intelItems.ContainsKey(intelKey))
                         {
-                            closestIntelDist = dist;
-                            combatIntel = enemyIntel;
+                            torp.Target = null;
+                        }
+                        else
+                        {
+                            torp.Update((EnemyShipIntel)intelItems[intelKey], canonicalTime);
                         }
                     }
-                    torp.Update(combatIntel, canonicalTime);
+
+                    if (torp.Target == null)
+                    {
+                        EnemyShipIntel combatIntel = null;
+                        double closestIntelDist = double.MaxValue;
+                        foreach (var intel in intelItems)
+                        {
+                            if (intel.Key.Item1 != IntelItemType.Enemy) continue;
+                            var enemyIntel = (EnemyShipIntel)intel.Value;
+
+                            if (!EnemyShipIntel.PrioritizeTarget(enemyIntel)) continue;
+
+                            if (IntelProvider.GetPriority(enemyIntel.ID) < 2) continue;
+
+                            double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - torp.Controller.WorldMatrix.Translation).Length();
+                            if (dist < closestIntelDist)
+                            {
+                                closestIntelDist = dist;
+                                combatIntel = enemyIntel;
+                            }
+                        }
+                        torp.Update(combatIntel, canonicalTime);
+                    }
+                    if (torp.Disabled) TorpedoScratchpad.Add(torp);
                 }
-                if (torp.Disabled) TorpedoScratchpad.Add(torp);
-            }
 
-            foreach (var torp in TorpedoScratchpad) Torpedos.Remove(torp);
+                foreach (var torp in TorpedoScratchpad) Torpedos.Remove(torp);
 
-            // Update Tubes
-            for (int i = 0; i < TorpedoTubes.Count(); i++)
-            {
-                if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
+                // Update Tubes
+                for (int i = 0; i < TorpedoTubes.Count(); i++)
                 {
-                    TorpedoTubes[i].Update(timestamp);
+                    if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
+                    {
+                        TorpedoTubes[i].Update(timestamp);
+                    }
                 }
+            }
+            if ((updateFlags & UpdateFrequency.Update1) != 0)
+            {
+                TorpedoScratchpad.Clear();
+                foreach (var torp in Torpedos)
+                {
+                    if (torp.Camera != null && torp.Camera.IsWorking)
+                    {
+                        MyDetectedEntityInfo detected = torp.Camera.Raycast(torp.Controller.GetShipSpeed() * 0.017);
+                        if (detected.EntityId != 0 && (detected.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies || detected.Relationship == MyRelationsBetweenPlayerAndBlock.Neutral))
+                        {
+                            TorpedoScratchpad.Add(torp);
+                            torp.Detonate();
+                        }
+                    }
+                }
+                foreach (var torp in TorpedoScratchpad) Torpedos.Remove(torp);
             }
         }
         #endregion
 
         public TorpedoSubsystem(IIntelProvider intelProvider)
         {
-            UpdateFrequency = UpdateFrequency.Update10;
+            UpdateFrequency = UpdateFrequency.Update10 | UpdateFrequency.Update1;
             IntelProvider = intelProvider;
         }
 
@@ -184,8 +204,24 @@ namespace IngameScript
         void Fire(object argument, TimeSpan localTime)
         {
             int index;
-            if (!(argument is string)) return;
-            if (!int.TryParse((string)argument, out index)) return;
+
+            if ((string)argument == "all")
+            {
+                for (int i = 0; i < TorpedoTubes.Count(); i++)
+                {
+                    Fire(localTime, i);
+                }
+            }
+            else
+            {
+                if (!(argument is string)) return;
+                if (!int.TryParse((string)argument, out index)) return;
+                Fire(localTime, index);
+            }
+        }
+
+        private void Fire(TimeSpan localTime, int index)
+        {
             if (TorpedoTubes[index] != null && TorpedoTubes[index].OK())
             {
                 var torp = TorpedoTubes[index].Fire(localTime + IntelProvider.CanonicalTimeDiff);
@@ -236,7 +272,7 @@ namespace IngameScript
         {
             if (block is IMyShipController) { Controller = (IMyShipController)block; return true; }
             if (block is IMyGyro) { Gyro = (IMyGyro)block; return true; }
-            if (block is IMyCameraBlock) { Camera = (IMyCameraBlock)block; return true; }
+            if (block is IMyCameraBlock) { Camera = (IMyCameraBlock)block; Camera.EnableRaycast = true; return true; }
             if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); return true; }
             if (block is IMyWarhead) { Warheads.Add((IMyWarhead)block); return true; }
             if (block is IMyShipMergeBlock) { Splitters.Add((IMyShipMergeBlock)block); return true; }
@@ -368,7 +404,7 @@ namespace IngameScript
 
         Vector3D RefreshNavigation(TimeSpan CanonicalTime)
         {
-            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.3) - Controller.WorldMatrix.Translation;
+            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.2) - Controller.WorldMatrix.Translation;
 
             if (rangeVector.LengthSquared() < 50 * 50) Arm();
 
@@ -410,9 +446,17 @@ namespace IngameScript
             foreach (var warhead in Warheads) warhead.IsArmed = true;
         }
 
+        public void Detonate()
+        {
+            foreach (var warhead in Warheads)
+            {
+                warhead.IsArmed = true;
+                warhead.Detonate();
+            }
+        }
+
         double FastAT(double x)
         {
-            //Removed Math.Abs() since x is always positive in this script
             return 0.785375 * x - x * (x - 1.0) * (0.2447 + 0.0663 * x);
         }
 
