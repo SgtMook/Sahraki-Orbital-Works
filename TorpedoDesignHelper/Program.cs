@@ -114,6 +114,7 @@ namespace IngameScript
             builder.AppendLine("======== WARNINGS ========");
 
             if (torpedo.Camera == null) builder.AppendLine("=> No camera.");
+            if (torpedo.Sensor == null) builder.AppendLine("=> No sensor.");
             if (torpedo.Warheads == null) builder.AppendLine("=> No warheads (OK for kinetic or trainer).");
 
             foreach (var torp in torpedo.SubTorpedos)

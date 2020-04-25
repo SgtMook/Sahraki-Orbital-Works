@@ -40,8 +40,6 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            debugBuilder.Clear();
-
             //debugBuilder.AppendLine(TorpedoTubes[1].Release == null ? "NULL RELEASE" : TorpedoTubes[1].Release.CustomName);
             //debugBuilder.AppendLine(GridTerminalHelper.OtherMergeBlock(TorpedoTubes[1].Release) == null ? "NULL OTHER RELEASE" : GridTerminalHelper.OtherMergeBlock(TorpedoTubes[1].Release).CustomName);
             //
@@ -51,14 +49,14 @@ namespace IngameScript
             //debugBuilder.AppendLine(PartsScratchpad.Count().ToString());
             //debugBuilder.AppendLine(TorpedoTubes[1].LoadedTorpedo == null ? "NULL Torpedo" : TorpedoTubes[1].LoadedTorpedo.SubTorpedos.Count.ToString());
 
-            foreach (var t in Torpedos)
-            {
-                if (t.Camera == null) debugBuilder.AppendLine("NULL");
-                else debugBuilder.AppendLine(t.Camera.DisplayName);
-            
-                debugBuilder.AppendLine(Vector3D.TransformNormal(t.AccelerationVector, MatrixD.Transpose(t.Controller.WorldMatrix)).ToString());
-                debugBuilder.Append("===");
-            }
+            //foreach (var t in Torpedos)
+            //{
+            //    if (t.Camera == null) debugBuilder.AppendLine("NULL");
+            //    else debugBuilder.AppendLine(t.Camera.DisplayName);
+            //
+            //    debugBuilder.AppendLine(Vector3D.TransformNormal(t.AccelerationVector, MatrixD.Transpose(t.Controller.WorldMatrix)).ToString());
+            //    debugBuilder.Append("===");
+            //}
             return debugBuilder.ToString();
         }
 
@@ -141,11 +139,24 @@ namespace IngameScript
                 {
                     if (torp.Camera != null && torp.Camera.IsWorking)
                     {
-                        MyDetectedEntityInfo detected = torp.Camera.Raycast(torp.Controller.GetShipSpeed() * 0.017);
+                        var extend = torp.Camera.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 13 : 3.5;
+                        MyDetectedEntityInfo detected = torp.Camera.Raycast(torp.Controller.GetShipSpeed() * 0.017 + extend);
                         if (detected.EntityId != 0 && (detected.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies || detected.Relationship == MyRelationsBetweenPlayerAndBlock.Neutral))
                         {
                             TorpedoScratchpad.Add(torp);
                             torp.Detonate();
+                            debugBuilder.AppendLine("Detonate");
+                        }
+                    }
+                    if (torp.Sensor != null && torp.Sensor.IsWorking)
+                    {
+                        torp.Sensor.DetectedEntities(DetectedInfoScratchpad);
+                        if (DetectedInfoScratchpad.Count > 0)
+                        {
+                            DetectedInfoScratchpad.Clear();
+                            TorpedoScratchpad.Add(torp);
+                            torp.Detonate();
+                            debugBuilder.AppendLine("Sensor Detonate");
                         }
                     }
                 }
@@ -165,6 +176,7 @@ namespace IngameScript
         public HashSet<Torpedo> Torpedos = new HashSet<Torpedo>();
         public List<Torpedo> TorpedoScratchpad = new List<Torpedo>();
         public List<IMyTerminalBlock> PartsScratchpad = new List<IMyTerminalBlock>();
+        List<MyDetectedEntityInfo> DetectedInfoScratchpad = new List<MyDetectedEntityInfo>();
 
         MyGridProgram Program;
         IIntelProvider IntelProvider;
@@ -243,6 +255,7 @@ namespace IngameScript
         public HashSet<IMyBatteryBlock> Batteries = new HashSet<IMyBatteryBlock>();
         public HashSet<IMyGasTank> Tanks = new HashSet<IMyGasTank>();
         public IMyCameraBlock Camera;
+        public IMySensorBlock Sensor;
         public IMyShipController Controller;
         public string Tag; // HE, CLST, MICRO, etc
         public HashSet<IMyShipMergeBlock> Splitters = new HashSet<IMyShipMergeBlock>();
@@ -265,6 +278,7 @@ namespace IngameScript
         public Vector3D AccelerationVector;
 
         bool initialized = false;
+        public int Detonating = -1;
 
         Vector3D RandomOffset;
 
@@ -273,6 +287,7 @@ namespace IngameScript
             if (block is IMyShipController) { Controller = (IMyShipController)block; return true; }
             if (block is IMyGyro) { Gyro = (IMyGyro)block; return true; }
             if (block is IMyCameraBlock) { Camera = (IMyCameraBlock)block; Camera.EnableRaycast = true; return true; }
+            if (block is IMySensorBlock) { Sensor = (IMySensorBlock)block; return true; }
             if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); return true; }
             if (block is IMyWarhead) { Warheads.Add((IMyWarhead)block); return true; }
             if (block is IMyShipMergeBlock) { Splitters.Add((IMyShipMergeBlock)block); return true; }
@@ -289,15 +304,14 @@ namespace IngameScript
             gyroControl = new GyroControl(gyros);
             var refWorldMatrix = Controller.WorldMatrix;
             gyroControl.Init(ref refWorldMatrix);
+            Gyro.GyroOverride = true;
+            Gyro.Enabled = true;
 
             foreach (var thruster in Thrusters)
             {
                 thruster.Enabled = true;
                 thruster.ThrustOverridePercentage = 1;
             }
-
-            Gyro.GyroOverride = true;
-            Gyro.Enabled = true;
 
             launchTime = CanonicalTime;
 
@@ -404,9 +418,7 @@ namespace IngameScript
 
         Vector3D RefreshNavigation(TimeSpan CanonicalTime)
         {
-            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.2) - Controller.WorldMatrix.Translation;
-
-            if (rangeVector.LengthSquared() < 50 * 50) Arm();
+            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.1) - Controller.WorldMatrix.Translation;
 
             var linearVelocity = Controller.GetShipVelocities().LinearVelocity;
             Vector3D velocityVector = Target.CurrentVelocity - linearVelocity;
@@ -752,7 +764,8 @@ namespace IngameScript
 
             if (Connector != null && Connector.Status == MyShipConnectorStatus.Connected) Connector.OtherConnector.Enabled = false;
             foreach (var tank in LoadedTorpedo.Tanks) tank.Stockpile = false;
-
+            LoadedTorpedo.Gyro.GyroOverride = true;
+            LoadedTorpedo.Gyro.Enabled = true;
             var torp = LoadedTorpedo;
             torp.Init(canonicalTime);
             LoadedTorpedo = null;

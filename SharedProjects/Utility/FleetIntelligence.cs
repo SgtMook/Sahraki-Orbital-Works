@@ -842,7 +842,7 @@ namespace IngameScript
 
         static public bool PrioritizeTarget(EnemyShipIntel target)
         {
-            if (target.CubeSize == MyCubeSize.Small && target.Radius < 4) return false;
+            if (target.CubeSize == MyCubeSize.Small && target.Radius < 1) return false;
             if (target.CubeSize == MyCubeSize.Large && target.Radius < 18) return false;
             return true;
         }

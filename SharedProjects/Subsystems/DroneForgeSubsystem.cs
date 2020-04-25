@@ -119,7 +119,6 @@ namespace IngameScript
                                 break;
                             }
                         }
-
                     }
                 }
                 droneMainframe.TryRun($"manager activate \"{name}\"");

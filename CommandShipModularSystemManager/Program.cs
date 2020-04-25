@@ -55,16 +55,16 @@ namespace IngameScript
             {
                 subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
             }
-
+            
             DroneForgeSubsystem forgeSubsystem = null;
-
+            
             // Drone Forge setup
             if (Forge)
             {
                 forgeSubsystem = new DroneForgeSubsystem(intelSubsystem);
                 subsystemManager.AddSubsystem("forge", forgeSubsystem);
             }
-
+            
             // Inventory system setup
             if (Inventory)
             {
@@ -73,21 +73,21 @@ namespace IngameScript
                 if (Forge) inventorySubsystem.RegisterRequester(forgeSubsystem);
                 subsystemManager.AddSubsystem("inventory", inventorySubsystem);
             }
-
+            
             // Torpedo system setup
             if (Torpedos)
             {
                 TorpedoSubsystem torpedoSubsystem = new TorpedoSubsystem(intelSubsystem);
                 subsystemManager.AddSubsystem("torpedo", torpedoSubsystem);
             }
-
+            //
             // Command system setup
             TacticalCommandSubsystem tacticalSubsystem = new TacticalCommandSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("command", tacticalSubsystem);
 
             // Black ops
-            //ECMInterfaceSubsystem ECM = new ECMInterfaceSubsystem(intelSubsystem);
-            //subsystemManager.AddSubsystem("ECM", ECM);
+            ECMInterfaceSubsystem ECM = new ECMInterfaceSubsystem(intelSubsystem);
+            subsystemManager.AddSubsystem("ECM", ECM);
 
             subsystemManager.DeserializeManager(Storage);
         }

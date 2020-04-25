@@ -106,6 +106,8 @@ namespace IngameScript
                 if (IntelProvider.GetPriority(enemyIntel.ID) < 2) continue;
 
                 double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
+
+                if (enemyIntel.CubeSize == MyCubeSize.Small) dist -= 300;
                 if (IntelProvider.GetPriority(enemyIntel.ID) == 3) dist -= 600;
                 if (IntelProvider.GetPriority(enemyIntel.ID) == 4) dist -= 1200;
                 if (dist < closestIntelDist)
