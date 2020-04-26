@@ -47,284 +47,7 @@ namespace IngameScript
         bool HasMaster { get; }
     }
 
-    // Handles tracking, updating, and transmitting fleet intelligence
-    // TODO: Serialize and deserialize intel items
-    // TODO: Remove items as necessary
-    public class IntelMasterSubsystem : ISubsystem, IIntelProvider
-    {
-        #region ISubsystem
-
-        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10 | UpdateFrequency.Update100;
-
-        public void Command(TimeSpan timestamp, string command, object argument)
-        {
-            if (command == "wipe")
-            {
-                IntelItems.Clear();
-                Timestamps.Clear();
-            }
-        }
-
-        public string GetStatus()
-        {
-            debugBuilder.Clear();
-            debugBuilder.AppendLine(RadiusMulti.ToString());
-            return debugBuilder.ToString();
-        }
-
-        public void DeserializeSubsystem(string serialized)
-        {
-            MyStringReader reader = new MyStringReader(serialized);
-            while (reader.HasNextLine)
-            {
-                var s = reader.NextLine();
-                if (s == string.Empty) return;
-                ReportFleetIntelligence(AsteroidIntel.DeserializeAsteroid(s), TimeSpan.Zero);
-            }
-        }
-
-        public string SerializeSubsystem()
-        {
-            StringBuilder saveBuilder = new StringBuilder();
-
-            foreach (var kvp in IntelItems)
-            {
-                if (kvp.Key.Item1 == IntelItemType.Asteroid)
-                {
-                    saveBuilder.AppendLine(kvp.Value.Serialize());
-                }
-            }
-
-            return saveBuilder.ToString();
-        }
-
-        public void Setup(MyGridProgram program, string name)
-        {
-            Program = program;
-            ReportListener = Program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
-            PriorityRequestListener = Program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityRequestChannelTag);
-            GetParts();
-            UpdateMyIntel(TimeSpan.Zero);
-            ParseConfigs();
-
-            AsteroidIntel.IGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3);
-            FriendlyShipIntel.IGCUnpack(FriendlyShipIntel.IGCPackGeneric(new FriendlyShipIntel()).Item3);
-            EnemyShipIntel.IGCUnpack(EnemyShipIntel.IGCPackGeneric(new EnemyShipIntel()).Item3);
-            DockIntel.IGCUnpack(DockIntel.IGCPackGeneric(new DockIntel()).Item3);
-            Waypoint.IGCUnpack(Waypoint.IGCPackGeneric(new Waypoint()).Item3);
-
-            FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(123, IntelItems, ref KeyScratchpad, 0);
-            FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(123, IntelItems, 0);
-        }
-
-        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
-        {
-            if ((updateFlags & UpdateFrequency.Update10) != 0)
-            {
-                UpdateIntelFromReports(timestamp);
-                if (runs % 3 == 0)
-                {
-                    SendSyncMessage(timestamp);
-                    UpdateMyIntel(timestamp);
-                }
-                runs++;
-            }
-            if ((updateFlags & UpdateFrequency.Update100) != 0)
-            {
-                TimeoutIntelItems(timestamp);
-                ReceivePriorityRequests();
-                SendPriorities();
-            }
-        }
-
-        public bool HasMaster => true;
-        #endregion
-
-        #region IIntelProvider
-        public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences(TimeSpan timestamp)
-        {
-            return IntelItems;
-        }
-
-        public TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key)
-        {
-            if (!Timestamps.ContainsKey(key))
-                return TimeSpan.MaxValue;
-            return Timestamps[key];
-        }
-
-        public void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp)
-        {
-            MyTuple<IntelItemType, long> key = MyTuple.Create(item.IntelItemType, item.ID);
-            if (!IntelItems.ContainsKey(key) || IntelItems[key] != item) IntelItems[key] = item;
-            Timestamps[key] = timestamp;
-        }
-
-        public TimeSpan CanonicalTimeDiff => TimeSpan.Zero;
-
-        public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
-        {
-            Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)targetKey.Item1, targetKey.Item2), (int)CommandType.Override, 0));
-        }
-
-        public void AddIntelMutator(IOwnIntelMutator processor)
-        {
-            intelProcessors.Add(processor);
-        }
-
-        public int GetPriority(long EnemyID)
-        {
-            int priority;
-            if (!EnemyPriorities.TryGetValue(EnemyID, out priority)) priority = 2;
-            return priority;
-        }
-        public void SetPriority(long EnemyID, int value)
-        {
-            EnemyPriorities[EnemyID] = value;
-        }
-        #endregion
-
-        #region Debug
-        StringBuilder debugBuilder = new StringBuilder();
-        #endregion
-
-        MyGridProgram Program;
-        IMyBroadcastListener ReportListener;
-        IMyBroadcastListener PriorityRequestListener;
-
-        Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
-        Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
-
-        IMyShipController controller;
-
-        List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
-        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(4);
-
-        HashSet<IOwnIntelMutator> intelProcessors = new HashSet<IOwnIntelMutator>();
-
-        Dictionary<long, int> EnemyPriorities = new Dictionary<long, int>();
-
-        IGCSyncPacker IGCSyncPacker = new IGCSyncPacker();
-
-        int runs = 0;
-
-        void GetParts()
-        {
-            controller = null;
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
-        }
-
-        private bool CollectParts(IMyTerminalBlock block)
-        {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
-
-            if (block is IMyShipController)
-                controller = (IMyShipController)block;
-
-            return false;
-        }
-
-        float RadiusMulti = 1;
-
-        // [Intel]
-        // RadiusMulti = 1
-        private void ParseConfigs()
-        {
-            MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(Program.Me.CustomData, out result))
-                return;
-
-            var flo = Parser.Get("Intel", "RadiusMulti").ToDecimal();
-            if (flo != 0) RadiusMulti = (float)flo;
-        }
-
-        void UpdateMyIntel(TimeSpan timestamp)
-        {
-            if (controller == null) return;
-            FriendlyShipIntel myIntel;
-            IMyCubeGrid cubeGrid = Program.Me.CubeGrid;
-            var key = MyTuple.Create(IntelItemType.Friendly, cubeGrid.EntityId);
-            if (IntelItems.ContainsKey(key))
-                myIntel = (FriendlyShipIntel)IntelItems[key];
-            else
-                myIntel = new FriendlyShipIntel();
-
-            myIntel.DisplayName = cubeGrid.DisplayName;
-            myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
-            myIntel.CurrentPosition = cubeGrid.GetPosition();
-            myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length() + 20;
-            myIntel.CurrentCanonicalTime = timestamp;
-            myIntel.ID = cubeGrid.EntityId;
-            myIntel.HomeID = -1;
-            myIntel.AgentStatus = AgentStatus.None;
-
-            foreach (var processor in intelProcessors)
-                processor.ProcessIntel(myIntel);
-
-            myIntel.Radius *= RadiusMulti;
-
-            ReportFleetIntelligence(myIntel, timestamp);
-        }
-
-        private void TimeoutIntelItems(TimeSpan timestamp)
-        {
-            foreach (var kvp in Timestamps)
-            {
-                if (kvp.Key.Item1 == IntelItemType.Asteroid) continue;
-                if ((kvp.Value + kIntelTimeout) < timestamp)
-                {
-                    KeyScratchpad.Add(kvp.Key);
-                }
-            }
-
-            foreach (var key in KeyScratchpad)
-            {
-                IntelItems.Remove(key);
-                Timestamps.Remove(key);
-            }
-
-            KeyScratchpad.Clear();
-        }
-
-        private void SendSyncMessage(TimeSpan timestamp)
-        {
-            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me, IGCSyncPacker);
-            Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.TimeChannelTag, timestamp.TotalMilliseconds);
-        }
-
-        private void UpdateIntelFromReports(TimeSpan timestamp)
-        {
-            while (ReportListener.HasPendingMessage)
-            {
-                var msg = ReportListener.AcceptMessage();
-                var updateKey = FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(msg.Data, IntelItems, Program.IGC.Me);
-                if (updateKey.Item1 != IntelItemType.NONE)
-                {
-                    Timestamps[updateKey] = timestamp;
-                }
-            }
-        }
-
-        private void ReceivePriorityRequests()
-        {
-            while (PriorityRequestListener.HasPendingMessage)
-            {
-                var msg = PriorityRequestListener.AcceptMessage();
-                if (!(msg.Data is MyTuple<long, int>)) continue;
-                MyTuple<long, int> unpacked = (MyTuple<long, int>)msg.Data;
-                var newPriority = Math.Max(0, Math.Min(4, unpacked.Item2));
-                EnemyPriorities[unpacked.Item1] = newPriority;
-            }
-        }
-
-        private void SendPriorities()
-        {
-            Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.IntelPriorityChannelTag, EnemyPriorities.ToImmutableDictionary());
-        }
-
-    }
-
+    // ABOLISH SLAVERY ====================================================================================================================================================================================================================================================
     // TODO: Save/load serializations
     public class IntelSlaveSubsystem : ISubsystem, IIntelProvider
     {
@@ -335,24 +58,53 @@ namespace IngameScript
         public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "sync") GetTimeMessage(timestamp);
+            if (command == "wipe")
+            {
+                IntelItems.Clear();
+                Timestamps.Clear();
+            }
         }
 
         public string GetStatus()
         {
             debugBuilder.Clear();
-            profiler.PrintSectionBreakdown(debugBuilder);
+            debugBuilder.AppendLine(IsMaster ? "MASTER" : "SLAVE");
             return debugBuilder.ToString();
         }
-    
+
         public void DeserializeSubsystem(string serialized)
         {
-        }    
-    
+            if (IsMaster)
+            {
+                MyStringReader reader = new MyStringReader(serialized);
+                while (reader.HasNextLine)
+                {
+                    var s = reader.NextLine();
+                    if (s == string.Empty) return;
+                    ReportFleetIntelligence(AsteroidIntel.DeserializeAsteroid(s), TimeSpan.Zero);
+                }
+            }
+        }
+
         public string SerializeSubsystem()
         {
+            if (IsMaster)
+            {
+                StringBuilder saveBuilder = new StringBuilder();
+
+                foreach (var kvp in IntelItems)
+                {
+                    if (kvp.Key.Item1 == IntelItemType.Asteroid)
+                    {
+                        saveBuilder.AppendLine(kvp.Value.Serialize());
+                    }
+                }
+
+                return saveBuilder.ToString();
+            }
             return string.Empty;
         }
-    
+
         public void Setup(MyGridProgram program, string name)
         {
             Program = program;
@@ -362,7 +114,6 @@ namespace IngameScript
             TimeListener.SetMessageCallback($"{name} sync");
             GetParts();
 
-            profiler = new Profiler(Program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
             AsteroidIntel.IGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3);
             FriendlyShipIntel.IGCUnpack(FriendlyShipIntel.IGCPackGeneric(new FriendlyShipIntel()).Item3);
             EnemyShipIntel.IGCUnpack(EnemyShipIntel.IGCPackGeneric(new EnemyShipIntel()).Item3);
@@ -371,15 +122,28 @@ namespace IngameScript
 
             FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(123, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID);
             FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(123, IntelItems, CanonicalTimeSourceID);
+
+            GetTimeMessage(TimeSpan.Zero);
+            GetFleetIntelligences(TimeSpan.Zero);
+            CheckOrSendTimeMessage(TimeSpan.Zero);
+
+            Program = program;
+            ReportListener = Program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
+            PriorityRequestListener = Program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityRequestChannelTag);
+            GetParts();
+            UpdateMyIntel(TimeSpan.Zero);
+            ParseConfigs();
         }
     
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
+                if (IsMaster) UpdateIntelFromReports(timestamp);
                 if (runs % 3 == 0)
                 {
-                    GetSyncMessages(timestamp);
+                    if (!IsMaster) GetSyncMessages(timestamp);
+                    CheckOrSendTimeMessage(timestamp);
                     UpdateMyIntel(timestamp);
                 }
                 runs++;
@@ -387,38 +151,48 @@ namespace IngameScript
             if ((updateFlags & UpdateFrequency.Update100) != 0)
             {
                 TimeoutIntelItems(timestamp);
-                UpdatePriorities();
+
+                if (IsMaster)
+                {
+                    ReceivePriorityRequests();
+                    SendPriorities();
+                }
+                else
+                {
+                    UpdatePriorities();
+                }
             }
-            //profiler.StartSectionWatch("Baseline");
-            //profiler.StopSectionWatch("Baseline");
-            //
-            //profiler.StartSectionWatch("GetSyncMessages");
-            //if ((updateFlags & UpdateFrequency.Update10) != 0) GetSyncMessages(timestamp);
-            //profiler.StopSectionWatch("GetSyncMessages");
-            //profiler.StartSectionWatch("UpdateMyIntel");
-            //if ((updateFlags & UpdateFrequency.Update10) != 0) UpdateMyIntel(timestamp);
-            //profiler.StopSectionWatch("UpdateMyIntel");
-            //
-            //profiler.StartSectionWatch("TimeoutIntelItems");
-            //if ((updateFlags & UpdateFrequency.Update100) != 0) TimeoutIntelItems(timestamp);
-            //profiler.StopSectionWatch("TimeoutIntelItems");
-            //profiler.StartSectionWatch("UpdatePriorities");
-            //if ((updateFlags & UpdateFrequency.Update100) != 0) UpdatePriorities();
-            //profiler.StopSectionWatch("UpdatePriorities");
         }
 
         public int GetPriority(long EnemyID)
         {
-            if (EnemyPrioritiesOverride.ContainsKey(EnemyID)) return EnemyPrioritiesOverride[EnemyID];
-            if (EnemyPriorities == null || !EnemyPriorities.ContainsKey(EnemyID)) return 2;
-            return EnemyPriorities[EnemyID];
+            if (IsMaster)
+            {
+                int priority;
+                if (!MasterEnemyPriorities.TryGetValue(EnemyID, out priority)) priority = 2;
+                return priority;
+            }
+            else
+            {
+                if (EnemyPrioritiesOverride.ContainsKey(EnemyID)) return EnemyPrioritiesOverride[EnemyID];
+                if (EnemyPriorities == null || !EnemyPriorities.ContainsKey(EnemyID)) return 2;
+                return EnemyPriorities[EnemyID];
+            }
         }
 
         public void SetPriority(long EnemyID, int value)
         {
-            EnemyPrioritiesOverride[EnemyID] = value;
-            EnemyPrioritiesKeepSet.Add(EnemyID);
-            Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.IntelPriorityRequestChannelTag, MyTuple.Create(EnemyID, value));
+            if (IsMaster)
+            {
+                MasterEnemyPriorities[EnemyID] = value;
+            }
+            else 
+            {
+                EnemyPrioritiesOverride[EnemyID] = value;
+                EnemyPrioritiesKeepSet.Add(EnemyID);
+                Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.IntelPriorityRequestChannelTag, MyTuple.Create(EnemyID, value));
+            }
+
         }
         #endregion
 
@@ -438,7 +212,7 @@ namespace IngameScript
 
         public void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp)
         {
-            if (CanonicalTimeSourceID != 0)
+            if (CanonicalTimeSourceID != 0 && !IsMaster)
             {
                 FleetIntelligenceUtil.PackAndBroadcastFleetIntelligence(Program.IGC, item, CanonicalTimeSourceID);
             }
@@ -474,14 +248,11 @@ namespace IngameScript
         }
         #endregion
 
-        const double PROFILER_NEW_VALUE_FACTOR = 0.01;
-        const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
-        Profiler profiler;
-
         private const double kOneTick = 16.6666666;
         MyGridProgram Program;
         IMyBroadcastListener SyncListener;
-
+        IMyBroadcastListener ReportListener;
+        IMyBroadcastListener PriorityRequestListener;
         IMyBroadcastListener PriorityListener;
 
         Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
@@ -493,13 +264,20 @@ namespace IngameScript
         TimeSpan kIntelTimeout = TimeSpan.FromSeconds(5);
 
         long CanonicalTimeSourceID;
+        int CanonicalTimeSourceRank;
         IMyBroadcastListener TimeListener;
+
+        long HighestRankID;
+        int HighestRank;
 
         IMyShipController controller;
 
         HashSet<IOwnIntelMutator> intelProcessors = new HashSet<IOwnIntelMutator>();
 
         ImmutableDictionary<long, int> EnemyPriorities = null;
+        Dictionary<long, int> MasterEnemyPriorities = new Dictionary<long, int>();
+        IGCSyncPacker IGCSyncPacker = new IGCSyncPacker();
+
         Dictionary<long, int> EnemyPrioritiesOverride = new Dictionary<long, int>();
         HashSet<long> EnemyPrioritiesKeepSet = new HashSet<long>();
         List<long> EnemyPriorityClearScratchpad = new List<long>();
@@ -507,6 +285,32 @@ namespace IngameScript
         int runs = 0;
 
         public AgentSubsystem MyAgent;
+
+        bool IsMaster = false;
+        int Rank = 0;
+
+        float RadiusMulti = 1;
+
+        public IntelSlaveSubsystem()
+        {
+        }
+
+        // [Intel]
+        // RadiusMulti = 1
+        // Rank = 0
+        private void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(Program.Me.CustomData, out result))
+                return;
+
+            var flo = Parser.Get("Intel", "RadiusMulti").ToDecimal();
+            if (flo != 0) RadiusMulti = (float)flo;
+
+            var num = Parser.Get("Intel", "Rank").ToInt16();
+            if (num != 0) Rank = num;
+        }
 
         void GetParts()
         {
@@ -537,8 +341,8 @@ namespace IngameScript
 
             myIntel.DisplayName = cubeGrid.DisplayName;
             myIntel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;
-            myIntel.CurrentPosition = cubeGrid.GetPosition();
-            myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length() + 20;
+            myIntel.CurrentPosition = cubeGrid.WorldAABB.Center;
+            myIntel.Radius = (float)(cubeGrid.WorldAABB.Max - cubeGrid.WorldAABB.Center).Length() * RadiusMulti + 20;
             myIntel.CurrentCanonicalTime = timestamp + CanonicalTimeDiff;
             myIntel.ID = cubeGrid.EntityId;
             myIntel.AgentStatus = AgentStatus.None;
@@ -564,21 +368,6 @@ namespace IngameScript
             }
 
             KeyScratchpad.Clear();
-        }
-
-        private void GetTimeMessage(TimeSpan timestamp)
-        {
-            MyIGCMessage? msg = null;
-
-            while (TimeListener.HasPendingMessage)
-                msg = TimeListener.AcceptMessage();
-
-            if (msg != null)
-            {
-                var tMsg = (MyIGCMessage)msg;
-                CanonicalTimeSourceID = tMsg.Source;
-                CanonicalTimeDiff = TimeSpan.FromMilliseconds((double)tMsg.Data + kOneTick) - timestamp;
-            }
         }
 
         private void TimeoutIntelItems(TimeSpan timestamp)
@@ -618,6 +407,104 @@ namespace IngameScript
                     EnemyPriorities = (ImmutableDictionary<long, int>)msg.Data;
                 }
             }
+        }
+
+        private void GetTimeMessage(TimeSpan timestamp)
+        {
+            MyIGCMessage? msg = null;
+
+            while (TimeListener.HasPendingMessage)
+                msg = TimeListener.AcceptMessage();
+
+            if (msg != null)
+            {
+                var tMsg = (MyIGCMessage)msg;
+                var unpacked = (MyTuple<double, int>)tMsg.Data;
+
+                if (unpacked.Item2 > CanonicalTimeSourceRank || (unpacked.Item2 == CanonicalTimeSourceRank && tMsg.Source > CanonicalTimeSourceID))
+                {
+                    CanonicalTimeDiff = TimeSpan.FromMilliseconds(unpacked.Item1 + kOneTick) - timestamp;
+                    CanonicalTimeSourceRank = unpacked.Item2;
+                    CanonicalTimeSourceID = tMsg.Source;
+                }
+
+                if (unpacked.Item2 > HighestRank || (unpacked.Item2 == HighestRank && tMsg.Source > HighestRankID))
+                {
+                    HighestRank = unpacked.Item2;
+                    HighestRankID = tMsg.Source;
+                    if (IsMaster) Demote(HighestRankID);
+                }
+            }
+        }
+
+        private void CheckOrSendTimeMessage(TimeSpan timestamp)
+        {
+            if (timestamp == TimeSpan.Zero) return;
+
+            if (Rank > 0)
+            {
+                FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me, IGCSyncPacker);
+                Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.TimeChannelTag, MyTuple.Create(timestamp.TotalMilliseconds, Rank));
+            }
+
+            if (HighestRankID == Program.IGC.Me && !IsMaster && Rank > 0)
+            {
+                Promote();
+            }
+
+            if (HighestRankID != CanonicalTimeSourceID)
+            {
+                CanonicalTimeSourceRank = 0;
+                CanonicalTimeSourceID = 0;
+            }
+
+            HighestRank = Rank;
+            HighestRankID = Program.IGC.Me;
+        }
+
+        private void UpdateIntelFromReports(TimeSpan timestamp)
+        {
+            while (ReportListener.HasPendingMessage)
+            {
+                var msg = ReportListener.AcceptMessage();
+                var updateKey = FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(msg.Data, IntelItems, Program.IGC.Me);
+                if (updateKey.Item1 != IntelItemType.NONE)
+                {
+                    Timestamps[updateKey] = timestamp;
+                }
+            }
+        }
+
+        private void ReceivePriorityRequests()
+        {
+            while (PriorityRequestListener.HasPendingMessage)
+            {
+                var msg = PriorityRequestListener.AcceptMessage();
+                if (!(msg.Data is MyTuple<long, int>)) continue;
+                MyTuple<long, int> unpacked = (MyTuple<long, int>)msg.Data;
+                var newPriority = Math.Max(0, Math.Min(4, unpacked.Item2));
+                MasterEnemyPriorities[unpacked.Item1] = newPriority;
+            }
+        }
+
+        private void SendPriorities()
+        {
+            Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.IntelPriorityChannelTag, MasterEnemyPriorities.ToImmutableDictionary());
+        }
+
+        private void Promote()
+        {
+            IsMaster = true;
+            CanonicalTimeSourceID = Program.Me.EntityId;
+            if (EnemyPriorities != null) foreach(var kvp in EnemyPriorities) MasterEnemyPriorities.Add(kvp.Key, kvp.Value);
+        }
+
+        private void Demote(long newMasterID)
+        {
+            IsMaster = false;
+            CanonicalTimeSourceID = newMasterID;
+            EnemyPriorities = null;
+            MasterEnemyPriorities.Clear();
         }
     }
 }

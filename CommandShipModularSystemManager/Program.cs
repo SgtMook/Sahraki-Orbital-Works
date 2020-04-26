@@ -34,8 +34,7 @@ namespace IngameScript
             // Add subsystems
             // Intel system setup
             IIntelProvider intelSubsystem;
-            if (IsMaster) intelSubsystem = new IntelMasterSubsystem();
-            else intelSubsystem = new IntelSlaveSubsystem();
+            intelSubsystem = new IntelSlaveSubsystem();
             
             subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
             
@@ -86,13 +85,12 @@ namespace IngameScript
             subsystemManager.AddSubsystem("command", tacticalSubsystem);
 
             // Black ops
-            ECMInterfaceSubsystem ECM = new ECMInterfaceSubsystem(intelSubsystem);
-            subsystemManager.AddSubsystem("ECM", ECM);
+            //ECMInterfaceSubsystem ECM = new ECMInterfaceSubsystem(intelSubsystem);
+            //subsystemManager.AddSubsystem("ECM", ECM);
 
             subsystemManager.DeserializeManager(Storage);
         }
 
-        bool IsMaster = false;
         bool LookingGlass = true;
         bool FixedLookingGlass = false;
         bool ThrusterLookingGlass = false;
@@ -116,7 +114,6 @@ namespace IngameScript
             if (!Parser.TryParse(Me.CustomData, out result))
                 return;
 
-            IsMaster = Parser.Get("Setup", "IsMaster").ToBoolean();
             LookingGlass = Parser.Get("Setup", "LookingGlass").ToBoolean();
             FixedLookingGlass = Parser.Get("Setup", "FixedLookingGlass").ToBoolean();
             ThrusterLookingGlass = Parser.Get("Setup", "ThrusterLookingGlass").ToBoolean();

@@ -72,7 +72,7 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            if (timestamp.TotalSeconds < 1) return; // We just started up, wait up to one second to receive intel
+            if (timestamp.TotalSeconds < 2) return; // We just started up, wait up to two seconds to receive intel
             if (IntelProvider != null && HomeID != -1)
             {
                 var intelItems = IntelProvider.GetFleetIntelligences(timestamp);

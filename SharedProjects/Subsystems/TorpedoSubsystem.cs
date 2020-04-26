@@ -737,7 +737,15 @@ namespace IngameScript
                 return;
             }
 
-            foreach (var part in Host.PartsScratchpad) AddTorpedoPart(part);
+            foreach (var part in Host.PartsScratchpad)
+            {
+                if (!part.IsFunctional)
+                {
+                    LoadedTorpedo = null;
+                    return;
+                }
+                AddTorpedoPart(part);
+            }
 
             if (!LoadedTorpedo.OK())
             {

@@ -55,7 +55,7 @@ namespace IngameScript
 
         TimeSpan lastClaimTime;
         TimeSpan lastLaunchTime;
-        TimeSpan kClaimTimeout = TimeSpan.FromSeconds(1);
+        TimeSpan kClaimTimeout = TimeSpan.FromSeconds(3);
         TimeSpan kLaunchTimeout = TimeSpan.FromSeconds(3);
 
         List<int> MutexHangars = new List<int>();
@@ -291,7 +291,7 @@ namespace IngameScript
             OwnerID = long.Parse(split[1]);
             if (Connector.Status == MyShipConnectorStatus.Connected)
             {
-                if (OwnerID == -1) hangarStatus &= HangarStatus.Reserved;
+                hangarStatus |= HangarStatus.Reserved;
                 OwnerID = Connector.OtherConnector.CubeGrid.EntityId;
             }
         }
