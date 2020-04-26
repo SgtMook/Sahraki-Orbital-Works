@@ -359,6 +359,9 @@ namespace IngameScript
 
         void AimAtTarget(Vector3D TargetVector)
         {
+            //TargetVector.Normalize();
+            //TargetVector += Controller.WorldMatrix.Up * 0.1;
+
             //---------- Activate Gyroscopes To Turn Towards Target ----------
 
             double absX = Math.Abs(TargetVector.X);
@@ -410,15 +413,18 @@ namespace IngameScript
 
             gyroControl.SetGyroYaw((float)yawInput);
             gyroControl.SetGyroPitch((float)pitchInput);
+            gyroControl.SetGyroRoll(ROLL_THETA);
         }
 
         const double DEF_PD_P_GAIN = 10;
         const double DEF_PD_D_GAIN = 5;
         const double DEF_PD_AIM_LIMIT = 6.3;
 
+        const float ROLL_THETA = 0;
+
         Vector3D RefreshNavigation(TimeSpan CanonicalTime)
         {
-            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.1) - Controller.WorldMatrix.Translation;
+            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.3) - Controller.WorldMatrix.Translation;
 
             var linearVelocity = Controller.GetShipVelocities().LinearVelocity;
             Vector3D velocityVector = Target.CurrentVelocity - linearVelocity;
@@ -430,8 +436,10 @@ namespace IngameScript
                 Vector3D compensateVector = velocityVector - (velocityVector.Dot(ref rangeVector) * rangeDivSqVector);
 
                 Vector3D targetANVector;
-                var targetAccel = (lastTargetVelocity - Target.CurrentVelocity);
-                targetANVector = targetAccel - (targetAccel.Dot(ref rangeVector) * rangeDivSqVector);
+                var targetAccel = lastTargetVelocity - Target.CurrentVelocity;
+
+                var grav = Controller.GetNaturalGravity();
+                targetANVector = targetAccel - grav - (targetAccel.Dot(ref rangeVector) * rangeDivSqVector);
 
                 if (speed > lastSpeed + 1)
                 {
@@ -571,6 +579,14 @@ namespace IngameScript
             if (activeGyro < gyros.Count)
             {
                 profiles[gyroPitch[activeGyro]](gyros[activeGyro], pitchRate);
+            }
+        }
+
+        public void SetGyroRoll(float rollRate)
+        {
+            if (activeGyro < gyros.Count)
+            {
+                profiles[gyroRoll[activeGyro]](gyros[activeGyro], rollRate);
             }
         }
 

@@ -438,8 +438,10 @@ namespace IngameScript
 
         public void ReportFleetIntelligence(IFleetIntelligence item, TimeSpan timestamp)
         {
-            if (CanonicalTimeSourceID == 0) return;
-            FleetIntelligenceUtil.PackAndBroadcastFleetIntelligence(Program.IGC, item, CanonicalTimeSourceID);
+            if (CanonicalTimeSourceID != 0)
+            {
+                FleetIntelligenceUtil.PackAndBroadcastFleetIntelligence(Program.IGC, item, CanonicalTimeSourceID);
+            }
             MyTuple<IntelItemType, long> intelKey = FleetIntelligenceUtil.GetIntelItemKey(item);
             Timestamps[intelKey] = timestamp;
             if (!IntelItems.ContainsKey(intelKey) || IntelItems[intelKey] != item) IntelItems[intelKey] = item;
