@@ -34,25 +34,29 @@ namespace IngameScript
             // Add subsystems
             // Intel system setup
             IIntelProvider intelSubsystem;
-            intelSubsystem = new IntelSlaveSubsystem();
+            intelSubsystem = new IntelSlaveSubsystem(1);
             
             subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
-            
+            LookingGlassNetworkSubsystem lookingGlassNetwork = null;
+
             // Looking Glass Setup
             if (LookingGlass)
             {
-                LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", !FixedLookingGlass, ThrusterLookingGlass);
+                lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", !FixedLookingGlass, ThrusterLookingGlass);
                 subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
             }
             
             // Hangar system setup
             HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);
             subsystemManager.AddSubsystem("hangar", hangarSubsystem);
+
+            ScannerNetworkSubsystem scannerSubsystem = null;
             
             // Seeing-Eye scanner setup
             if (Scanner)
             {
-                subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
+                scannerSubsystem = new ScannerNetworkSubsystem(intelSubsystem, "SE");
+                subsystemManager.AddSubsystem("scanner", scannerSubsystem);
             }
             
             DroneForgeSubsystem forgeSubsystem = null;
@@ -72,13 +76,19 @@ namespace IngameScript
                 if (Forge) inventorySubsystem.RegisterRequester(forgeSubsystem);
                 subsystemManager.AddSubsystem("inventory", inventorySubsystem);
             }
-            
+            TorpedoSubsystem torpedoSubsystem = null;
             // Torpedo system setup
             if (Torpedos)
             {
-                TorpedoSubsystem torpedoSubsystem = new TorpedoSubsystem(intelSubsystem);
+                torpedoSubsystem = new TorpedoSubsystem(intelSubsystem);
                 subsystemManager.AddSubsystem("torpedo", torpedoSubsystem);
             }
+
+            if (lookingGlassNetwork != null)
+            {
+                lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat(torpedoSubsystem, hangarSubsystem, scannerSubsystem));
+            }
+
             //
             // Command system setup
             TacticalCommandSubsystem tacticalSubsystem = new TacticalCommandSubsystem(intelSubsystem);

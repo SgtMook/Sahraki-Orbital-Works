@@ -291,8 +291,9 @@ namespace IngameScript
 
         float RadiusMulti = 1;
 
-        public IntelSlaveSubsystem()
+        public IntelSlaveSubsystem(int rank = 0)
         {
+            Rank = rank;
         }
 
         // [Intel]
@@ -441,9 +442,10 @@ namespace IngameScript
         {
             if (timestamp == TimeSpan.Zero) return;
 
+            if (IsMaster) FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me, IGCSyncPacker);
+
             if (Rank > 0)
             {
-                FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me, IGCSyncPacker);
                 Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.TimeChannelTag, MyTuple.Create(timestamp.TotalMilliseconds, Rank));
             }
 

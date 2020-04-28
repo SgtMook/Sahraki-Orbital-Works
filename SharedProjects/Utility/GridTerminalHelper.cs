@@ -81,9 +81,9 @@ namespace IngameScript
 
         public static bool Base64BytePosToBlockList<T>(string input, IMyTerminalBlock origin, ref List<T> result) where T : class, IMyTerminalBlock
         {
-            if (input == null)
+            if (string.IsNullOrEmpty(input))
             {
-                return true;
+                return false;
             }
 
             string[] values = input.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
@@ -91,7 +91,7 @@ namespace IngameScript
             foreach (string line in values)
             {
                 IMySlimBlock slim = origin.CubeGrid.GetCubeBlock(Base64ByteToVector3I(line, origin));
-                if (slim != null)
+                if (slim != null && slim.IsFullIntegrity)
                 {
                     T block = slim.FatBlock as T;
                     if (block != null)

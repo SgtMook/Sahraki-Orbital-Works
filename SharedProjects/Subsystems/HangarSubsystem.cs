@@ -396,7 +396,8 @@ namespace IngameScript
         IMyShipController controller;
         IMyInteriorLight DirectionIndicator;
 
-        Dictionary<long, Hangar> HangarsDict = new Dictionary<long, Hangar>(64);
+        public Dictionary<long, Hangar> HangarsDict = new Dictionary<long, Hangar>(64);
+        public List<Hangar> SortedHangarsList = new List<Hangar>();
 
         public Hangar[] Hangars = new Hangar[64];
         public MyIni IniParser = new MyIni();
@@ -419,11 +420,16 @@ namespace IngameScript
                 if (Hangars[i] != null) Hangars[i].Clear();
             HangarsDict.Clear();
             lastConnectorStatuses.Clear();
+            SortedHangarsList.Clear();
 
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
             for (int i = 0; i < Hangars.Count(); i++)
-                if (Hangars[i] != null && Hangars[i].Connector != null) HangarsDict[Hangars[i].Connector.EntityId] = Hangars[i];
+                if (Hangars[i] != null && Hangars[i].Connector != null)
+                {
+                    SortedHangarsList.Add(Hangars[i]);
+                    HangarsDict[Hangars[i].Connector.EntityId] = Hangars[i];
+                }
         }
 
         private bool CollectParts(IMyTerminalBlock block)

@@ -205,14 +205,15 @@ namespace IngameScript
 
         }
 
-        void TryScanTarget(Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy)
+        public void TryScanTarget(Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy = null)
         {
             var scanned = false;
+            if (enemy == null) enemy = new EnemyShipIntel();
 
             foreach (var camera in Cameras)
             {
                 var result = CameraTryScan(IntelProvider, camera, targetPosition, localTime, enemy);
-                if (result == TryScanResults.Obstructed) continue; // Try again with camera arrays
+                if (result == TryScanResults.Missed) break; // Try again with camera arrays
                 else if (result == TryScanResults.Scanned)
                 {
                     scanned = true;
@@ -239,7 +240,7 @@ namespace IngameScript
         {
             Scanned,
             CannotScan,
-            Obstructed
+            Missed,
         }
         public static TryScanResults CameraTryScan(IIntelProvider intelProvider, IMyCameraBlock camera, Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy)
         {
@@ -252,7 +253,7 @@ namespace IngameScript
             if (!camera.CanScan(targetPosition)) return TryScanResults.CannotScan;
 
             var info = camera.Raycast(cameraFinalPosition);
-            if (info.EntityId != enemy.ID) return TryScanResults.Obstructed;
+            if (info.EntityId == 0 || (enemy.ID != 0 && info.EntityId != enemy.ID)) return TryScanResults.Missed;
             enemy.FromDetectedInfo(info, localTime + intelProvider.CanonicalTimeDiff, true);
             intelProvider.ReportFleetIntelligence(enemy, localTime);
             return TryScanResults.Scanned;
@@ -315,7 +316,7 @@ namespace IngameScript
             {
                 var result = ScannerNetworkSubsystem.CameraTryScan(intelProvider, camera, targetPosition, localTime, enemy);
                 if (result == ScannerNetworkSubsystem.TryScanResults.Scanned) return result;
-                if (result == ScannerNetworkSubsystem.TryScanResults.Obstructed) return ScannerNetworkSubsystem.TryScanResults.CannotScan; // This array cannot scan
+                if (result == ScannerNetworkSubsystem.TryScanResults.Missed) return ScannerNetworkSubsystem.TryScanResults.CannotScan; // This array cannot scan
             }
 
             return ScannerNetworkSubsystem.TryScanResults.CannotScan;

@@ -232,7 +232,10 @@ namespace IngameScript
         public void ProcessIntel(FriendlyShipIntel intel)
         {
             if (engageCounter > 0)
+            {
                 intel.Radius = (float)Program.Me.CubeGrid.WorldAABB.Size.Length() * 10;
+                intel.AgentStatus |= AgentStatus.Engaged;
+            }
         }
 
         #endregion

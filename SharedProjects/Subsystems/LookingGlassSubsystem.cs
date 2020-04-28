@@ -107,7 +107,7 @@ namespace IngameScript
 
         public IIntelProvider IntelProvider;
 
-        MyGridProgram Program;
+        public MyGridProgram Program;
 
         Dictionary<string, ILookingGlassPlugin> Plugins = new Dictionary<string, ILookingGlassPlugin>();
         List<ILookingGlassPlugin> PluginsList = new List<ILookingGlassPlugin>();
@@ -124,7 +124,7 @@ namespace IngameScript
         bool OverrideThrusters;
 
         bool Active = true;
-        bool AutoActivate = true;
+        bool AutoActivate = false;
 
         string Tag;
         string TagPrefix;
@@ -275,7 +275,7 @@ namespace IngameScript
         void AddDefaultPlugins()
         {
             AddPlugin("command", new LookingGlassPlugin_Command());
-            AddPlugin("combat", new LookingGlassPlugin_Combat());
+            AddPlugin("lidar", new LookingGlassPlugin_Lidar());
         }
 
         void ActivatePlugin(string name)
@@ -448,17 +448,6 @@ namespace IngameScript
             var crosshairs = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(10f, 10f), color: new Color(1, 1, 1, 0.4f));
             crosshairs.Position = new Vector2(0, -2) + 512 / 2f;
             scratchpad.Add(crosshairs);
-
-            if (!Active)
-            {
-                var activeInd = MySprite.CreateText("DEACTIVATED", "Debug", Color.Pink, 2f);
-                activeInd.Position = new Vector2(0, -64 - 120) + 512 / 2f;
-                scratchpad.Add(activeInd);
-
-                var activeInd2 = MySprite.CreateText("DRIVE SAFE!", "Debug", Color.Pink, 2f);
-                activeInd2.Position = new Vector2(0, -24 - 120) + 512 / 2f;
-                scratchpad.Add(activeInd2);
-            }
         }
     }
 
@@ -493,7 +482,6 @@ namespace IngameScript
             if (LeftHUD == null) return false;
             if (RightHUD == null) return false;
             if (MiddleHUD == null) return false;
-            if (SecondaryCameras.Count == 0) return false;
             if (PrimaryCamera == null) return false;
 
             if (checkrotors && Pitch == null) return false;
@@ -543,7 +531,11 @@ namespace IngameScript
             if (block is IMyCameraBlock)
             {
                 if (block.CustomName.Contains("[SN-C-S]"))
-                    SecondaryCameras.Add((IMyCameraBlock)block);
+                {
+                    var camera = (IMyCameraBlock)block;
+                    camera.EnableRaycast = true;
+                    SecondaryCameras.Add(camera);
+                }
                 else if (block.CustomName.Contains("[SN-C-P]"))
                     PrimaryCamera = (IMyCameraBlock)block;
             }
@@ -562,21 +554,11 @@ namespace IngameScript
         public int Lidar_CameraIndex = 0;
         public MyDetectedEntityInfo LastDetectedInfo;
 
-        public void DoScan(TimeSpan timestamp)
-        {
-            DoScan(timestamp, Vector3D.Zero);
-        }
-
-        public bool DoScan(TimeSpan timestamp, Vector3D position)
+        public bool DoScan(TimeSpan timestamp)
         {
             IMyCameraBlock usingCamera = SecondaryCameras[Lidar_CameraIndex];
 
-            if (position == Vector3D.Zero)
-                LastDetectedInfo = usingCamera.Raycast(usingCamera.AvailableScanRange);
-            else if (!usingCamera.CanScan(position))
-                return false;
-            else
-                LastDetectedInfo = usingCamera.Raycast(position);
+            LastDetectedInfo = usingCamera.Raycast(10000);
 
             Lidar_CameraIndex += 1;
             if (Lidar_CameraIndex == SecondaryCameras.Count) Lidar_CameraIndex = 0;
@@ -617,8 +599,6 @@ namespace IngameScript
         const float kMinDist = 1000;
         const float kMaxDist = 10000;
 
-        List<MySprite> SpriteScratchpad = new List<MySprite>();
-
         [Flags]
         public enum IntelSpriteOptions
         {
@@ -631,14 +611,17 @@ namespace IngameScript
             Large = 1 << 5,
             Small = 1 << 6,
             Circle = 1 << 7,
+            EmphasizeWithCross = 1 << 8,
         }
-        public void FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
+        public Vector2 FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
         {
+            if (intel.ID == Network.Program.Me.CubeGrid.EntityId) return new Vector2(float.MaxValue, float.MaxValue);
+
             var worldDirection = intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff) - PrimaryCamera.WorldMatrix.Translation;
             var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(PrimaryCamera.WorldMatrix));
             var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y / bodyPosition.Z));
 
-            if (bodyPosition.Dot(Vector3D.Forward) < 0) return;
+            if (bodyPosition.Dot(Vector3D.Forward) < 0) return new Vector2(float.MaxValue, float.MaxValue);
 
             float dist = (float)bodyPosition.Length();
             float scale = kMaxScale;
@@ -667,13 +650,25 @@ namespace IngameScript
                 else indicatorText = "><";
             }
 
+            bool cross = (properties & IntelSpriteOptions.EmphasizeWithCross) != 0;
+
             var indicator = MySprite.CreateText(indicatorText, "Monospace", color, scale, TextAlignment.CENTER);
             var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
+
+            if (cross)
+            {
+                var c = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(30f, 30f));
+                c.Position = v;
+                scratchpad.Add(c);
+            }
+
+            var CenteredScreenPosition = v - new Vector2(0.5f, 0.5f) * kScreenSize;
             v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
             v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
             v.Y -= scale * (kMonospaceConstant.Y + 10) / 2;
             indicator.Position = v;
             scratchpad.Add(indicator);
+
             v.Y += kMonospaceConstant.Y * scale + 0.2f;
 
             if ((properties & IntelSpriteOptions.ShowDist) != 0)
@@ -697,6 +692,8 @@ namespace IngameScript
                 scratchpad.Add(nameSprite);
                 v.Y += kDebugConstant.Y * textSize + 0.1f;
             }
+
+            return CenteredScreenPosition;
         }
 
         public readonly Color kFriendlyBlue = new Color(140, 140, 255, 100);
@@ -1228,7 +1225,7 @@ namespace IngameScript
         #endregion
     }
 
-    public class LookingGlassPlugin_Combat : ILookingGlassPlugin
+    public class LookingGlassPlugin_Lidar : ILookingGlassPlugin
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
@@ -1286,7 +1283,6 @@ namespace IngameScript
 
         public void UpdateState(TimeSpan localTime)
         {
-            UpdateRaytracing();
         }
         #endregion
 
@@ -1299,20 +1295,10 @@ namespace IngameScript
 
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
-        public LookingGlassPlugin_Combat()
+        public LookingGlassPlugin_Lidar()
         {
         }
 
-        private void UpdateRaytracing()
-        {
-            foreach (LookingGlass lookingGlass in Host.LookingGlasses)
-            {
-                foreach (IMyCameraBlock camera in lookingGlass.SecondaryCameras)
-                {
-                    camera.EnableRaycast = camera.AvailableScanRange < kScanDistance;
-                }
-            }
-        }
 
         private void DrawScanUI(TimeSpan timestamp)
         {
@@ -1352,7 +1338,7 @@ namespace IngameScript
                         }
         
                         int p = (int)(Host.ActiveLookingGlass.SecondaryCameras[i].AvailableScanRange * 10 / kScanDistance);
-                        Builder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", Host.ActiveLookingGlass.SecondaryCameras[i].AvailableScanRange / 1000)).AppendLine("km");
+                        Builder.Append('[').Append('=', Math.Min(10, p)).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", Host.ActiveLookingGlass.SecondaryCameras[i].AvailableScanRange / 1000)).AppendLine("km");
                     }
                     else
                     {
@@ -1369,20 +1355,8 @@ namespace IngameScript
         
             Builder.AppendLine();
             Builder.AppendLine("===================");
-        
-            if (Host.ActiveLookingGlass.SecondaryCameras[Host.ActiveLookingGlass.Lidar_CameraIndex].IsWorking)
-            {
-                Host.AppendPaddedLine(kRowLength, "STATUS: AVAILABLE", Builder);
-                int p = (int)(Host.ActiveLookingGlass.SecondaryCameras[Host.ActiveLookingGlass.Lidar_CameraIndex].AvailableScanRange * 10 / kScanDistance);
-                Builder.Append('[').Append('=', p).Append(' ', Math.Max(0, 10 - p)).Append(string.Format("] {0,4:0.0}", Host.ActiveLookingGlass.SecondaryCameras[Host.ActiveLookingGlass.Lidar_CameraIndex].AvailableScanRange / 1000)).AppendLine("km");
-                Host.AppendPaddedLine(kRowLength, "[NUM 0] SCAN", Builder);
-                Host.AppendPaddedLine(kRowLength, Host.ActiveLookingGlass.LastDetectedInfo.Type.ToString(), Builder);
-            }
-            else
-            {
-                Host.AppendPaddedLine(kRowLength, "STATUS: UNAVAILABLE", Builder);
-                Host.AppendPaddedLine(kRowLength, "[NUM 0] CYCLE", Builder);
-            }
+
+            Host.AppendPaddedLine(kRowLength, Host.ActiveLookingGlass.LastDetectedInfo.Type.ToString(), Builder);
 
             Host.ActiveLookingGlass.LeftHUD.WriteText(Builder.ToString());
         }
@@ -1414,7 +1388,7 @@ namespace IngameScript
             }
         
             Builder.AppendLine("8/5: SELECT");
-            Builder.AppendLine("4/6: +/- PRIORITY");
+            Builder.AppendLine("4/6: -/+ PRIORITY");
             Builder.AppendLine();
         
             for (int i = 0; i < 12; i++)
@@ -1491,4 +1465,316 @@ namespace IngameScript
             }
         }
     }
+    public class LookingGlassPlugin_Combat : ILookingGlassPlugin
+    {
+        #region ILookingGlassPlugin
+        public LookingGlassNetworkSubsystem Host { get; set; }
+        public void DoA(TimeSpan localTime)
+        {
+            if (TorpedoSubsystem != null)
+            {
+                if (FireTorpedoAtCursorTarget("SM", localTime))
+                {
+                    FeedbackOnTarget = true;
+                    return;
+                }
+            }
+            FeedbackText = "NOT LOADED";
+        }
+
+        public void DoS(TimeSpan localTime)
+        {
+            if (TorpedoSubsystem != null)
+            {
+                if (FireTorpedoAtCursorTarget("LG", localTime))
+                {
+                    FeedbackOnTarget = true;
+                    return;
+                }
+            }
+            FeedbackText = "NOT LOADED";
+        }
+
+        public void DoD(TimeSpan localTime)
+        {
+            if (closestEnemyToCursorID == -1)
+            {
+                FeedbackText = "NO TARGET";
+            }
+
+            if (HangarSubsystem != null)
+            {
+                var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
+
+                var enemyKey = MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID);
+
+                if (!intelItems.ContainsKey(enemyKey)) return;
+
+                foreach (var hangar in HangarSubsystem.SortedHangarsList)
+                {
+                    if (hangar.OwnerID != -1)
+                    {
+                        var key = MyTuple.Create(IntelItemType.Friendly, hangar.OwnerID);
+                        if (intelItems.ContainsKey(key))
+                        {
+                            FriendlyShipIntel agent = (FriendlyShipIntel)intelItems[key];
+
+                            if ((agent.AgentStatus & AgentStatus.DockedAtHome) != 0 && agent.HydroPowerInv.X > 95 && agent.HydroPowerInv.Y > 20 && agent.HydroPowerInv.Z > 50)
+                            {
+                                Host.IntelProvider.ReportCommand(agent, TaskType.Attack, enemyKey, localTime);
+                                FeedbackOnTarget = true;
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            FeedbackText = "NO DRONE";
+        }
+        public void DoW(TimeSpan localTime)
+        {
+        }
+
+        public void DoC(TimeSpan localTime)
+        {
+            var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
+            var targetKey = MyTuple.Create(IntelItemType.NONE, (long)0);
+            foreach (var hangar in HangarSubsystem.SortedHangarsList)
+            {
+                if (hangar.OwnerID != -1)
+                {
+                    var key = MyTuple.Create(IntelItemType.Friendly, hangar.OwnerID);
+                    if (intelItems.ContainsKey(key))
+                    {
+                        FriendlyShipIntel agent = (FriendlyShipIntel)intelItems[key];
+
+                        Host.IntelProvider.ReportCommand(agent, TaskType.Dock, targetKey, localTime);
+                    }
+                }
+            }
+        }
+
+        public void DoSpace(TimeSpan localTime)
+        {
+            if (ScannerSubsystem != null)
+            {
+                var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 5000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
+                ScannerSubsystem.TryScanTarget(pos, localTime);
+            }
+        }
+
+        public void Setup()
+        {
+        }
+
+        public void UpdateHUD(TimeSpan localTime)
+        {
+            DrawInfoUI(localTime);
+            DrawActionsUI(localTime);
+            DrawMiddleHUD(localTime);
+        }
+
+        public void UpdateState(TimeSpan localTime)
+        {
+        }
+        #endregion
+
+        TorpedoSubsystem TorpedoSubsystem;
+        HangarSubsystem HangarSubsystem;
+        ScannerNetworkSubsystem ScannerSubsystem;
+
+        StringBuilder Builder = new StringBuilder();
+
+        List<MySprite> SpriteScratchpad = new List<MySprite>();
+
+        long closestEnemyToCursorID = -1;
+
+        string FeedbackText = string.Empty;
+        bool FeedbackOnTarget = false;
+
+        public LookingGlassPlugin_Combat(TorpedoSubsystem torpedoSubsystem, HangarSubsystem hangarSubsystem, ScannerNetworkSubsystem scannerSubsystem)
+        {
+            TorpedoSubsystem = torpedoSubsystem;
+            HangarSubsystem = hangarSubsystem;
+            ScannerSubsystem = scannerSubsystem;
+        }
+
+        private bool FireTorpedoAtCursorTarget(string group, TimeSpan localTime)
+        {
+            var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
+            var key = MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID);
+            var target = (EnemyShipIntel)intelItems.GetValueOrDefault(key, null);
+
+            return TorpedoSubsystem.Fire(localTime, TorpedoSubsystem.TorpedoTubeGroups[group], target);
+        }
+
+        private void DrawInfoUI(TimeSpan timestamp)
+        {
+            Builder.Clear();
+            Host.ActiveLookingGlass.LeftHUD.FontColor = Host.ActiveLookingGlass.kFocusedColor;
+
+            Builder.AppendLine("== TORPEDO TUBES ==");
+            Builder.AppendLine();
+
+            if (TorpedoSubsystem == null)
+            {
+                Builder.AppendLine("- NO TORPEDOS -    ");
+            }
+            else
+            {
+                foreach (var kvp in TorpedoSubsystem.TorpedoTubeGroups)
+                {
+                    int ready = kvp.Value.NumReady;
+                    int total = kvp.Value.Children.Count();
+                    // LG [||--    ] AUTO
+                    Builder.Append(kvp.Value.Name).Append(" [").Append('|', ready).Append('-', total - ready).Append(' ', 8 - total).Append(kvp.Value.AutoFire ? "] AUTO \n" : "] MANL \n");
+                }
+            }
+
+            Builder.AppendLine();
+            Builder.AppendLine("== COMBAT DRONES ==");
+            Builder.AppendLine();
+
+            if (HangarSubsystem == null)
+            {
+                Builder.AppendLine("- NO DRONES -");
+            }
+            else
+            {
+                var intelItems = Host.IntelProvider.GetFleetIntelligences(timestamp);
+                Builder.AppendLine("     |H |P |A |ST  |");
+                foreach (var hangar in HangarSubsystem.SortedHangarsList)
+                {   //     |H |P |A |ST  |
+                    // H11:|99|45|82|HOME|
+                    // H11:|EMPTY        
+                    // H11:|OCCUPIED     
+
+                    Builder.Append('H').Append(hangar.Index.ToString("00")).Append(":");
+
+                    if (hangar.OwnerID == -1)
+                    {
+                        Builder.AppendLine("|EMPTY         ");
+                    }
+                    else
+                    {
+                        var key = MyTuple.Create(IntelItemType.Friendly, hangar.OwnerID);
+                        if (intelItems.ContainsKey(key))
+                        {
+                            var fsi = (FriendlyShipIntel)intelItems[key];
+                            if (fsi.AgentClass == AgentClass.Fighter)
+                            {
+                                // HOME/AWAY/ENGE/RTRN
+                                Builder.Append('|').Append(fsi.HydroPowerInv.X == 100 ? "99" : fsi.HydroPowerInv.X.ToString("00"));
+                                Builder.Append('|').Append(fsi.HydroPowerInv.Y == 100 ? "99" : fsi.HydroPowerInv.Y.ToString("00"));
+                                Builder.Append('|').Append(fsi.HydroPowerInv.Z == 100 ? "99" : fsi.HydroPowerInv.Z.ToString("00"));
+
+                                var statusCode = "|AWAY|";
+                                if ((fsi.AgentStatus & AgentStatus.DockedAtHome) != 0) statusCode = "|HOME|";
+                                else if ((fsi.AgentStatus & AgentStatus.Engaged) != 0) statusCode = "|ENGE|";
+                                else if ((fsi.AgentStatus & AgentStatus.Recalling) != 0) statusCode = "|RTRN|";
+                                Builder.AppendLine(statusCode);
+                                continue;
+                            }
+                        }
+                        Builder.AppendLine("|OCCUPIED      ");
+                    }
+                }
+            }
+
+            Host.ActiveLookingGlass.LeftHUD.WriteText(Builder.ToString());
+        }
+
+        private void DrawActionsUI(TimeSpan timestamp)
+        {
+            Builder.Clear();
+            Host.ActiveLookingGlass.RightHUD.FontColor = Host.ActiveLookingGlass.kFocusedColor;
+
+            Builder.AppendLine("===== CONTROL =====");
+            Builder.AppendLine();
+            Builder.AppendLine("1 - SELECT WEAPON");
+            Builder.AppendLine("2 - VIEW CAMERA");
+            Builder.AppendLine();
+            Builder.AppendLine("3 - RAYCAST");
+            Builder.AppendLine();
+            Builder.AppendLine("4 - FIRE SMALL");
+            Builder.AppendLine("5 - FIRE LARGE");
+            Builder.AppendLine();
+            Builder.AppendLine("6 - DRONE ATTACK");
+            Builder.AppendLine("7 - DRONES RECALL");
+            Builder.AppendLine("8 - PAIR DRONES");
+            Builder.AppendLine();
+            Builder.AppendLine("===== CONTROL =====");
+
+            Host.ActiveLookingGlass.RightHUD.WriteText(Builder.ToString());
+        }
+
+        void DrawMiddleHUD(TimeSpan localTime)
+        {
+            if (Host.ActiveLookingGlass.MiddleHUD == null) return;
+            using (var frame = Host.ActiveLookingGlass.MiddleHUD.DrawFrame())
+            {
+                SpriteScratchpad.Clear();
+
+                Host.GetDefaultSprites(SpriteScratchpad);
+
+                float closestDistSqr = 100 * 100;
+                long newClosestIntelID = -1;
+
+                foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
+                {
+                    if (intel.IntelItemType == IntelItemType.Friendly)
+                    {
+                        var fsi = (FriendlyShipIntel)intel;
+
+                        if ((fsi.AgentStatus & AgentStatus.DockedAtHome) != 0) continue;
+
+                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small;
+                        if (fsi.AgentClass == AgentClass.None) options = LookingGlass.IntelSpriteOptions.ShowName;
+                        else if (HangarSubsystem != null && fsi.AgentClass == AgentClass.Fighter && HangarSubsystem.HangarsDict.ContainsKey(fsi.HomeID)) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
+
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
+                    }
+                    else if (intel.IntelItemType == IntelItemType.Enemy)
+                    {
+                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName | LookingGlass.IntelSpriteOptions.ShowDist;
+
+                        if (intel.Radius < 10) continue;
+
+                        if (intel.ID == closestEnemyToCursorID)
+                        {
+                            options = LookingGlass.IntelSpriteOptions.ShowTruncatedName | LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithDashes | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
+                            if (FeedbackOnTarget) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
+                        }
+
+                        var distToCenterSqr = Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options).LengthSquared();
+
+                        if (distToCenterSqr < closestDistSqr)
+                        {
+                            closestDistSqr = distToCenterSqr;
+                            newClosestIntelID = intel.ID;
+                        }
+                    }
+
+                }
+                closestEnemyToCursorID = newClosestIntelID;
+
+                foreach (var spr in SpriteScratchpad)
+                {
+                    frame.Add(spr);
+                }
+
+                if (FeedbackText != string.Empty)
+                {
+                    var prompt = MySprite.CreateText(FeedbackText, "Debug", Color.HotPink, 0.9f);
+                    prompt.Position = new Vector2(0, -15) + Host.ActiveLookingGlass.MiddleHUD.TextureSize / 2f;
+                    frame.Add(prompt);
+                    FeedbackText = string.Empty;
+                }
+
+                FeedbackOnTarget = false;
+            }
+        }
+    }
 }
+
