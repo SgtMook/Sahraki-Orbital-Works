@@ -87,6 +87,7 @@ namespace IngameScript
             if (lookingGlassNetwork != null)
             {
                 lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat(torpedoSubsystem, hangarSubsystem, scannerSubsystem));
+                lookingGlassNetwork.ActivatePlugin(DefaultLookingGlassPlugin);
             }
 
             //
@@ -108,6 +109,7 @@ namespace IngameScript
         bool Inventory = true;
         bool Forge = true;
         bool Torpedos = false;
+        string DefaultLookingGlassPlugin = "command";
         // [Setup]
         // IsMaster = true
         // LookingGlass = true
@@ -117,6 +119,7 @@ namespace IngameScript
         // Inventory = true
         // Forge = true
         // Torpedos = true
+        // DefaultLookingGlassPlugin = command
         private void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -127,6 +130,7 @@ namespace IngameScript
             LookingGlass = Parser.Get("Setup", "LookingGlass").ToBoolean();
             FixedLookingGlass = Parser.Get("Setup", "FixedLookingGlass").ToBoolean();
             ThrusterLookingGlass = Parser.Get("Setup", "ThrusterLookingGlass").ToBoolean();
+            DefaultLookingGlassPlugin = Parser.Get("Setup", "DefaultLookingGlassPlugin").ToString("command");
             Scanner = Parser.Get("Setup", "Scanner").ToBoolean();
             Inventory = Parser.Get("Setup", "Inventory").ToBoolean();
             Forge = Parser.Get("Setup", "Forge").ToBoolean();

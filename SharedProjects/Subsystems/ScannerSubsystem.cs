@@ -208,12 +208,20 @@ namespace IngameScript
         public void TryScanTarget(Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy = null)
         {
             var scanned = false;
+            var offsetDist = 0d;
+            var random = new Random();
             if (enemy == null) enemy = new EnemyShipIntel();
+            else offsetDist = enemy.Radius * 0.25;
+            Vector3D offset;
 
             foreach (var camera in Cameras)
             {
-                var result = CameraTryScan(IntelProvider, camera, targetPosition, localTime, enemy);
-                if (result == TryScanResults.Missed) break; // Try again with camera arrays
+                offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
+                var result = CameraTryScan(IntelProvider, camera, targetPosition + offset, localTime, enemy);
+                if (result == TryScanResults.Missed)
+                {
+                    break; // Try again with camera arrays
+                }
                 else if (result == TryScanResults.Scanned)
                 {
                     scanned = true;
@@ -225,9 +233,10 @@ namespace IngameScript
 
             for (int i = 0; i < ScannerArrays.Count; i++)
             {
+                offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
                 if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
                 {
-                    var result = ScannerArrays[i].TryScan(IntelProvider, Program.Me.WorldMatrix.Translation, targetPosition, enemy, localTime);
+                    var result = ScannerArrays[i].TryScan(IntelProvider, Program.Me.WorldMatrix.Translation, targetPosition + offset, enemy, localTime);
                     if (result == TryScanResults.Scanned)
                     {
                         break;
@@ -263,6 +272,7 @@ namespace IngameScript
         {
             if (Designator == null) return;
             var designateInfo = Designator.Raycast(10000);
+            if (designateInfo.Type != MyDetectedEntityType.LargeGrid && designateInfo.Type != MyDetectedEntityType.SmallGrid) return;
             if (designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies && designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Neutral) return;
             var intelDict = IntelProvider.GetFleetIntelligences(localTime);
             var key = MyTuple.Create(IntelItemType.Enemy, designateInfo.EntityId);

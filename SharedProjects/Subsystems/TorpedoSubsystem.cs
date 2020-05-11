@@ -139,26 +139,28 @@ namespace IngameScript
                 TorpedoScratchpad.Clear();
                 foreach (var torp in Torpedos)
                 {
-                    if (torp.Camera != null && torp.Camera.IsWorking)
+                    torp.FastUpdate();
+                    if (torp.proxArmed)
                     {
-                        var extend = torp.Camera.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 13 : 3.5;
-                        MyDetectedEntityInfo detected = torp.Camera.Raycast(torp.Controller.GetShipSpeed() * 0.017 + extend);
-                        if (detected.EntityId != 0 && (detected.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies || detected.Relationship == MyRelationsBetweenPlayerAndBlock.Neutral))
+                        if (torp.Camera != null && torp.Camera.IsWorking)
                         {
-                            TorpedoScratchpad.Add(torp);
-                            torp.Detonate();
-                            debugBuilder.AppendLine("Detonate");
+                            var extend = torp.Camera.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 11.5 : 3;
+                            MyDetectedEntityInfo detected = torp.Camera.Raycast(torp.Controller.GetShipSpeed() * 0.017 + extend);
+                            if (detected.EntityId != 0 && (detected.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies || detected.Relationship == MyRelationsBetweenPlayerAndBlock.Neutral))
+                            {
+                                TorpedoScratchpad.Add(torp);
+                                torp.Detonate();
+                            }
                         }
-                    }
-                    if (torp.Sensor != null && torp.Sensor.IsWorking)
-                    {
-                        torp.Sensor.DetectedEntities(DetectedInfoScratchpad);
-                        if (DetectedInfoScratchpad.Count > 0)
+                        if (torp.Sensor != null && torp.Sensor.IsWorking)
                         {
-                            DetectedInfoScratchpad.Clear();
-                            TorpedoScratchpad.Add(torp);
-                            torp.Detonate();
-                            debugBuilder.AppendLine("Sensor Detonate");
+                            torp.Sensor.DetectedEntities(DetectedInfoScratchpad);
+                            if (DetectedInfoScratchpad.Count > 0)
+                            {
+                                DetectedInfoScratchpad.Clear();
+                                TorpedoScratchpad.Add(torp);
+                                torp.Detonate();
+                            }
                         }
                     }
                 }
@@ -268,7 +270,7 @@ namespace IngameScript
     // This is a refhax torpedo
     public class Torpedo
     {
-        public IMyGyro Gyro;
+        public List<IMyGyro> Gyros = new List<IMyGyro>();
         public HashSet<IMyWarhead> Warheads = new HashSet<IMyWarhead>();
         public HashSet<IMyThrust> Thrusters = new HashSet<IMyThrust>();
         public HashSet<IMyBatteryBlock> Batteries = new HashSet<IMyBatteryBlock>();
@@ -297,14 +299,19 @@ namespace IngameScript
         public Vector3D AccelerationVector;
 
         bool initialized = false;
+        int runs = 0;
         public int Detonating = -1;
 
         Vector3D RandomOffset;
 
+        bool UseTrickshot = true;
+        Vector3D TrickshotOffset = Vector3D.Zero;
+        public bool proxArmed = false;
+
         public bool AddPart(IMyTerminalBlock block)
         {
             if (block is IMyShipController) { Controller = (IMyShipController)block; return true; }
-            if (block is IMyGyro) { Gyro = (IMyGyro)block; return true; }
+            if (block is IMyGyro) { Gyros.Add((IMyGyro)block); return true; }
             if (block is IMyCameraBlock) { Camera = (IMyCameraBlock)block; Camera.EnableRaycast = true; return true; }
             if (block is IMySensorBlock) { Sensor = (IMySensorBlock)block; return true; }
             if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); return true; }
@@ -318,18 +325,15 @@ namespace IngameScript
         public void Init(TimeSpan CanonicalTime)
         {
             initialized = true;
-            List<IMyGyro> gyros = new List<IMyGyro>();
-            gyros.Add(Gyro);
-            gyroControl = new GyroControl(gyros);
+            gyroControl = new GyroControl(Gyros);
             var refWorldMatrix = Controller.WorldMatrix;
             gyroControl.Init(ref refWorldMatrix);
-            Gyro.GyroOverride = true;
-            Gyro.Enabled = true;
+            foreach (var tank in Tanks) tank.Stockpile = false;
 
-            foreach (var thruster in Thrusters)
+            foreach (var Gyro in Gyros)
             {
-                thruster.Enabled = true;
-                thruster.ThrustOverridePercentage = 1;
+                Gyro.GyroOverride = true;
+                Gyro.Enabled = true;
             }
 
             launchTime = CanonicalTime;
@@ -357,6 +361,10 @@ namespace IngameScript
             if (!initialized) return;
             if (!OK())
             {
+                foreach (var Gyro in Gyros)
+                {
+                    Gyro.Enabled = false;
+                }
                 Arm();
                 Disabled = true;
             }
@@ -371,9 +379,25 @@ namespace IngameScript
             AimAtTarget(RefreshNavigation(CanonicalTime));
         }
 
+        public void FastUpdate()
+        {
+            if (initialized)
+            {
+                runs++;
+                if (runs == 2)
+                {
+                    foreach (var thruster in Thrusters)
+                    {
+                        thruster.Enabled = true;
+                        thruster.ThrustOverridePercentage = 1;
+                    }
+                }
+            }
+        }
+
         public bool OK()
         {
-            return Gyro != null && Gyro.IsFunctional && Controller != null && Controller.IsFunctional && Thrusters.Count > 0;
+            return Gyros.Count > 0 && Controller != null && Controller.IsFunctional && Thrusters.Count > 0;
         }
 
         void AimAtTarget(Vector3D TargetVector)
@@ -443,7 +467,37 @@ namespace IngameScript
 
         Vector3D RefreshNavigation(TimeSpan CanonicalTime)
         {
-            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.3) - Controller.WorldMatrix.Translation;
+            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0) - Controller.WorldMatrix.Translation;
+
+            if (rangeVector.LengthSquared() < 120 * 120) proxArmed = true;
+
+            rangeVector += TrickshotOffset;
+
+            if (TrickshotOffset == Vector3D.Zero && UseTrickshot)
+            {
+                var perp = new Vector3D(1, 1, -(rangeVector.X + rangeVector.Y) / rangeVector.Z);
+
+                var coperp = perp.Cross(rangeVector);
+                perp.Normalize();
+                coperp.Normalize();
+
+                var rand = new Random();
+                var theta = rand.NextDouble() * Math.PI * 2;
+
+                var dist = -rangeVector;
+                dist.Normalize();
+                dist *= 1200;
+
+                TrickshotOffset = perp * Math.Sin(theta) + coperp * Math.Cos(theta);
+
+                TrickshotOffset *= 1200;
+                // TrickshotOffset += dist;
+                UseTrickshot = false;
+            }
+            if (TrickshotOffset != Vector3D.Zero && rangeVector.LengthSquared() < 100*100)
+            {
+                TrickshotOffset = Vector3D.Zero;
+            }
 
             var linearVelocity = Controller.GetShipVelocities().LinearVelocity;
             Vector3D velocityVector = Target.CurrentVelocity - linearVelocity;
@@ -872,9 +926,6 @@ namespace IngameScript
             releaseOther.Enabled = false;
 
             if (Connector != null && Connector.Status == MyShipConnectorStatus.Connected) Connector.OtherConnector.Enabled = false;
-            foreach (var tank in LoadedTorpedo.Tanks) tank.Stockpile = false;
-            LoadedTorpedo.Gyro.GyroOverride = true;
-            LoadedTorpedo.Gyro.Enabled = true;
             var torp = LoadedTorpedo;
             torp.Init(canonicalTime);
             LoadedTorpedo = null;

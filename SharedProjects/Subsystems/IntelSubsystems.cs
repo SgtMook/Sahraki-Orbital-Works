@@ -53,7 +53,7 @@ namespace IngameScript
     {
 
         #region ISubsystem
-        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10 | UpdateFrequency.Update100;
+        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update1 | UpdateFrequency.Update10 | UpdateFrequency.Update100;
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
@@ -137,9 +137,10 @@ namespace IngameScript
     
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
+            if (IsMaster && (updateFlags & UpdateFrequency.Update1) != 0) UpdateIntelFromReports(timestamp);
+
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
-                if (IsMaster) UpdateIntelFromReports(timestamp);
                 if (runs % 3 == 0)
                 {
                     if (!IsMaster) GetSyncMessages(timestamp);
@@ -424,9 +425,13 @@ namespace IngameScript
 
                 if (unpacked.Item2 > CanonicalTimeSourceRank || (unpacked.Item2 == CanonicalTimeSourceRank && tMsg.Source > CanonicalTimeSourceID))
                 {
-                    CanonicalTimeDiff = TimeSpan.FromMilliseconds(unpacked.Item1 + kOneTick) - timestamp;
                     CanonicalTimeSourceRank = unpacked.Item2;
                     CanonicalTimeSourceID = tMsg.Source;
+                }
+
+                if (CanonicalTimeSourceID == tMsg.Source)
+                {
+                    CanonicalTimeDiff = TimeSpan.FromMilliseconds(unpacked.Item1 + kOneTick) - timestamp;
                 }
 
                 if (unpacked.Item2 > HighestRank || (unpacked.Item2 == HighestRank && tMsg.Source > HighestRankID))
@@ -499,6 +504,7 @@ namespace IngameScript
             IsMaster = true;
             CanonicalTimeSourceID = Program.Me.EntityId;
             if (EnemyPriorities != null) foreach(var kvp in EnemyPriorities) MasterEnemyPriorities.Add(kvp.Key, kvp.Value);
+            CanonicalTimeDiff = TimeSpan.Zero;
         }
 
         private void Demote(long newMasterID)

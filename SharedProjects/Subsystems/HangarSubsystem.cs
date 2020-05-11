@@ -63,6 +63,8 @@ namespace IngameScript
 
         public HangarTags HangarTags = HangarTags.None;
 
+        bool init = false;
+
         public Hangar(int index, HangarSubsystem host)
         {
             Index = index;
@@ -212,6 +214,17 @@ namespace IngameScript
         public void Update(TimeSpan timestamp, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems)
         {
             if (Connector == null) return;
+
+            if (!init)
+            {
+                init = true;
+                if (Connector.Status == MyShipConnectorStatus.Connected)
+                {
+                    hangarStatus |= HangarStatus.Reserved;
+                    OwnerID = Connector.OtherConnector.CubeGrid.EntityId;
+                }
+            }
+
             UpdateHangarStatus(timestamp, intelItems);
         }
 
@@ -289,11 +302,6 @@ namespace IngameScript
             var split = serialized.Split('|');
             hangarStatus = (HangarStatus)int.Parse(split[0]);
             OwnerID = long.Parse(split[1]);
-            if (Connector.Status == MyShipConnectorStatus.Connected)
-            {
-                hangarStatus |= HangarStatus.Reserved;
-                OwnerID = Connector.OtherConnector.CubeGrid.EntityId;
-            }
         }
     }
 

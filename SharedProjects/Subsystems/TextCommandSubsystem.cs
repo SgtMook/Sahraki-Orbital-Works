@@ -157,7 +157,7 @@ namespace IngameScript
             }
         }
 
-        List<IMyInteriorLight> AlarmLights = new List<IMyInteriorLight>();
+        List<IMyLightingBlock> AlarmLights = new List<IMyLightingBlock>();
         IMyShipController Controller;
 
         private void GetParts()

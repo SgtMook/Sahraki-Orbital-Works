@@ -32,7 +32,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            DummyTube = new TorpedoTube(this, new TorpedoSubsystem(null));
+            DummyTube = new TorpedoTube(1, this, new TorpedoSubsystem(null));
             DummyTube.LoadedTorpedo = new Torpedo();
 
             GetParts();

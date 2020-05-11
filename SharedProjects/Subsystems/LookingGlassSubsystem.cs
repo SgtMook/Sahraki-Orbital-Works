@@ -278,7 +278,7 @@ namespace IngameScript
             AddPlugin("lidar", new LookingGlassPlugin_Lidar());
         }
 
-        void ActivatePlugin(string name)
+        public void ActivatePlugin(string name)
         {
             if (Plugins.ContainsKey(name)) ActivePlugin = Plugins[name];
         }
@@ -612,6 +612,7 @@ namespace IngameScript
             Small = 1 << 6,
             Circle = 1 << 7,
             EmphasizeWithCross = 1 << 8,
+            NoCenter = 1 << 9,
         }
         public Vector2 FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
         {
@@ -635,7 +636,15 @@ namespace IngameScript
             bool circle = (properties & IntelSpriteOptions.Circle) != 0;
             bool brackets = (properties & IntelSpriteOptions.EmphasizeWithBrackets) != 0;
             bool dashes = (properties & IntelSpriteOptions.EmphasizeWithDashes) != 0;
-            if (circle)
+            bool nocenter = (properties & IntelSpriteOptions.NoCenter) != 0;
+            if (nocenter)
+            {
+                if (brackets && dashes) indicatorText = "-[ ]-";
+                else if (brackets) indicatorText = "[ ]";
+                else if (dashes) indicatorText = "- -";
+                else indicatorText = " ";
+            }
+            else if (circle)
             {
                 if (brackets && dashes) indicatorText = "-[O]-";
                 else if (brackets) indicatorText = "[O]";
@@ -1502,6 +1511,8 @@ namespace IngameScript
                 FeedbackText = "NO TARGET";
             }
 
+            bool launched = false;
+
             if (HangarSubsystem != null)
             {
                 var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
@@ -1522,15 +1533,15 @@ namespace IngameScript
                             if ((agent.AgentStatus & AgentStatus.DockedAtHome) != 0 && agent.HydroPowerInv.X > 95 && agent.HydroPowerInv.Y > 20 && agent.HydroPowerInv.Z > 50)
                             {
                                 Host.IntelProvider.ReportCommand(agent, TaskType.Attack, enemyKey, localTime);
+                                launched = true;
                                 FeedbackOnTarget = true;
-                                return;
                             }
                         }
                     }
                 }
             }
 
-            FeedbackText = "NO DRONE";
+            if (!launched) FeedbackText = "NO DRONE";
         }
         public void DoW(TimeSpan localTime)
         {
@@ -1559,7 +1570,7 @@ namespace IngameScript
         {
             if (ScannerSubsystem != null)
             {
-                var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 5000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
+                var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 10000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
                 ScannerSubsystem.TryScanTarget(pos, localTime);
             }
         }
@@ -1692,15 +1703,12 @@ namespace IngameScript
 
             Builder.AppendLine("===== CONTROL =====");
             Builder.AppendLine();
-            Builder.AppendLine("1 - SELECT WEAPON");
-            Builder.AppendLine("2 - VIEW CAMERA");
-            Builder.AppendLine();
             Builder.AppendLine("3 - RAYCAST");
             Builder.AppendLine();
             Builder.AppendLine("4 - FIRE SMALL");
             Builder.AppendLine("5 - FIRE LARGE");
             Builder.AppendLine();
-            Builder.AppendLine("6 - DRONE ATTACK");
+            Builder.AppendLine("6 - DRONES ATTACK");
             Builder.AppendLine("7 - DRONES RECALL");
             Builder.AppendLine("8 - PAIR DRONES");
             Builder.AppendLine();
@@ -1737,13 +1745,13 @@ namespace IngameScript
                     }
                     else if (intel.IntelItemType == IntelItemType.Enemy)
                     {
-                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName | LookingGlass.IntelSpriteOptions.ShowDist;
+                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
 
                         if (intel.Radius < 10) continue;
 
                         if (intel.ID == closestEnemyToCursorID)
                         {
-                            options = LookingGlass.IntelSpriteOptions.ShowTruncatedName | LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithDashes | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
+                            options = LookingGlass.IntelSpriteOptions.ShowTruncatedName | LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithDashes | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter;
                             if (FeedbackOnTarget) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
                         }
 
@@ -1767,10 +1775,24 @@ namespace IngameScript
                 if (FeedbackText != string.Empty)
                 {
                     var prompt = MySprite.CreateText(FeedbackText, "Debug", Color.HotPink, 0.9f);
-                    prompt.Position = new Vector2(0, -15) + Host.ActiveLookingGlass.MiddleHUD.TextureSize / 2f;
+                    prompt.Position = new Vector2(0, -35) + Host.ActiveLookingGlass.MiddleHUD.TextureSize / 2f;
                     frame.Add(prompt);
                     FeedbackText = string.Empty;
                 }
+
+                Builder.Clear();
+
+                foreach (var kvp in TorpedoSubsystem.TorpedoTubeGroups)
+                {
+                    int ready = kvp.Value.NumReady;
+                    int total = kvp.Value.Children.Count();
+                    Builder.Append("[").Append('|', ready).Append('-', total - ready).Append(']');
+                    Builder.AppendLine();
+                }
+
+                var HUD = MySprite.CreateText(Builder.ToString(), "Monospace", Color.LightBlue, 0.3f);
+                HUD.Position = new Vector2(0, -25) + Host.ActiveLookingGlass.MiddleHUD.TextureSize / 2f;
+                frame.Add(HUD);
 
                 FeedbackOnTarget = false;
             }
