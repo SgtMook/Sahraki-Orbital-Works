@@ -213,11 +213,14 @@ namespace IngameScript
             if (enemy == null) enemy = new EnemyShipIntel();
             else offsetDist = enemy.Radius * 0.25;
             Vector3D offset;
+            int scanCount = 0;
 
             foreach (var camera in Cameras)
             {
                 offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
                 var result = CameraTryScan(IntelProvider, camera, targetPosition + offset, localTime, enemy);
+                scanCount++;
+                if (scanCount > 5) return;
                 if (result == TryScanResults.Missed)
                 {
                     break; // Try again with camera arrays
@@ -236,6 +239,7 @@ namespace IngameScript
                 offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
                 if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
                 {
+                    if (scanCount > 5) return;
                     var result = ScannerArrays[i].TryScan(IntelProvider, Program.Me.WorldMatrix.Translation, targetPosition + offset, enemy, localTime);
                     if (result == TryScanResults.Scanned)
                     {

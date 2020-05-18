@@ -66,6 +66,13 @@ namespace IngameScript
             
                 var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
                 var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
+
+                if (intelDict.ContainsKey(key))
+                {
+                    turret.ResetTargetingToDefault();
+                    continue;
+                }
+
                 TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
             
                 if (TargetIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.1) < canonicalTime)

@@ -36,7 +36,7 @@ namespace IngameScript
 
     public class Hangar
     {
-        private List<IMyAirtightHangarDoor> gates = new List<IMyAirtightHangarDoor>();
+        private List<IMyDoor> gates = new List<IMyDoor>();
         private List<IMyInteriorLight> lights = new List<IMyInteriorLight>();
         private IMyTextPanel display;
         StringBuilder statusBuilder = new StringBuilder();
@@ -78,7 +78,7 @@ namespace IngameScript
                 Connector = (IMyShipConnector)part;
                 ParseConfigs();
             }
-            if (part is IMyAirtightHangarDoor) gates.Add((IMyAirtightHangarDoor)part);
+            if (part is IMyDoor) gates.Add((IMyDoor)part);
             if (part is IMyTextPanel) display = (IMyTextPanel)part;
             if (part is IMyInteriorLight)
             {
@@ -184,19 +184,41 @@ namespace IngameScript
             {
                 if (Host.Hangars[index] == null) continue;
                 if ((Host.Hangars[index].hangarStatus & (HangarStatus.Docking | HangarStatus.Launching)) == 0) continue;
-                // Check gates here or something
+                ready = false;
+            }
+            foreach (var gate in gates)
+            {
+                if (gate.Status == DoorStatus.Open) continue;
                 ready = false;
             }
             return ready;
         }
 
+        private void OpenGates()
+        {
+            foreach (var door in gates)
+            {
+                if (door.Status != DoorStatus.Opening && door.Status != DoorStatus.Open) door.OpenDoor();
+            }
+        }
+
+        private void CloseGates()
+        {
+            foreach (var door in gates)
+            {
+                if (door.Status != DoorStatus.Closed && door.Status != DoorStatus.Closing) door.CloseDoor();
+            }
+        }
+
         private void MakeReadyToDock()
         {
+            OpenGates();
             if (HasClearance()) hangarStatus |= HangarStatus.Docking;
         }
 
         private void MakeReadyToLaunch()
         {
+            OpenGates();
             if (HasClearance()) hangarStatus |= HangarStatus.Launching;
         }
 
@@ -259,11 +281,19 @@ namespace IngameScript
             }
             if (ClaimElapsed)
             {
-                hangarStatus &= ~HangarStatus.Docking;
+                if ((hangarStatus & HangarStatus.Docking) != 0)
+                {
+                    CloseGates();
+                    hangarStatus &= ~HangarStatus.Docking;
+                }
             }
             if (LaunchElapsed)
             {
-                hangarStatus &= ~HangarStatus.Launching;
+                if ((hangarStatus & HangarStatus.Launching) != 0)
+                {
+                    CloseGates();
+                    hangarStatus &= ~HangarStatus.Launching;
+                }
             }
 
             if ((hangarStatus & (HangarStatus.Docking | HangarStatus.Launching)) != 0) SetLights(Color.Yellow);

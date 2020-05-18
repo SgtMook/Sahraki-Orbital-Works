@@ -29,7 +29,8 @@ namespace IngameScript
         Dock = 4,
         SetHome = 8,
         Attack = 16,
-        Mine = 32
+        Mine = 32,
+        Picket = 64
     }
 
     public enum TaskStatus

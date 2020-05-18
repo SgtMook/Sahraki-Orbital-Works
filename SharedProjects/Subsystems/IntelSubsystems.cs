@@ -262,7 +262,7 @@ namespace IngameScript
 
         StringBuilder debugBuilder = new StringBuilder();
 
-        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(5);
+        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(4);
 
         long CanonicalTimeSourceID;
         int CanonicalTimeSourceRank;
@@ -377,7 +377,7 @@ namespace IngameScript
             foreach (var kvp in Timestamps)
             {
                 if (kvp.Key.Item1 == IntelItemType.Asteroid) continue;
-                if ((kvp.Value + kIntelTimeout) < timestamp)
+                if ((kvp.Value + kIntelTimeout + TimeSpan.FromSeconds((kvp.Key.Item1 == IntelItemType.Waypoint ? 10 : 0))) < timestamp)
                 {
                     KeyScratchpad.Add(kvp.Key);
                 }

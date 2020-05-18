@@ -149,6 +149,7 @@ namespace IngameScript
             if (block is IMyLargeTurretBase) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyBatteryBlock) Batteries.Add((IMyBatteryBlock)block);
             if (block is IMySmallGatlingGun) TurnOnOffList.Add((IMySmallGatlingGun)block);
+            if (block is IMyTimerBlock) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyGasTank) Tanks.Add((IMyGasTank)block);
 
             return false;

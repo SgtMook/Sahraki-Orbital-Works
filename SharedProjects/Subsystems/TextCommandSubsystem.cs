@@ -151,7 +151,7 @@ namespace IngameScript
                     alarm = value;
                     foreach (var light in AlarmLights)
                     {
-                        light.Color = alarm ? Color.Red : Color.Green;
+                        light.Color = alarm ? new Color(255, 120, 120) : new Color(120, 255, 120);
                     }
                 }
             }
@@ -176,7 +176,6 @@ namespace IngameScript
             if (block is IMyInteriorLight && block.CustomName.Contains("Alarm"))
             {
                 IMyInteriorLight light = (IMyInteriorLight)block;
-                light.Radius = 20;
                 AlarmLights.Add(light);
             }
 

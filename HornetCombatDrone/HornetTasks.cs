@@ -22,7 +22,7 @@ namespace IngameScript
     public class HornetAttackTaskGenerator : ITaskGenerator
     {
         #region ITaskGenerator
-        public TaskType AcceptedTypes => TaskType.Attack;
+        public TaskType AcceptedTypes => TaskType.Attack | TaskType.Picket;
 
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
@@ -32,8 +32,8 @@ namespace IngameScript
             {
                 return new NullTask();
             }
-            if (type != TaskType.Attack) return new NullTask();
-            HornetAttackTask.Reset(intelKey);
+            if (type != TaskType.Attack && type != TaskType.Picket) return new NullTask();
+            HornetAttackTask.Reset(intelKey, type);
             return HornetAttackTask;
         }
         #endregion
@@ -159,7 +159,7 @@ namespace IngameScript
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
                 var velocityAdjust = linearVelocity + (accelerationAdjust) * 0.5;
 
-                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(combatIntel.GetVelocity() - velocityAdjust, targetPosition + combatIntel.GetVelocity() * 0.25 - (controller.WorldMatrix.Translation + velocityAdjust * 0.25), CombatSystem.ProjectileSpeed);
+                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(combatIntel.GetVelocity() - velocityAdjust, targetPosition + combatIntel.GetVelocity() * 0.32 - (controller.WorldMatrix.Translation + velocityAdjust * 0.25), CombatSystem.ProjectileSpeed);
 
                 LastAcceleration = linearVelocity - LastLinearVelocity;
                 LeadTask.Destination.Direction = relativeAttackPoint;
@@ -174,6 +174,14 @@ namespace IngameScript
                 LeadTask.Destination.Velocity = combatIntel.GetVelocity() * 0.5;
 
                 LastReference = controller.WorldMatrix;
+            }
+
+            if (!Attack)
+            {
+                Vector3D toTarget = TargetPosition - Program.Me.WorldMatrix.Translation;
+                if (toTarget.LengthSquared() > 100) LeadTask.Destination.Position = TargetPosition;
+                else LeadTask.Destination.Position = Vector3D.Zero;
+                LeadTask.Destination.Velocity = Vector3D.Zero;
             }
 
             LastLinearVelocity = linearVelocity;
@@ -208,6 +216,8 @@ namespace IngameScript
 
         float PatrolMaxSpeed = 98;
 
+        public bool Attack = true;
+
         public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider)
         {
             Program = program;
@@ -222,7 +232,7 @@ namespace IngameScript
             LeadTask = new WaypointTask(Program, Autopilot, new Waypoint(), WaypointTask.AvoidObstacleMode.Avoid);
         }
 
-        public void Reset(MyTuple<IntelItemType, long> intelKey)
+        public void Reset(MyTuple<IntelItemType, long> intelKey, TaskType taskType)
         {
             Status = TaskStatus.Incomplete;
 
@@ -233,6 +243,8 @@ namespace IngameScript
             LastLinearVelocity = Vector3D.Zero;
             LastAcceleration = Vector3D.Zero;
             LastReference = MatrixD.Zero;
+
+            Attack = taskType == TaskType.Attack;
         }
     }
 }
