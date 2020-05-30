@@ -47,9 +47,9 @@ namespace IngameScript
 
         OutputMode OutputMode = OutputMode.None;
         bool Active = true;
+        bool Activating = false;
 
         string myName;
-        bool setName = false;
         public SubsystemManager(MyGridProgram program)
         {
             Program = program;
@@ -60,7 +60,7 @@ namespace IngameScript
         // [Manager]
         // OutputMode = 0
         // StartActive = true
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
@@ -93,12 +93,10 @@ namespace IngameScript
             if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch("Reset");
         }
 
-        public void Activate(string name)
+        public void Activate()
         {
             Reset();
             Active = true;
-            myName = name;
-            setName = true;
             if (Subsystems.ContainsKey("docking")) Subsystems["docking"].Command(TimeSpan.Zero, "dock", null);
 
             MyIni Parser = new MyIni();
@@ -108,6 +106,7 @@ namespace IngameScript
 
             Parser.Delete("Manager", "StartActive");
             Program.Me.CustomData = Parser.ToString();
+            Program.Me.CubeGrid.CustomName = myName;
         }
 
         public string SerializeManager()
@@ -176,12 +175,6 @@ namespace IngameScript
         {
             if (Active)
             {
-                if (setName)
-                {
-                    Program.Me.CubeGrid.CustomName = myName;
-                    setName = false;
-                }
-
                 if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Setup frequencies");
                 if (OutputMode == OutputMode.Profile) profiler.UpdateRuntime();
                 UpdateCounter++;
@@ -206,6 +199,11 @@ namespace IngameScript
                 }
 
                 Program.Runtime.UpdateFrequency = targetFrequency;
+            }
+            else if (Activating)
+            {
+                Activating = false;
+                Activate();
             }
         }
 
@@ -249,7 +247,11 @@ namespace IngameScript
             if (subsystem == "manager")
             {
                 if (command == "reset") Reset();
-                if (command == "activate") Activate((string)argument);
+                if (command == "activate")
+                {
+                    myName = (string)argument;
+                    Activating = true;
+                }
             }
             else if (Subsystems.ContainsKey(subsystem))
             {

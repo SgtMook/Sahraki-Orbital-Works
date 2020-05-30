@@ -88,7 +88,7 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
@@ -107,7 +107,7 @@ namespace IngameScript
         // MineDepth = 100
         // OffsetDist = 10
         // CancelDist = 15000
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
@@ -127,7 +127,7 @@ namespace IngameScript
             if (longDist != 0) CancelDist = longDist;
         }
 
-        private void UpdateDrills()
+        void UpdateDrills()
         {
             if (drillCounter > 0) drillCounter--;
             if (drillCounter == 0) StopDrill();

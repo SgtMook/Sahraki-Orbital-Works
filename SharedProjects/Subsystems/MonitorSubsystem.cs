@@ -129,7 +129,7 @@ namespace IngameScript
 
         // [Monitor]
         // HydrogenFillPercent = 100
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;

@@ -77,7 +77,7 @@ namespace IngameScript
     public class HoneybeeMiningTask : ITask
     {
         #region ITask
-        public TaskStatus Status { get; private set; }
+        public TaskStatus Status { get; set; }
 
 
         StringBuilder debugBuilder = new StringBuilder();
@@ -411,13 +411,13 @@ namespace IngameScript
         }
 
         // https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
-        private void GetSphereLineIntersects(Vector3D center, double radius, Vector3D lineStart, Vector3D lineDirection, out double lDoc, out double det)
+        void GetSphereLineIntersects(Vector3D center, double radius, Vector3D lineStart, Vector3D lineDirection, out double lDoc, out double det)
         {
             lDoc = Vector3.Dot(lineDirection, lineStart - center);
             det = lDoc * lDoc - ((lineStart - center).LengthSquared() - radius * radius);
         }
 
-        private bool GoHomeCheck()
+        bool GoHomeCheck()
         {
             if (homeCheck) return true;
             if (MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) > 0.96 ||
@@ -430,21 +430,21 @@ namespace IngameScript
             return false;
         }
 
-        private bool LeaveHomeCheck()
+        bool LeaveHomeCheck()
         {
             return MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) < 0.01 &&
                    MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) > 0.9 &&
                    MonitorSubsystem.GetPercentage(MonitorOptions.Power) > 0.4;
         }
 
-        private Vector3D GetPerpendicular(Vector3D vector)
+        Vector3D GetPerpendicular(Vector3D vector)
         {
             Vector3D result = new Vector3D(1, 1, -(vector.X + vector.Y) / vector.Z);
             result.Normalize();
             return result;
         }
 
-        private Vector2I GetMiningPosition(int index)
+        Vector2I GetMiningPosition(int index)
         {
             if (index == 0) return Vector2I.Zero;
             index -= 1;
@@ -471,7 +471,7 @@ namespace IngameScript
         // 3 = To mine
         int[,] miningMatrix = new int[11, 11];
 
-        private void UpdateMiningMatrix(int currentPosition)
+        void UpdateMiningMatrix(int currentPosition)
         {
             var currentCoords = GetMiningPosition(currentPosition) + 5;
             if (miningMatrix[currentCoords.X, currentCoords.Y] == 1)
@@ -554,7 +554,7 @@ namespace IngameScript
             //}
         }
 
-        private void IncrementCurrentPosition()
+        void IncrementCurrentPosition()
         {
             while (currentPosition <= 120)
             {

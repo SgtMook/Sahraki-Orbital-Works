@@ -96,8 +96,8 @@ namespace IngameScript
             subsystemManager.AddSubsystem("command", tacticalSubsystem);
 
             // Black ops
-            //ECMInterfaceSubsystem ECM = new ECMInterfaceSubsystem(intelSubsystem);
-            //subsystemManager.AddSubsystem("ECM", ECM);
+            // ECMInterfaceSubsystem ECM = new ECMInterfaceSubsystem(intelSubsystem);
+            // subsystemManager.AddSubsystem("ECM", ECM);
 
             subsystemManager.DeserializeManager(Storage);
         }
@@ -120,7 +120,7 @@ namespace IngameScript
         // Forge = true
         // Torpedos = true
         // DefaultLookingGlassPlugin = command
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;

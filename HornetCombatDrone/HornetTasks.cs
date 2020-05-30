@@ -65,7 +65,7 @@ namespace IngameScript
     public class HornetAttackTask : ITask
     {
         #region ITask
-        public TaskStatus Status { get; private set; }
+        public TaskStatus Status { get; set; }
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
@@ -188,7 +188,7 @@ namespace IngameScript
             if (LeadTask.Status == TaskStatus.Incomplete) LeadTask.Do(IntelItems, canonicalTime, profiler);
         }
 
-        private void GoHome(TimeSpan canonicalTime)
+        void GoHome(TimeSpan canonicalTime)
         {
             AgentSubsystem.AddTask(TaskType.Dock, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Enqueue, 0, canonicalTime);
             Status = TaskStatus.Complete;

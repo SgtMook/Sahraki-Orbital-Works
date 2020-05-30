@@ -49,7 +49,7 @@ namespace IngameScript
     public class LocustAttackTask : ITask
     {
         #region ITask
-        public TaskStatus Status { get; private set; }
+        public TaskStatus Status { get; set; }
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {

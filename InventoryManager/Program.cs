@@ -247,7 +247,7 @@ namespace IngameScript
 			}
 		}
 
-		private string NextStorageLine()
+		string NextStorageLine()
 		{
 			_currentLine += 1;
 			if (loadArray.Length >= _currentLine)
@@ -423,7 +423,7 @@ namespace IngameScript
 		}
 
         #region Remote Display Setup
-        private MenuRemote GetConnectDisplayRemote()
+        MenuRemote GetConnectDisplayRemote()
 		{
 			MenuRemote connectDisplayRemote = new MenuRemote("Connect >", "");
 
@@ -458,7 +458,7 @@ namespace IngameScript
 			return connectDisplayRemote;
 		}
 
-		private MenuRemote GetDisconnectDisplayRemote()
+		MenuRemote GetDisconnectDisplayRemote()
 		{
 			MenuRemote disconnectDisplayRemote = new MenuRemote("Disconnect >", "");
 
@@ -524,7 +524,7 @@ namespace IngameScript
 		}
         #endregion
 
-        private MenuRemote GetDeltaRequestRemote()
+        MenuRemote GetDeltaRequestRemote()
 		{
 			MenuRemote remote = new MenuRemote("Requests >", "");
 			IEnumerator<MyItemType> i = requestDict.Keys.GetEnumerator();
@@ -560,7 +560,7 @@ namespace IngameScript
 			SendData(targetId, data);
 		}
 
-		private void SendData(long targetId, string data)
+		void SendData(long targetId, string data)
 		{
 			((IMyProgrammableBlock)GridTerminalSystem.GetBlockWithId(targetId)).CustomData = data;
 		}
@@ -663,7 +663,7 @@ namespace IngameScript
 			base.Echo(echoBuilder.ToString());
 		}
 
-		private void CountInventory()
+		void CountInventory()
 		{
 			for (int i = 0; i < keys.Count; i++)
 			{
@@ -777,7 +777,7 @@ namespace IngameScript
 			TypeToKey.Add(type, key);
 		}
 
-		private bool SameConstructAsMe(IMyTerminalBlock block)
+		bool SameConstructAsMe(IMyTerminalBlock block)
 		{
 			return block.IsSameConstructAs(Me);
 		}

@@ -62,7 +62,7 @@ namespace IngameScript
             ProcessRefreshRequests();
         }
         #endregion
-        private const string kInventoryRequestSection = "InventoryRequest";
+        const string kInventoryRequestSection = "InventoryRequest";
         MyGridProgram Program;
 
         List<IMyTerminalBlock> InventoryOwners = new List<IMyTerminalBlock>();
@@ -83,7 +83,7 @@ namespace IngameScript
         int kMaxChecksPerRun = 1;
 
         StringBuilder debugBuilder = new StringBuilder();
-        private void GetParts()
+        void GetParts()
         {
             LastCheckIndex = 0;
             InventoryOwners.Clear();
@@ -91,7 +91,7 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
         
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             // if (!Program.Me.IsSameConstructAs(block)) return false;
 
@@ -124,7 +124,7 @@ namespace IngameScript
             RefreshRequesters.Add(requester);
         }
 
-        private void GetBlockRequestSettings(IMyTerminalBlock block)
+        void GetBlockRequestSettings(IMyTerminalBlock block)
         {
             InventoryRequests[block] = new Dictionary<MyItemType, int>();
 
@@ -148,7 +148,7 @@ namespace IngameScript
             }
         }
 
-        private void SortInventories()
+        void SortInventories()
         {
             for (int i = LastCheckIndex; i < LastCheckIndex + kMaxChecksPerRun; i++)
             {
@@ -165,7 +165,7 @@ namespace IngameScript
             LastCheckIndex += kMaxChecksPerRun;
         }
 
-        private void ProcessRefreshRequests()
+        void ProcessRefreshRequests()
         {
             bool refresh = false;
 
@@ -186,7 +186,7 @@ namespace IngameScript
             }
         }
 
-        private void SortInventory(IMyTerminalBlock inventoryOwner)
+        void SortInventory(IMyTerminalBlock inventoryOwner)
         {
             var inventory = inventoryOwner.GetInventory(inventoryOwner.InventoryCount - 1);
             inventoryRequestAmountsCache.Clear();
@@ -253,7 +253,7 @@ namespace IngameScript
             }
         }
 
-        private void CombineStacks(IMyInventory inventory)
+        void CombineStacks(IMyInventory inventory)
         {
             inventoryItemsScratchpad.Clear();
             inventory.GetItems(inventoryItemsScratchpad);

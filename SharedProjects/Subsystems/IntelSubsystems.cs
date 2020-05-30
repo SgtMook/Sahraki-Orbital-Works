@@ -249,7 +249,7 @@ namespace IngameScript
         }
         #endregion
 
-        private const double kOneTick = 16.6666666;
+        const double kOneTick = 16.6666666;
         MyGridProgram Program;
         IMyBroadcastListener SyncListener;
         IMyBroadcastListener ReportListener;
@@ -300,7 +300,7 @@ namespace IngameScript
         // [Intel]
         // RadiusMulti = 1
         // Rank = 0
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
@@ -320,7 +320,7 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
 
@@ -355,7 +355,7 @@ namespace IngameScript
             ReportFleetIntelligence(myIntel, timestamp);
         }
 
-        private void GetSyncMessages(TimeSpan timestamp)
+        void GetSyncMessages(TimeSpan timestamp)
         {
             while (SyncListener.HasPendingMessage)
             {
@@ -372,7 +372,7 @@ namespace IngameScript
             KeyScratchpad.Clear();
         }
 
-        private void TimeoutIntelItems(TimeSpan timestamp)
+        void TimeoutIntelItems(TimeSpan timestamp)
         {
             foreach (var kvp in Timestamps)
             {
@@ -392,7 +392,7 @@ namespace IngameScript
             KeyScratchpad.Clear();
         }
 
-        private void UpdatePriorities()
+        void UpdatePriorities()
         {
             EnemyPriorityClearScratchpad.Clear();
             foreach (var kvp in EnemyPrioritiesOverride)
@@ -411,7 +411,7 @@ namespace IngameScript
             }
         }
 
-        private void GetTimeMessage(TimeSpan timestamp)
+        void GetTimeMessage(TimeSpan timestamp)
         {
             MyIGCMessage? msg = null;
 
@@ -443,7 +443,7 @@ namespace IngameScript
             }
         }
 
-        private void CheckOrSendTimeMessage(TimeSpan timestamp)
+        void CheckOrSendTimeMessage(TimeSpan timestamp)
         {
             if (timestamp == TimeSpan.Zero) return;
 
@@ -469,7 +469,7 @@ namespace IngameScript
             HighestRankID = Program.IGC.Me;
         }
 
-        private void UpdateIntelFromReports(TimeSpan timestamp)
+        void UpdateIntelFromReports(TimeSpan timestamp)
         {
             while (ReportListener.HasPendingMessage)
             {
@@ -482,7 +482,7 @@ namespace IngameScript
             }
         }
 
-        private void ReceivePriorityRequests()
+        void ReceivePriorityRequests()
         {
             while (PriorityRequestListener.HasPendingMessage)
             {
@@ -494,12 +494,12 @@ namespace IngameScript
             }
         }
 
-        private void SendPriorities()
+        void SendPriorities()
         {
             Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.IntelPriorityChannelTag, MasterEnemyPriorities.ToImmutableDictionary());
         }
 
-        private void Promote()
+        void Promote()
         {
             IsMaster = true;
             CanonicalTimeSourceID = Program.Me.EntityId;
@@ -507,7 +507,7 @@ namespace IngameScript
             CanonicalTimeDiff = TimeSpan.Zero;
         }
 
-        private void Demote(long newMasterID)
+        void Demote(long newMasterID)
         {
             IsMaster = false;
             CanonicalTimeSourceID = newMasterID;

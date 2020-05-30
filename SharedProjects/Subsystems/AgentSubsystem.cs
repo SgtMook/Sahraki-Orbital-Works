@@ -202,7 +202,7 @@ namespace IngameScript
             taskGenerator.GenerateTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, 0);
         }
 
-        private void DoTasks(TimeSpan timestamp)
+        void DoTasks(TimeSpan timestamp)
         {
             while (true)
             {
@@ -226,7 +226,7 @@ namespace IngameScript
             }
         }
 
-        private void GetCommands(TimeSpan timestamp)
+        void GetCommands(TimeSpan timestamp)
         {
             while (CommandListener.HasPendingMessage)
             {
@@ -239,7 +239,7 @@ namespace IngameScript
             }
         }
 
-        private void TryAddTaskFromWaitingCommand(TimeSpan timestamp)
+        void TryAddTaskFromWaitingCommand(TimeSpan timestamp)
         {
             if (WaitingCommandTimestamp + kCommandWaitTimeout < timestamp) WaitingCommand = null;
             if (WaitingCommand == null) return;
@@ -254,7 +254,7 @@ namespace IngameScript
             WaitingCommand = null;
         }
 
-        private void AddTaskFromCommand(TimeSpan timestamp, MyTuple<int, MyTuple<int, long>, int, int> command)
+        void AddTaskFromCommand(TimeSpan timestamp, MyTuple<int, MyTuple<int, long>, int, int> command)
         {
             if (timestamp == TimeSpan.Zero) return;
             AddTask((TaskType)command.Item1, MyTuple.Create((IntelItemType)command.Item2.Item1, command.Item2.Item2), (CommandType)command.Item3, command.Item4, timestamp + IntelProvider.CanonicalTimeDiff);

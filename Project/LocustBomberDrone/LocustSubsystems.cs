@@ -80,7 +80,7 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
 

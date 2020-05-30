@@ -308,7 +308,7 @@ namespace IngameScript
             }
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
@@ -348,7 +348,7 @@ namespace IngameScript
         // RD = 2
         // MaxCruiseSpeed = 98
         // MaxCombatSpeed = 98
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
@@ -444,7 +444,7 @@ namespace IngameScript
             }
         }
 
-        private void ClearGyros()
+        void ClearGyros()
         {
             foreach (var gyro in gyros)
             {

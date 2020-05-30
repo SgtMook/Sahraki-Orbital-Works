@@ -94,14 +94,14 @@ namespace IngameScript
             debugBuilder.AppendLine($"ARRAYS: {ScannerArrays.Count}");
         }
 
-        private bool GetTurrets(IMyTerminalBlock block)
+        bool GetTurrets(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
             if (block is IMyLargeTurretBase) Turrets.Add((IMyLargeTurretBase)block);
             return false;
         }
 
-        private bool GetBases(IMyTerminalBlock block)
+        bool GetBases(IMyTerminalBlock block)
         {
             if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
             if (!(block is IMyMotorStator)) return false;
@@ -114,7 +114,7 @@ namespace IngameScript
             return false;
         }
 
-        private bool GetArms(IMyTerminalBlock block)
+        bool GetArms(IMyTerminalBlock block)
         {
             if (!(block is IMyMotorStator)) return false;
             foreach (var array in ScannerArrays)
@@ -129,7 +129,7 @@ namespace IngameScript
             return false;
         }
 
-        private bool GetCameras(IMyTerminalBlock block)
+        bool GetCameras(IMyTerminalBlock block)
         {
             if (!(block is IMyCameraBlock)) return false;
             if (!block.CustomName.StartsWith(TagPrefix)) return false;
@@ -161,7 +161,7 @@ namespace IngameScript
             return false;
         }
 
-        private void TryScan(TimeSpan localTime)
+        void TryScan(TimeSpan localTime)
         {
             // Go through each target
             var intelItems = IntelProvider.GetFleetIntelligences(localTime);
@@ -220,7 +220,6 @@ namespace IngameScript
                 offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
                 var result = CameraTryScan(IntelProvider, camera, targetPosition + offset, localTime, enemy);
                 scanCount++;
-                if (scanCount > 5) return;
                 if (result == TryScanResults.Missed)
                 {
                     break; // Try again with camera arrays
@@ -239,7 +238,6 @@ namespace IngameScript
                 offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
                 if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
                 {
-                    if (scanCount > 5) return;
                     var result = ScannerArrays[i].TryScan(IntelProvider, Program.Me.WorldMatrix.Translation, targetPosition + offset, enemy, localTime);
                     if (result == TryScanResults.Scanned)
                     {

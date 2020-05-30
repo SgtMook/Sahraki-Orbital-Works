@@ -157,7 +157,7 @@ namespace IngameScript
 
         // [Docking]
         // Tags = ABCDE
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;

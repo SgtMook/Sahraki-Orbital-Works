@@ -59,7 +59,7 @@ namespace IngameScript
             }
         }
 
-        private void CheckSystems()
+        void CheckSystems()
         {
             bool AOK = true;
             foreach (var block in monitorTargets)
@@ -100,7 +100,7 @@ namespace IngameScript
             GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (!Me.IsSameConstructAs(block)) return false;
             if (block is IMyThrust) thrusters.Add((IMyThrust)block);

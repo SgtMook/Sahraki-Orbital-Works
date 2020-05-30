@@ -79,7 +79,7 @@ namespace IngameScript
             GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (!Me.IsSameConstructAs(block)) return false;
             
@@ -130,7 +130,7 @@ namespace IngameScript
             return torpedo.OK() && OK;
         }
 
-        private void SaveTorpedo()
+        void SaveTorpedo()
         {
             Base.CustomData = GridTerminalHelper.BlockListBytePosToBase64(PartsOfInterest, Base);
         }

@@ -92,7 +92,7 @@ namespace IngameScript
 
         // [Autoforge]
         // Autoname = Name
-        private void Release(TimeSpan localTime)
+        void Release(TimeSpan localTime)
         {
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CheckRelease);
 
@@ -121,6 +121,7 @@ namespace IngameScript
                         }
                     }
                 }
+                droneMainframe.Enabled = true;
                 droneMainframe.TryRun($"manager activate \"{name}\"");
                 droneMainframe = null;
 
@@ -135,7 +136,7 @@ namespace IngameScript
             }
         }
 
-        private bool CheckRelease(IMyTerminalBlock block)
+        bool CheckRelease(IMyTerminalBlock block)
         {
             if (block.CubeGrid.EntityId != Projector.CubeGrid.EntityId) return false;
             if ((block is IMyProgrammableBlock) && block.CustomName.Contains("Mainframe")) droneMainframe = (IMyProgrammableBlock)block;
@@ -220,7 +221,7 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
 
@@ -238,7 +239,7 @@ namespace IngameScript
             return false;
         }
 
-        private void UpdateForges(TimeSpan localTime)
+        void UpdateForges(TimeSpan localTime)
         {
             for (int i = 0; i < DroneForges.Count(); i++)
             {

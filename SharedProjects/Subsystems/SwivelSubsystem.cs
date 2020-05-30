@@ -74,8 +74,8 @@ namespace IngameScript
             UpdateFrequency = UpdateFrequency.Update10;
         }
 
-        private string tag;
-        private IControlIntercepter controlIntercepter;
+        string tag;
+        IControlIntercepter controlIntercepter;
 
         MyGridProgram Program;
 
@@ -87,7 +87,7 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
             if (!block.CustomName.StartsWith(tag)) return false;

@@ -36,9 +36,9 @@ namespace IngameScript
 
     public class Hangar
     {
-        private List<IMyDoor> gates = new List<IMyDoor>();
-        private List<IMyInteriorLight> lights = new List<IMyInteriorLight>();
-        private IMyTextPanel display;
+        List<IMyDoor> gates = new List<IMyDoor>();
+        List<IMyInteriorLight> lights = new List<IMyInteriorLight>();
+        IMyTextPanel display;
         StringBuilder statusBuilder = new StringBuilder();
         StringBuilder debugBuilder = new StringBuilder();
 
@@ -100,7 +100,7 @@ namespace IngameScript
             }
         }
 
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             MutexHangars.Clear();
 
@@ -177,7 +177,7 @@ namespace IngameScript
             }
         }
 
-        private bool HasClearance()
+        bool HasClearance()
         {
             bool ready = true;
             foreach (var index in MutexHangars)
@@ -194,7 +194,7 @@ namespace IngameScript
             return ready;
         }
 
-        private void OpenGates()
+        void OpenGates()
         {
             foreach (var door in gates)
             {
@@ -202,7 +202,7 @@ namespace IngameScript
             }
         }
 
-        private void CloseGates()
+        void CloseGates()
         {
             foreach (var door in gates)
             {
@@ -210,25 +210,25 @@ namespace IngameScript
             }
         }
 
-        private void MakeReadyToDock()
+        void MakeReadyToDock()
         {
             OpenGates();
             if (HasClearance()) hangarStatus |= HangarStatus.Docking;
         }
 
-        private void MakeReadyToLaunch()
+        void MakeReadyToLaunch()
         {
             OpenGates();
             if (HasClearance()) hangarStatus |= HangarStatus.Launching;
         }
 
-        private void Claim(long requesterID, TimeSpan timestamp)
+        void Claim(long requesterID, TimeSpan timestamp)
         {
             OwnerID = requesterID;
             lastClaimTime = timestamp;
         }
 
-        private void Unclaim()
+        void Unclaim()
         {
             hangarStatus &= ~HangarStatus.Reserved;
         }
@@ -250,7 +250,7 @@ namespace IngameScript
             UpdateHangarStatus(timestamp, intelItems);
         }
 
-        private void UpdateHangarStatus(TimeSpan timestamp, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems)
+        void UpdateHangarStatus(TimeSpan timestamp, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems)
         {
             bool ClaimElapsed = lastClaimTime + kClaimTimeout < timestamp;
             bool LaunchElapsed = lastLaunchTime + kLaunchTimeout < timestamp;
@@ -301,7 +301,7 @@ namespace IngameScript
             else SetLights(Color.Green);
         }
 
-        private void SetLights(Color color)
+        void SetLights(Color color)
         {
             foreach (var light in lights)
             {
@@ -470,7 +470,7 @@ namespace IngameScript
                 }
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
 
@@ -501,7 +501,7 @@ namespace IngameScript
             return false;
         }
 
-        private DockIntel GetHangarIntel(Hangar hangar, TimeSpan timestamp)
+        DockIntel GetHangarIntel(Hangar hangar, TimeSpan timestamp)
         {
             builder.Clear();
             hangar.Intel.WorldMatrix = hangar.Connector.WorldMatrix;
@@ -526,7 +526,7 @@ namespace IngameScript
             return hangar.Intel;
         }
 
-        private void ClearOwners(object argument)
+        void ClearOwners(object argument)
         {
             if (argument == null)
             {
@@ -548,7 +548,7 @@ namespace IngameScript
             }
         }
 
-        private void ReportAndUpdateHangars(TimeSpan timestamp)
+        void ReportAndUpdateHangars(TimeSpan timestamp)
         {
             var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
             for (int i = 0; i < Hangars.Count(); i++)
@@ -569,7 +569,7 @@ namespace IngameScript
             }
         }
 
-        private void ProcessHangarRequests(TimeSpan timestamp)
+        void ProcessHangarRequests(TimeSpan timestamp)
         {
             while (HangarListener.HasPendingMessage)
             {
@@ -581,7 +581,7 @@ namespace IngameScript
             }
         }
 
-        private void UpdateHangardisplays()
+        void UpdateHangardisplays()
         {
             for (int i = 0; i < Hangars.Count(); i++)
             {

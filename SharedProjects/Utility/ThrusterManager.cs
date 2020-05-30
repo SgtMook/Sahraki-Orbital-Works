@@ -103,7 +103,7 @@ namespace IngameScript
             }
         }
 
-        private void SetThruster(Base6Directions.Direction K, int i, float val)
+        void SetThruster(Base6Directions.Direction K, int i, float val)
         {
             Thrusters[K][i].ThrustOverridePercentage = val;
         }

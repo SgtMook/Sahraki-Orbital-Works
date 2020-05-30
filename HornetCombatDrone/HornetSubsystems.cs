@@ -140,7 +140,7 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (block is IMySmallGatlingGun && block.IsSameConstructAs(Program.Me))
                 Guns.Add((IMySmallGatlingGun)block);
@@ -178,7 +178,7 @@ namespace IngameScript
         // ProjectileSpeed = 400
         // EngageTheta = 0.1
         // FireTolerance = 0.2
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;

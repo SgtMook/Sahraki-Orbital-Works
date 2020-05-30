@@ -198,7 +198,7 @@ namespace IngameScript
                 {
                     var extend = torp.Controller.GetShipSpeed() * 0.017 + (torp.Controller.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 11.5 : 3);
                     torp.FastUpdate();
-                    if (torp.proxArmed)
+                    if (torp.proxArmed && torp.Target != null)
                     {
                         if ((torp.Controller.GetPosition() - torp.Target.GetPositionFromCanonicalTime(canonicalTime)).LengthSquared() < extend)
                         {
@@ -282,7 +282,7 @@ namespace IngameScript
             }
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false; // Allow subgrid
             if (block is IMyShipController && block.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId) Controller = (IMyShipController)block;
@@ -416,7 +416,7 @@ namespace IngameScript
             RandomOffset = new Vector3D(rand.NextDouble() - 0.5, rand.NextDouble() - 0.5, rand.NextDouble() - 0.5);
         }
 
-        private void Split()
+        void Split()
         {
             foreach (var merge in Splitters)
             {
@@ -741,7 +741,7 @@ namespace IngameScript
             }
         }
 
-        private void CheckGyro()
+        void CheckGyro()
         {
             while (activeGyro < gyros.Count)
             {

@@ -70,7 +70,7 @@ namespace IngameScript
         // [License]
         // LicenseString = AKI-20200501-02
         // Key = 9189310709010477879
-        private void ParseConfigs()
+        void ParseConfigs()
         {
             ErrorMsg = "";
             MyIni Parser = new MyIni();
@@ -148,7 +148,7 @@ namespace IngameScript
             LicenseHasher.hash1, LicenseHasher.hash2, LicenseHasher.hash3, LicenseHasher.hash4, LicenseHasher.hash5, LicenseHasher.hash6, LicenseHasher.hash7
         };
 
-        private void Crash(string error)
+        void Crash(string error)
         {
             ErrorMsg = error;
         }
@@ -158,7 +158,7 @@ namespace IngameScript
             return block.GetOwnerFactionTag;
         }
 
-        private void CheckLicenseDisable(TimeSpan localTime)
+        void CheckLicenseDisable(TimeSpan localTime)
         {
             if (NumCombatDrones < 99)
             {
@@ -189,7 +189,7 @@ namespace IngameScript
             }
         }
 
-        private bool DisableParts(IMyTerminalBlock arg)
+        bool DisableParts(IMyTerminalBlock arg)
         {
             if (arg.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId && arg is IMyFunctionalBlock
                 && !(arg is IMyShipConnector) && !(arg is IMyBatteryBlock) && !(arg is IMyGasTank))
@@ -197,12 +197,12 @@ namespace IngameScript
             return false;
         }
 
-        private void Disable(IMyFunctionalBlock block)
+        void Disable(IMyFunctionalBlock block)
         {
             block.Enabled = false;
         }
 
-        private void EchoError()
+        void EchoError()
         {
             stringBuilder.Clear();
             stringBuilder.AppendLine("<< Project Looking Glass >>");

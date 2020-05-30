@@ -185,7 +185,7 @@ namespace IngameScript
     public class UndockFirstTaskGenerator : ITaskGenerator
     {
         #region ITaskGenerator
-        public TaskType AcceptedTypes { get; private set; }
+        public TaskType AcceptedTypes { get; set; }
 
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
@@ -500,7 +500,7 @@ namespace IngameScript
     public class UndockSeperationTask : ITask
     {
         #region ITask
-        public TaskStatus Status { get; private set; }
+        public TaskStatus Status { get; set; }
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
@@ -576,7 +576,7 @@ namespace IngameScript
     public struct DockTask : ITask
     {
         #region ITask
-        public TaskStatus Status { get; private set; }
+        public TaskStatus Status { get; set; }
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
@@ -811,7 +811,7 @@ namespace IngameScript
     public class SetHomeTask : ITask
     {
         #region ITask
-        public TaskStatus Status { get; private set; }
+        public TaskStatus Status { get; set; }
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {

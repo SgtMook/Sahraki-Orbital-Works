@@ -30,13 +30,13 @@ namespace IngameScript
         public double AverageComplexity;
         public double PeakComplexity;
 
-        public IMyGridProgramRuntimeInfo Runtime { get; private set; }
+        public IMyGridProgramRuntimeInfo Runtime { get; set; }
         public readonly Queue<double> HistoryRuntime = new Queue<double>();
         public readonly Queue<double> HistoryComplexity = new Queue<double>();
         public readonly Dictionary<string, SectionValues> AverageBreakdown = new Dictionary<string, SectionValues>();
 
-        private double invMaxRuntimePercent;
-        private double invMaxInstCountPercent;
+        double invMaxRuntimePercent;
+        double invMaxInstCountPercent;
 
         public Profiler(IMyGridProgramRuntimeInfo runtime, int historyMaxCount, double newValueFactor)
         {

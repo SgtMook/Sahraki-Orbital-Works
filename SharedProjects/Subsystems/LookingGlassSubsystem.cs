@@ -165,7 +165,7 @@ namespace IngameScript
             }
         }
 
-        private bool CollectParts(IMyTerminalBlock block)
+        bool CollectParts(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
             if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
@@ -199,7 +199,7 @@ namespace IngameScript
             return false;
         }
 
-        private bool FindBases(IMyTerminalBlock block)
+        bool FindBases(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
             if (block is IMyMotorStator && block.CustomName.StartsWith(TagPrefix) && !block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId)
@@ -217,7 +217,7 @@ namespace IngameScript
             return false;
         }
 
-        private bool FindUnassignedBases(IMyTerminalBlock block)
+        bool FindUnassignedBases(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
             if (block is IMyMotorStator && block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId)
@@ -236,7 +236,7 @@ namespace IngameScript
             return false;
         }
 
-        private bool FindArms(IMyTerminalBlock block)
+        bool FindArms(IMyTerminalBlock block)
         {
             if (!Program.Me.IsSameConstructAs(block)) return false;
             if (block is IMyMotorStator)
@@ -300,7 +300,7 @@ namespace IngameScript
         bool lastCDown = false;
         bool lastSpaceDown = false;
 
-        private void TriggerInputs(TimeSpan timestamp)
+        void TriggerInputs(TimeSpan timestamp)
         {
             if (Controller == null) return;
             if (!OverrideThrusters) return;
@@ -350,7 +350,7 @@ namespace IngameScript
             if (ActivePlugin != null) ActivePlugin.DoSpace(timestamp);
         }
 
-        private void UpdateSwivels()
+        void UpdateSwivels()
         {
             if (OverrideGyros)
             {
@@ -397,13 +397,13 @@ namespace IngameScript
         #endregion
 
         #region updates
-        private void UpdateUpdateFrequency()
+        void UpdateUpdateFrequency()
         {
             UpdateFrequency = UpdateFrequency.Update10;
             if (ActiveLookingGlass != null) UpdateFrequency |= UpdateFrequency.Update1;
         }
 
-        private void UpdatePlugins(TimeSpan timestamp)
+        void UpdatePlugins(TimeSpan timestamp)
         {
             foreach (var kvp in Plugins)
             {
@@ -412,7 +412,7 @@ namespace IngameScript
             }
         }
 
-        private void UpdateActiveLookingGlass()
+        void UpdateActiveLookingGlass()
         {
             if (AutoActivate)
             {
@@ -907,7 +907,7 @@ namespace IngameScript
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
         #region SelectAgent
-        private void DrawAgentSelectionUI(TimeSpan timestamp)
+        void DrawAgentSelectionUI(TimeSpan timestamp)
         {
             Builder.Clear();
 
@@ -1027,7 +1027,7 @@ namespace IngameScript
         List<IFleetIntelligence> TargetSelection_Targets = new List<IFleetIntelligence>();
         int TargetSelection_TargetIndex;
 
-        private void DrawTargetSelectionUI(TimeSpan timestamp)
+        void DrawTargetSelectionUI(TimeSpan timestamp)
         {
             Builder.Clear();
 
@@ -1331,7 +1331,7 @@ namespace IngameScript
         }
         #endregion
 
-        private const int kScanDistance = 25000;
+        const int kScanDistance = 25000;
 
         List<EnemyShipIntel> TargetPriority_TargetList = new List<EnemyShipIntel>();
         int TargetPriority_Selection = 0;
@@ -1345,7 +1345,7 @@ namespace IngameScript
         }
 
 
-        private void DrawScanUI(TimeSpan timestamp)
+        void DrawScanUI(TimeSpan timestamp)
         {
             Builder.Clear();
             int kRowLength = 19;
@@ -1409,7 +1409,7 @@ namespace IngameScript
             }
         }
         
-        private void DrawTrackingUI(TimeSpan timestamp)
+        void DrawTrackingUI(TimeSpan timestamp)
         {
             Builder.Clear();
 
@@ -1581,7 +1581,7 @@ namespace IngameScript
                         {
                             FriendlyShipIntel agent = (FriendlyShipIntel)intelItems[key];
 
-                            if ((agent.AgentStatus & AgentStatus.DockedAtHome) != 0 && agent.HydroPowerInv.X > 95 && agent.HydroPowerInv.Y > 20 && agent.HydroPowerInv.Z > 50)
+                            if (agent.HydroPowerInv.X > 95 && agent.HydroPowerInv.Y > 20 && agent.HydroPowerInv.Z > 50)
                             {
                                 Host.IntelProvider.ReportCommand(agent, TaskType.Attack, enemyKey, localTime);
                                 launched = true;
@@ -1662,7 +1662,7 @@ namespace IngameScript
             ScannerSubsystem = scannerSubsystem;
         }
 
-        private bool FireTorpedoAtCursorTarget(string group, TimeSpan localTime)
+        bool FireTorpedoAtCursorTarget(string group, TimeSpan localTime)
         {
             var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
             var key = MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID);
@@ -1671,7 +1671,7 @@ namespace IngameScript
             return TorpedoSubsystem.Fire(localTime, TorpedoSubsystem.TorpedoTubeGroups[group], target) != null;
         }
 
-        private void DrawInfoUI(TimeSpan timestamp)
+        void DrawInfoUI(TimeSpan timestamp)
         {
             Builder.Clear();
 
@@ -1750,7 +1750,7 @@ namespace IngameScript
             }
         }
 
-        private void DrawActionsUI(TimeSpan timestamp)
+        void DrawActionsUI(TimeSpan timestamp)
         {
             Builder.Clear();
 
