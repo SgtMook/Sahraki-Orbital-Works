@@ -39,7 +39,7 @@ namespace IngameScript
         TimeSpan CanonicalTimeDiff { get; }
 
         void AddIntelMutator(IOwnIntelMutator processor);
-        void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan LocalTime);
+        void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan LocalTime, CommandType commandType = CommandType.Override);
 
         int GetPriority(long EnemyID);
         void SetPriority(long EnemyID, int value);
@@ -53,7 +53,7 @@ namespace IngameScript
     {
 
         #region ISubsystem
-        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update1 | UpdateFrequency.Update10 | UpdateFrequency.Update100;
+        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update1;
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
@@ -137,19 +137,16 @@ namespace IngameScript
     
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            if (IsMaster && (updateFlags & UpdateFrequency.Update1) != 0) UpdateIntelFromReports(timestamp);
+            if (IsMaster) UpdateIntelFromReports(timestamp);
 
-            if ((updateFlags & UpdateFrequency.Update10) != 0)
+            if (runs % 30 == 0)
             {
-                if (runs % 3 == 0)
-                {
-                    if (!IsMaster) GetSyncMessages(timestamp);
-                    CheckOrSendTimeMessage(timestamp);
-                    UpdateMyIntel(timestamp);
-                }
-                runs++;
+                if (!IsMaster) GetSyncMessages(timestamp);
+                CheckOrSendTimeMessage(timestamp);
+                UpdateMyIntel(timestamp);
             }
-            if ((updateFlags & UpdateFrequency.Update100) != 0)
+
+            if (runs % 100 == 0)
             {
                 TimeoutIntelItems(timestamp);
 
@@ -163,6 +160,8 @@ namespace IngameScript
                     UpdatePriorities();
                 }
             }
+
+            runs++;
         }
 
         public int GetPriority(long EnemyID)
@@ -232,7 +231,7 @@ namespace IngameScript
             }
         }
 
-        public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
+        public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp, CommandType commandType = CommandType.Override)
         {
             if (agent.ID == Program.Me.CubeGrid.EntityId && MyAgent != null)
             {
@@ -240,7 +239,7 @@ namespace IngameScript
             }
             else
             {
-                Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)targetKey.Item1, targetKey.Item2), (int)CommandType.Override, 0));
+                Program.IGC.SendBroadcastMessage(agent.CommandChannelTag, MyTuple.Create((int)taskType, MyTuple.Create((int)targetKey.Item1, targetKey.Item2), (int)commandType, 0));
             }
         }
         public void AddIntelMutator(IOwnIntelMutator processor)

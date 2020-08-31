@@ -94,7 +94,8 @@ namespace IngameScript
                 TargetPositionSet = true;
             }
 
-            EnemyShipIntel combatIntel = null;
+            EnemyShipIntel orbitIntel = null;
+            EnemyShipIntel shootIntel = null;
             double closestIntelDist = CombatSystem.AlertDist;
             foreach (var intel in IntelItems)
             {
@@ -113,13 +114,16 @@ namespace IngameScript
                 if (dist < closestIntelDist)
                 {
                     closestIntelDist = dist;
-                    combatIntel = enemyIntel;
+                    shootIntel = enemyIntel;
+                    if (enemyIntel.Radius > 30) orbitIntel = enemyIntel;
                 }
             }
 
-            if (combatIntel == null && CombatSystem.TargetIntel != null && IntelProvider.GetPriority(CombatSystem.TargetIntel.ID) >= 2) combatIntel = CombatSystem.TargetIntel;
+            if (shootIntel == null && CombatSystem.TargetIntel != null && IntelProvider.GetPriority(CombatSystem.TargetIntel.ID) >= 2) shootIntel = CombatSystem.TargetIntel;
 
-            if (combatIntel == null)
+            if (orbitIntel == null) orbitIntel = shootIntel;
+
+            if (orbitIntel == null)
             {
                 if (IntelKey.Item1 == IntelItemType.Enemy && IntelItems.ContainsKey(IntelKey) && EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)IntelItems[IntelKey]) && IntelProvider.GetPriority(IntelKey.Item2) >= 2)
                 {
@@ -148,7 +152,7 @@ namespace IngameScript
             {
                 CombatSystem.MarkEngaged();
                 LeadTask.Destination.MaxSpeed = Autopilot.CombatSpeed;
-                Vector3D targetPosition = combatIntel.GetPositionFromCanonicalTime(canonicalTime);
+                Vector3D targetPosition = orbitIntel.GetPositionFromCanonicalTime(canonicalTime);
 
                 var Acceleration = linearVelocity - LastLinearVelocity;
                 if (LastAcceleration == Vector3D.Zero) LastAcceleration = Acceleration;
@@ -159,7 +163,7 @@ namespace IngameScript
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
                 var velocityAdjust = linearVelocity + (accelerationAdjust) * 0.5;
 
-                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(combatIntel.GetVelocity() - velocityAdjust, targetPosition + combatIntel.GetVelocity() * 0.32 - (controller.WorldMatrix.Translation + velocityAdjust * 0.25), CombatSystem.ProjectileSpeed);
+                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(shootIntel.GetVelocity() - velocityAdjust, shootIntel.GetPositionFromCanonicalTime(canonicalTime) + shootIntel.GetVelocity() * 0.32 - (controller.WorldMatrix.Translation + velocityAdjust * 0.25), CombatSystem.ProjectileSpeed);
 
                 LastAcceleration = linearVelocity - LastLinearVelocity;
                 LeadTask.Destination.Direction = relativeAttackPoint;
@@ -170,8 +174,8 @@ namespace IngameScript
                 dirTargetToOrbitTarget.Normalize();
                 dirTargetToMe.Normalize();
                 LeadTask.Destination.DirectionUp = Math.Sin(CombatSystem.EngageTheta) * controller.WorldMatrix.Right + Math.Cos(CombatSystem.EngageTheta) * controller.WorldMatrix.Up;
-                LeadTask.Destination.Position = targetPosition + combatIntel.GetVelocity() + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
-                LeadTask.Destination.Velocity = combatIntel.GetVelocity() * 0.5;
+                LeadTask.Destination.Position = targetPosition + orbitIntel.GetVelocity() + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
+                LeadTask.Destination.Velocity = orbitIntel.GetVelocity() * 0.5;
 
                 LastReference = controller.WorldMatrix;
             }

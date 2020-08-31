@@ -41,6 +41,7 @@ namespace IngameScript
                 if (Connector.Status != MyShipConnectorStatus.Unconnected || (argument is string && (string)argument == "force")) Dock();
             }
             if (command == "undock") Undock();
+            if (command == "savetemplate") SaveMainframePositionToMerge();
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -189,5 +190,22 @@ namespace IngameScript
             myIntel.HangarTags = HangarTags;
         }
         #endregion
+
+        void SaveMainframePositionToMerge()
+        {
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, SetupMerge);
+        }
+
+        bool SetupMerge(IMyTerminalBlock block)
+        {
+            if (block.CubeGrid.EntityId != Program.Me.CubeGrid.EntityId) return false;
+            if (!(block is IMyShipMergeBlock)) return false;
+            if (!block.CustomName.StartsWith("[RL]")) return false;
+
+            var merge = (IMyShipMergeBlock)block;
+
+            merge.CustomData = GridTerminalHelper.BlockBytePosToBase64(Program.Me, merge);
+            return false;
+        }
     }
 }

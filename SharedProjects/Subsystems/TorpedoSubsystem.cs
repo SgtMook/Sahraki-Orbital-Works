@@ -133,7 +133,7 @@ namespace IngameScript
                                 AutofireTargetLog.Add(kvp.Key.Item2);
                             }
                         }
-                        else if (isShip)
+                        else if (isShip && TorpedoTubeGroups["SM"].NumReady > 1)
                         {
                             MissileDumpScratchpad.Add(target);
                             continue;
@@ -545,7 +545,7 @@ namespace IngameScript
 
         Vector3D RefreshNavigation(TimeSpan CanonicalTime)
         {
-            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0) - Controller.WorldMatrix.Translation;
+            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.27) - Controller.WorldMatrix.Translation;
 
             if (rangeVector.LengthSquared() < 120 * 120) proxArmed = true;
 

@@ -235,6 +235,7 @@ namespace IngameScript
                 {
                     WaitingCommand = (MyTuple<int, MyTuple<int, long>, int, int>)msg.Data;
                     WaitingCommandTimestamp = timestamp;
+                    TryAddTaskFromWaitingCommand(timestamp);
                 }
             }
         }

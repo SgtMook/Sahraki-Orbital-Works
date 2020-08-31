@@ -21,12 +21,12 @@ namespace IngameScript
 {
     public static class VectorHelpers
     {
-        public static Vector3D VectorProjection(Vector3D a, Vector3D b)
+        public static Vector3D VectorProjection(Vector3D vector, Vector3D onto)
         {
-            if (Vector3D.IsZero(b))
+            if (Vector3D.IsZero(onto))
                 return Vector3D.Zero;
 
-            return a.Dot(b) / b.LengthSquared() * b;
+            return vector.Dot(onto) / onto.LengthSquared() * onto;
         }
 
         public static double VectorAngleBetween(Vector3D a, Vector3D b) //returns radians

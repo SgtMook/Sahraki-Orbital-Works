@@ -29,8 +29,16 @@ namespace IngameScript
 
         IMyProgrammableBlock droneMainframe;
         IMyShipMergeBlock droneRelease;
+        IMyShipMergeBlock forgeRelease;
+
+        public Action<long, TimeSpan> callback;
 
         DroneForgeSubsystem Host;
+
+        int releaseCounter = 0;
+
+        StringBuilder debugBuilder = new StringBuilder();
+        List<IMyTerminalBlock> blockScratchpad = new List<IMyTerminalBlock>();
 
         public DroneForge(MyGridProgram program, DroneForgeSubsystem host)
         {
@@ -51,50 +59,67 @@ namespace IngameScript
                 Projector = (IMyProjector)part;
                 Projector.Enabled = false;
             }
-            if (part is IMyMotorAdvancedStator)
+            if (part is IMyShipMergeBlock)
             {
-                IMyMotorAdvancedStator Motor = (IMyMotorAdvancedStator)part;
-                if (part.CustomName.Contains("<R>"))
-                {
-                    ReverseMotors.Add(Motor);
-                    if (Motor.UpperLimitDeg == float.MaxValue) Motor.UpperLimitDeg = float.MaxValue;
-                    if (Motor.TargetVelocityRPM < 0) Motor.TargetVelocityRPM *= -1;
-                }
-                else
-                {
-                    Motors.Add(Motor);
-                    if (Motor.LowerLimitDeg == float.MinValue) Motor.LowerLimitDeg = 0;
-                    if (Motor.TargetVelocityRPM > 0) Motor.TargetVelocityRPM *= -1;
-                }
+                forgeRelease = (IMyShipMergeBlock)part;
             }
         }
 
         public void Update(TimeSpan localTime)
         {
-            if (Projector.Enabled)
+            debugBuilder.Clear();
+            debugBuilder.AppendLine(releaseCounter.ToString());
+            if (releaseCounter == 1)
             {
-                if (Projector.RemainingBlocks == 0) Release(localTime);
-                foreach (var Motor in Motors) if (Motor.TargetVelocityRPM < 0) Motor.TargetVelocityRPM *= -1;
-                foreach (var Motor in ReverseMotors) if (Motor.TargetVelocityRPM > 0) Motor.TargetVelocityRPM *= -1;
+                if (Projector.RemainingBlocks == 0) releaseCounter ++;
+                Projector.Enabled = true;
+                foreach (var welder in Welders) welder.Enabled = true;
             }
-            else
+            else if (releaseCounter > 1 && releaseCounter < 5)
             {
-                foreach (var Motor in Motors) if (Motor.TargetVelocityRPM > 0) Motor.TargetVelocityRPM *= -1;
-                foreach (var Motor in ReverseMotors) if (Motor.TargetVelocityRPM < 0) Motor.TargetVelocityRPM *= -1;
+                releaseCounter++;
+
+            }
+            else if (releaseCounter == 5)
+            {
+                Release(localTime);
+                if (droneMainframe != null)
+                    releaseCounter++;
+            }
+            else if (releaseCounter == 6)
+            {
+                if (droneMainframe != null && callback != null)
+                    callback(droneMainframe.CubeGrid.EntityId, localTime);
+                droneMainframe = null;
+                releaseCounter ++;
+            }
+            else if (releaseCounter > 6)
+            {
+                releaseCounter++;
+                if (releaseCounter > 8)
+                {
+                    releaseCounter = 0;
+                }
             }
         }
 
         public void Print()
         {
-            foreach (var welder in Welders) welder.Enabled = true;
-            Projector.Enabled = true;
+            if (releaseCounter == 0) releaseCounter++;
         }
 
         // [Autoforge]
         // Autoname = Name
         void Release(TimeSpan localTime)
         {
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CheckRelease);
+            droneRelease = GridTerminalHelper.OtherMergeBlock(forgeRelease);
+            if (droneRelease == null) return;
+            debugBuilder.AppendLine("DRONE RELEASE FOUND");
+            blockScratchpad.Clear();
+            if (!GridTerminalHelper.Base64BytePosToBlockList(droneRelease.CustomData, droneRelease, ref blockScratchpad)) return;
+            if (!(blockScratchpad[0] is IMyProgrammableBlock)) return;
+            debugBuilder.AppendLine("DRONE MAINFRAME FOUND");
+            droneMainframe = (IMyProgrammableBlock)blockScratchpad[0];
 
             if (droneMainframe != null && droneRelease != null)
             {
@@ -123,30 +148,26 @@ namespace IngameScript
                 }
                 droneMainframe.Enabled = true;
                 droneMainframe.TryRun($"manager activate \"{name}\"");
-                droneMainframe = null;
 
                 droneRelease.Enabled = false;
-
-                droneRelease = null;
 
                 foreach (var welder in Welders) welder.Enabled = false;
                 Projector.Enabled = false;
 
                 Host.RequestRefresh = true;
             }
-        }
 
-        bool CheckRelease(IMyTerminalBlock block)
-        {
-            if (block.CubeGrid.EntityId != Projector.CubeGrid.EntityId) return false;
-            if ((block is IMyProgrammableBlock) && block.CustomName.Contains("Mainframe")) droneMainframe = (IMyProgrammableBlock)block;
-            if ((block is IMyShipMergeBlock) && block.CustomName.Contains("[RL]")) droneRelease = (IMyShipMergeBlock)block;
-            return false;
+            droneRelease = null;
         }
 
         public bool OK()
         {
             return Projector != null && Welders.Count > 0;
+        }
+
+        public string GetStatus()
+        {
+            return debugBuilder.ToString();
         }
     }
 
@@ -171,7 +192,8 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return string.Empty;
+            return DroneForges[1].GetStatus();
+            //return string.Empty;
         }
 
         public string SerializeSubsystem()
@@ -248,6 +270,12 @@ namespace IngameScript
                     DroneForges[i].Update(localTime);
                 }
             }
+        }
+
+        public void PrintDrone(int index = 0, Action<long, TimeSpan> Callback = null)
+        {
+            DroneForges[index].Print();
+            DroneForges[index].callback = Callback;
         }
 
         #region IInventoryRefreshRequester

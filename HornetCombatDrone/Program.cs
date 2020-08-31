@@ -59,6 +59,7 @@ namespace IngameScript
             //subsystemManager.AddSubsystem("weapons", new DRMSubsystem(intelSubsystem));
 
             subsystemManager.DeserializeManager(Storage);
+            Main("Fake", UpdateType.Script);
         }
         MyCommandLine commandLine = new MyCommandLine();
         SubsystemManager subsystemManager;
@@ -71,6 +72,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
+            if (argument == "FAKE") return;
             subsystemManager.UpdateTime();
             if (!string.IsNullOrEmpty(argument) && commandLine.TryParse(argument))
             {

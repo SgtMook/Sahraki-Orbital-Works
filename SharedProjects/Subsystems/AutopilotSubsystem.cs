@@ -488,6 +488,25 @@ namespace IngameScript
             }
         }
 
+        void ApplyGyroOverride(double pitch_speed, double yaw_speed, double roll_speed, List<IMyGyro> gyro_list, IMyTerminalBlock reference)
+        {
+            if (reference == null) return;
+            var rotationVec = new Vector3D(-pitch_speed, yaw_speed, roll_speed); //because keen does some weird stuff with signs
+            var shipMatrix = reference.WorldMatrix;
+            var relativeRotationVec = Vector3D.TransformNormal(rotationVec, shipMatrix);
+
+            foreach (var thisGyro in gyro_list)
+            {
+                var gyroMatrix = thisGyro.WorldMatrix;
+                var transformedRotationVec = Vector3D.TransformNormal(relativeRotationVec, Matrix.Transpose(gyroMatrix));
+
+                thisGyro.Pitch = (float)transformedRotationVec.X;
+                thisGyro.Yaw = (float)transformedRotationVec.Y;
+                thisGyro.Roll = (float)transformedRotationVec.Z;
+                thisGyro.GyroOverride = true;
+            }
+        }
+
         void GetMovementVectors(Vector3D target, IMyShipController controller, IMyTerminalBlock reference, float maxThrust, float maxSpeed, out Vector3D AutopilotMoveIndicator, ref Vector3D D, ref Vector3D I)
         {
             if (controller == null)
@@ -544,25 +563,6 @@ namespace IngameScript
                 AutopilotMoveIndicator = Vector3.Zero;
                 I = Vector3.Zero;
                 D = Vector3.Zero;
-            }
-        }
-
-        void ApplyGyroOverride(double pitch_speed, double yaw_speed, double roll_speed, List<IMyGyro> gyro_list, IMyTerminalBlock reference)
-        {
-            if (reference == null) return;
-            var rotationVec = new Vector3D(-pitch_speed, yaw_speed, roll_speed); //because keen does some weird stuff with signs
-            var shipMatrix = reference.WorldMatrix;
-            var relativeRotationVec = Vector3D.TransformNormal(rotationVec, shipMatrix);
-
-            foreach (var thisGyro in gyro_list)
-            {
-                var gyroMatrix = thisGyro.WorldMatrix;
-                var transformedRotationVec = Vector3D.TransformNormal(relativeRotationVec, Matrix.Transpose(gyroMatrix));
-
-                thisGyro.Pitch = (float)transformedRotationVec.X;
-                thisGyro.Yaw = (float)transformedRotationVec.Y;
-                thisGyro.Roll = (float)transformedRotationVec.Z;
-                thisGyro.GyroOverride = true;
             }
         }
     }

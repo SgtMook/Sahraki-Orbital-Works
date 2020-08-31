@@ -86,7 +86,7 @@ namespace IngameScript
 
             if (lookingGlassNetwork != null)
             {
-                lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat(torpedoSubsystem, hangarSubsystem, scannerSubsystem));
+                lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat(torpedoSubsystem, hangarSubsystem, scannerSubsystem, forgeSubsystem));
                 lookingGlassNetwork.ActivatePlugin(DefaultLookingGlassPlugin);
             }
 
