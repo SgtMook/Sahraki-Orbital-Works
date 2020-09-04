@@ -53,8 +53,11 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
             ParseConfigs();
@@ -110,7 +113,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (block.CubeGrid.EntityId != Program.Me.CubeGrid.EntityId) return false;
+            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
 
             if (block.HasInventory && block.CustomName.Contains("<M>")) Inventories.Add(block.GetInventory(block.InventoryCount - 1));
             if (block is IMyGasTank && 
@@ -133,7 +136,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(Program.Me.CustomData, out result))
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
             var hFill = Parser.Get("Monitor", "HydrogenFillPercent").ToInt16();

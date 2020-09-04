@@ -49,9 +49,12 @@ namespace IngameScript
         {
             return string.Empty;
         }
-        
-        public void Setup(MyGridProgram program, string name)
+
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
         }

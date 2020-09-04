@@ -723,7 +723,7 @@ namespace IngameScript
             Program = program;
 
             closeTask.Destination.MaxSpeed = 0.5f;
-            enterTask.Destination.MaxSpeed = 20;
+            enterTask.Destination.MaxSpeed = 5;
 
             TaskQueue.Enqueue(EnterHoldingPattern);
             TaskQueue.Enqueue(WaitForClearance);

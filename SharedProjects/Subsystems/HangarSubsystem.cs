@@ -377,12 +377,15 @@ namespace IngameScript
             return saveBuilder.ToString();
         }
 
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
 
-            HangarChannelTag = program.Me.CubeGrid.EntityId.ToString() + "-HANGAR";
+            HangarChannelTag = ProgramReference.CubeGrid.EntityId.ToString() + "-HANGAR";
             HangarListener = program.IGC.RegisterBroadcastListener(HangarChannelTag);
         }
 
@@ -472,7 +475,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (!ProgramReference.IsSameConstructAs(block)) return false;
 
             if (block is IMyShipController)
             {
@@ -513,7 +516,7 @@ namespace IngameScript
             hangar.Intel.ID = hangar.Connector.EntityId;
             if (string.IsNullOrEmpty(hangar.Intel.DisplayName))
             {
-                hangar.Intel.DisplayName = builder.Append(hangar.Connector.CustomName).Append(" - ").Append(Program.Me.CubeGrid.CustomName).ToString();
+                hangar.Intel.DisplayName = builder.Append(hangar.Connector.CustomName).Append(" - ").Append(ProgramReference.CubeGrid.CustomName).ToString();
             }
 
             hangar.Intel.UndockNear = hangar.Connector.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 1.3f : 0.55f;

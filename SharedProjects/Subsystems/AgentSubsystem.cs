@@ -84,10 +84,14 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
+
             Program = program;
-            CommandChannelTag = program.Me.CubeGrid.EntityId.ToString() + "-COMMAND";
+            CommandChannelTag = ProgramReference.CubeGrid.EntityId.ToString() + "-COMMAND";
             CommandListener = program.IGC.RegisterBroadcastListener(CommandChannelTag);
             //profiler = new Profiler(Program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
             AddTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.DoFirst, 2, TimeSpan.Zero);
@@ -139,7 +143,7 @@ namespace IngameScript
             }
             if (TaskGenerators.ContainsKey(taskType))
             {
-                ITask Task = TaskGenerators[taskType].GenerateTask(taskType, intelKey, IntelProvider.GetFleetIntelligences(canonicalTime - IntelProvider.CanonicalTimeDiff), canonicalTime, Program.Me.CubeGrid.EntityId);
+                ITask Task = TaskGenerators[taskType].GenerateTask(taskType, intelKey, IntelProvider.GetFleetIntelligences(canonicalTime - IntelProvider.CanonicalTimeDiff), canonicalTime, ProgramReference.CubeGrid.EntityId);
                 if (Task is NullTask) return;
                 TaskQueue.Enqueue(Task);
             }

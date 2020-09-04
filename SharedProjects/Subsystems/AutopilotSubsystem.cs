@@ -58,8 +58,12 @@ namespace IngameScript
             if (command == "spin") Spin(ParseGPS((string)argument) - reference.WorldMatrix.Translation);
         }
 
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
+
             Program = program;
 
             UpdateFrequency = UpdateFrequency.Update10;
@@ -228,7 +232,7 @@ namespace IngameScript
             }
             set
             {
-                if (value != null && Program.Me.IsSameConstructAs(value))
+                if (value != null)
                     reference = value;
                 else
                     reference = controller;
@@ -310,7 +314,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyRemoteControl)
                 controller = (IMyRemoteControl)block;
@@ -352,7 +356,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(Program.Me.CustomData, out result))
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
             var flo = Parser.Get("Autopilot", "TP").ToDecimal();

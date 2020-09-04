@@ -32,7 +32,7 @@ namespace IngameScript
     {
         MyGridProgram Program;
 
-        Dictionary<string, ISubsystem> Subsystems = new Dictionary<string, ISubsystem>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, ISubsystem> Subsystems = new Dictionary<string, ISubsystem>(StringComparer.OrdinalIgnoreCase);
 
         int UpdateCounter = 0;
 
@@ -50,8 +50,13 @@ namespace IngameScript
         bool Activating = false;
 
         string myName;
-        public SubsystemManager(MyGridProgram program)
+
+        IMyTerminalBlock ProgramReference;
+
+        public SubsystemManager(MyGridProgram program, IMyTerminalBlock reference = null)
         {
+            ProgramReference = reference;
+            if (reference == null) ProgramReference = program.Me;
             Program = program;
             ParseConfigs();
             if (OutputMode == OutputMode.Profile) profiler = new Profiler(program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
@@ -64,7 +69,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(Program.Me.CustomData, out result))
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
             OutputMode mode;
@@ -101,12 +106,12 @@ namespace IngameScript
 
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(Program.Me.CustomData, out result))
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
             Parser.Delete("Manager", "StartActive");
-            Program.Me.CustomData = Parser.ToString();
-            Program.Me.CubeGrid.CustomName = myName;
+            ProgramReference.CustomData = Parser.ToString();
+            ProgramReference.CubeGrid.CustomName = myName;
         }
 
         public string SerializeManager()

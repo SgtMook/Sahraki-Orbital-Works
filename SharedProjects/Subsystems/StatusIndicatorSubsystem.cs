@@ -43,8 +43,11 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
         }
@@ -80,7 +83,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyInteriorLight)
                 IndicatorLight = (IMyInteriorLight)block;

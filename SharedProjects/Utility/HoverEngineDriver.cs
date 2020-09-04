@@ -77,8 +77,6 @@ namespace IngameScript
             {
                 if (value != _override) TerminalPropertiesHelper.SetValue(Block, "Override", value);
                 _override = value;
-
-                PushOnly = value != 0;
             }
         }
         public float OverridePercentage

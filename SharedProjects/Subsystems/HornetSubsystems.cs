@@ -44,8 +44,11 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             IntelProvider.AddIntelMutator(this);
             GetParts();
@@ -142,10 +145,10 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (block is IMySmallGatlingGun && block.IsSameConstructAs(Program.Me))
+            if (block is IMySmallGatlingGun && block.IsSameConstructAs(ProgramReference))
                 Guns.Add((IMySmallGatlingGun)block);
 
-            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyRadioAntenna)
                 Antenna = (IMyRadioAntenna)block;
@@ -182,7 +185,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(Program.Me.CustomData, out result))
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
             var val = Parser.Get("Hornet", "FireDist").ToInt16();
@@ -240,7 +243,7 @@ namespace IngameScript
         {
             if (engageCounter > 0)
             {
-                intel.Radius = (float)Program.Me.CubeGrid.WorldAABB.Size.Length() * 10;
+                intel.Radius = (float)ProgramReference.CubeGrid.WorldAABB.Size.Length() * 10;
                 intel.AgentStatus |= AgentStatus.Engaged;
             }
         }

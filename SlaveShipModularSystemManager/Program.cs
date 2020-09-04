@@ -30,7 +30,7 @@ namespace IngameScript
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             // Add subsystems
-            IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
+            IntelSubsystem intelSubsystem = new IntelSubsystem();
             subsystemManager.AddSubsystem("intel", intelSubsystem);
             AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
             subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);

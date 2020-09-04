@@ -30,7 +30,7 @@ namespace IngameScript
             // Add subsystems
             // Intel system setup
             IIntelProvider intelSubsystem;
-            intelSubsystem = new IntelSlaveSubsystem();
+            intelSubsystem = new IntelSubsystem();
 
             subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
 

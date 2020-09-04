@@ -87,7 +87,8 @@ namespace IngameScript
             {
                 PartsOfInterest.Add(block);
             }
-
+            if (block is IMyRadioAntenna)
+                PartsOfInterest.Add(block);
             if (block is IMyShipMergeBlock && block.CustomName.Contains("<BASE>")) Base = (IMyShipMergeBlock)block;
 
             return false;
@@ -102,7 +103,6 @@ namespace IngameScript
             builder.AppendLine("======== ERRORS ========");
 
             if (torpedo.Controller == null) builder.AppendLine("=> NO REMOTE CONTROL!");
-            if (torpedo.Gyro == null) builder.AppendLine("=> NO GYROSCOPE!");
             if (torpedo.Thrusters.Count == 0) builder.AppendLine("=> NO THRUSTERS!");
             if (torpedo.SubTorpedos.Count > torpedo.Splitters.Count) builder.AppendLine("=> CANNOT SEPARATE CLUSTER!");
             if (Base == null)

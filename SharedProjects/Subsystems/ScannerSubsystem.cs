@@ -43,8 +43,11 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
         }
@@ -96,14 +99,14 @@ namespace IngameScript
 
         bool GetTurrets(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (!ProgramReference.IsSameConstructAs(block)) return false;
             if (block is IMyLargeTurretBase) Turrets.Add((IMyLargeTurretBase)block);
             return false;
         }
 
         bool GetBases(IMyTerminalBlock block)
         {
-            if (Program.Me.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
             if (!(block is IMyMotorStator)) return false;
             if (!block.CustomName.StartsWith(TagPrefix)) return false;
             if (!block.CustomName.Contains("Base")) return false;
@@ -152,7 +155,7 @@ namespace IngameScript
                 }
             }
 
-            if (camera.IsSameConstructAs(Program.Me))
+            if (camera.IsSameConstructAs(ProgramReference))
             {
                 camera.EnableRaycast = true;
                 Cameras.Add(camera);
@@ -238,7 +241,7 @@ namespace IngameScript
                 offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
                 if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
                 {
-                    var result = ScannerArrays[i].TryScan(IntelProvider, Program.Me.WorldMatrix.Translation, targetPosition + offset, enemy, localTime);
+                    var result = ScannerArrays[i].TryScan(IntelProvider, ProgramReference.WorldMatrix.Translation, targetPosition + offset, enemy, localTime);
                     if (result == TryScanResults.Scanned)
                     {
                         break;

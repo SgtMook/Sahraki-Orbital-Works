@@ -18,7 +18,7 @@ using VRage;
 using VRageMath;
 using VRage.Library;
 
-
+using System.Collections.Immutable;
 
 namespace IngameScript
 {
@@ -29,32 +29,9 @@ namespace IngameScript
             subsystemManager = new SubsystemManager(this);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
-            // Add subsystems
-            // Intel system setup
-            IIntelProvider intelSubsystem;
-            intelSubsystem = new IntelSubsystem();
-
-            subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
-
-            //// Looking Glass Setup
-            //LookingGlassNetworkSubsystem lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem);
-            //subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
-            //
-            //// Hangar system setup
-            //HangarSubsystem hangarSubsystem = new HangarSubsystem(intelSubsystem);
-            //subsystemManager.AddSubsystem("hangar", hangarSubsystem);
-            //
-            //// Seeing-Eye scanner setup
-            //subsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem, "SE"));
-            //
-            //// Inventory system setup
-            //InventoryManagerSubsystem inventorySubsystem = new InventoryManagerSubsystem();
-            //inventorySubsystem.RegisterRequester(hangarSubsystem);
-            //subsystemManager.AddSubsystem("inventory", inventorySubsystem);
-            //
-            //// Command system setup
-            //TextCommandSubsystem textCommandSubsystem = new TextCommandSubsystem(intelSubsystem);
-            //subsystemManager.AddSubsystem("command", textCommandSubsystem);
+            subsystemManager.AddSubsystem("intel", new IntelSubsystem());
+            subsystemManager.AddSubsystem("sensor", new ScannerNetworkSubsystem((IntelSubsystem)subsystemManager.Subsystems["intel"]));
+            subsystemManager.AddSubsystem("hummingbird", new HummingbirdCommandSubsystem((IntelSubsystem)subsystemManager.Subsystems["intel"]));
 
             subsystemManager.DeserializeManager(Storage);
         }
@@ -66,7 +43,6 @@ namespace IngameScript
         public void Save()
         {
             string v = subsystemManager.SerializeManager();
-            Me.CustomData = v;
             Storage = v;
         }
 

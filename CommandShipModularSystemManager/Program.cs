@@ -34,7 +34,7 @@ namespace IngameScript
             // Add subsystems
             // Intel system setup
             IIntelProvider intelSubsystem;
-            intelSubsystem = new IntelSlaveSubsystem(1);
+            intelSubsystem = new IntelSubsystem(1);
             
             subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
             LookingGlassNetworkSubsystem lookingGlassNetwork = null;
@@ -59,23 +59,6 @@ namespace IngameScript
                 subsystemManager.AddSubsystem("scanner", scannerSubsystem);
             }
             
-            DroneForgeSubsystem forgeSubsystem = null;
-            
-            // Drone Forge setup
-            if (Forge)
-            {
-                forgeSubsystem = new DroneForgeSubsystem(intelSubsystem);
-                subsystemManager.AddSubsystem("forge", forgeSubsystem);
-            }
-            
-            // Inventory system setup
-            if (Inventory)
-            {
-                InventoryManagerSubsystem inventorySubsystem = new InventoryManagerSubsystem();
-                inventorySubsystem.RegisterRequester(hangarSubsystem);
-                if (Forge) inventorySubsystem.RegisterRequester(forgeSubsystem);
-                subsystemManager.AddSubsystem("inventory", inventorySubsystem);
-            }
             TorpedoSubsystem torpedoSubsystem = null;
             // Torpedo system setup
             if (Torpedos)
@@ -86,7 +69,7 @@ namespace IngameScript
 
             if (lookingGlassNetwork != null)
             {
-                lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat(torpedoSubsystem, hangarSubsystem, scannerSubsystem, forgeSubsystem));
+                lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat(torpedoSubsystem, hangarSubsystem, scannerSubsystem));
                 lookingGlassNetwork.ActivatePlugin(DefaultLookingGlassPlugin);
             }
 
@@ -107,7 +90,6 @@ namespace IngameScript
         bool ThrusterLookingGlass = false;
         bool Scanner = true;
         bool Inventory = true;
-        bool Forge = true;
         bool Torpedos = false;
         string DefaultLookingGlassPlugin = "command";
         // [Setup]
@@ -133,7 +115,6 @@ namespace IngameScript
             DefaultLookingGlassPlugin = Parser.Get("Setup", "DefaultLookingGlassPlugin").ToString("command");
             Scanner = Parser.Get("Setup", "Scanner").ToBoolean();
             Inventory = Parser.Get("Setup", "Inventory").ToBoolean();
-            Forge = Parser.Get("Setup", "Forge").ToBoolean();
             Torpedos = Parser.Get("Setup", "Torpedos").ToBoolean();
         }
 

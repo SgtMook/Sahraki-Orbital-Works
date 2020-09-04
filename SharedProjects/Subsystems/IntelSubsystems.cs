@@ -49,7 +49,7 @@ namespace IngameScript
 
     // ABOLISH SLAVERY ====================================================================================================================================================================================================================================================
     // TODO: Save/load serializations
-    public class IntelSlaveSubsystem : ISubsystem, IIntelProvider
+    public class IntelSubsystem : ISubsystem, IIntelProvider
     {
 
         #region ISubsystem
@@ -57,7 +57,6 @@ namespace IngameScript
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "sync") GetTimeMessage(timestamp);
             if (command == "wipe")
             {
                 IntelItems.Clear();
@@ -67,8 +66,6 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            debugBuilder.Clear();
-            debugBuilder.AppendLine(IsMaster ? "MASTER" : "SLAVE");
             return debugBuilder.ToString();
         }
 
@@ -104,34 +101,40 @@ namespace IngameScript
             }
             return string.Empty;
         }
-
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
-            SyncListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelSyncChannelTag);
-            TimeListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.TimeChannelTag);
-            PriorityListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityChannelTag);
-            TimeListener.SetMessageCallback($"{name} sync");
+
+            if (Master == null)
+            {
+                // JIT initialization
+                AsteroidIntel.IGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3);
+                FriendlyShipIntel.IGCUnpack(FriendlyShipIntel.IGCPackGeneric(new FriendlyShipIntel()).Item3);
+                EnemyShipIntel.IGCUnpack(EnemyShipIntel.IGCPackGeneric(new EnemyShipIntel()).Item3);
+                DockIntel.IGCUnpack(DockIntel.IGCPackGeneric(new DockIntel()).Item3);
+                Waypoint.IGCUnpack(Waypoint.IGCPackGeneric(new Waypoint()).Item3);
+
+                FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(123, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID);
+                FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(123, IntelItems, CanonicalTimeSourceID);
+
+                GetTimeMessage(TimeSpan.Zero);
+                GetFleetIntelligences(TimeSpan.Zero);
+                CheckOrSendTimeMessage(TimeSpan.Zero);
+                UpdateMyIntel(TimeSpan.Zero);
+
+                // Set up listeners
+                ReportListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
+                PriorityRequestListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityRequestChannelTag);
+                SyncListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelSyncChannelTag);
+                TimeListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.TimeChannelTag);
+                PriorityListener = program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityChannelTag);
+            }
+
             GetParts();
 
-            AsteroidIntel.IGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3);
-            FriendlyShipIntel.IGCUnpack(FriendlyShipIntel.IGCPackGeneric(new FriendlyShipIntel()).Item3);
-            EnemyShipIntel.IGCUnpack(EnemyShipIntel.IGCPackGeneric(new EnemyShipIntel()).Item3);
-            DockIntel.IGCUnpack(DockIntel.IGCPackGeneric(new DockIntel()).Item3);
-            Waypoint.IGCUnpack(Waypoint.IGCPackGeneric(new Waypoint()).Item3);
-
-            FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(123, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID);
-            FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(123, IntelItems, CanonicalTimeSourceID);
-
-            GetTimeMessage(TimeSpan.Zero);
-            GetFleetIntelligences(TimeSpan.Zero);
-            CheckOrSendTimeMessage(TimeSpan.Zero);
-
-            Program = program;
-            ReportListener = Program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelReportChannelTag);
-            PriorityRequestListener = Program.IGC.RegisterBroadcastListener(FleetIntelligenceUtil.IntelPriorityRequestChannelTag);
-            GetParts();
-            UpdateMyIntel(TimeSpan.Zero);
             ParseConfigs();
         }
     
@@ -139,14 +142,19 @@ namespace IngameScript
         {
             if (IsMaster) UpdateIntelFromReports(timestamp);
 
+            GetTimeMessage(timestamp);
+
             if (runs % 30 == 0)
             {
-                if (!IsMaster) GetSyncMessages(timestamp);
-                CheckOrSendTimeMessage(timestamp);
+                if (Master == null)
+                {
+                    if (!IsMaster) GetSyncMessages(timestamp);
+                    CheckOrSendTimeMessage(timestamp);
+                }
                 UpdateMyIntel(timestamp);
             }
 
-            if (runs % 100 == 0)
+            if (runs % 100 == 0 && Master == null)
             {
                 TimeoutIntelItems(timestamp);
 
@@ -199,12 +207,15 @@ namespace IngameScript
         #region IIntelProvider
         public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences(TimeSpan timestamp)
         {
+            if (Master != null) return Master.GetFleetIntelligences(timestamp);
+            if (timestamp == TimeSpan.Zero) return IntelItems;
             GetSyncMessages(timestamp);
             return IntelItems;
         }
 
         public TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key)
         {
+            if (Master != null) return Master.GetLastUpdatedTime(key);
             if (!Timestamps.ContainsKey(key))
                 return TimeSpan.MaxValue;
             return Timestamps[key];
@@ -221,7 +232,18 @@ namespace IngameScript
             if (!IntelItems.ContainsKey(intelKey) || IntelItems[intelKey] != item) IntelItems[intelKey] = item;
         }
 
-        public TimeSpan CanonicalTimeDiff { get; set; } // Add this to timestamp to get canonical time
+        public TimeSpan CanonicalTimeDiff { get
+            {
+                if (Master != null) return Master.CanonicalTimeDiff;
+                return canonicalTimeDiff;
+            }
+            set
+            { 
+                canonicalTimeDiff = value;
+            }
+        } // Add this to timestamp to get canonical time
+
+        TimeSpan canonicalTimeDiff;
 
         public bool HasMaster
         {
@@ -233,7 +255,8 @@ namespace IngameScript
 
         public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp, CommandType commandType = CommandType.Override)
         {
-            if (agent.ID == Program.Me.CubeGrid.EntityId && MyAgent != null)
+            if (Master != null) Master.ReportCommand(agent, taskType, targetKey, timestamp, commandType);
+            if (agent.ID == ProgramReference.CubeGrid.EntityId && MyAgent != null)
             {
                 MyAgent.AddTask(taskType, targetKey, CommandType.Override, 0, timestamp + CanonicalTimeDiff);
             }
@@ -284,16 +307,19 @@ namespace IngameScript
 
         int runs = 0;
 
-        public AgentSubsystem MyAgent;
+        public IAgentSubsystem MyAgent;
 
         bool IsMaster = false;
         int Rank = 0;
 
         float RadiusMulti = 1;
 
-        public IntelSlaveSubsystem(int rank = 0)
+        IntelSubsystem Master;
+
+        public IntelSubsystem(int rank = 0, IntelSubsystem master = null)
         {
             Rank = rank;
+            Master = master;
         }
 
         // [Intel]
@@ -303,7 +329,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(Program.Me.CustomData, out result))
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
             var flo = Parser.Get("Intel", "RadiusMulti").ToDecimal();
@@ -321,7 +347,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (!ProgramReference.IsSameConstructAs(block)) return false;
 
             if (block is IMyShipController)
                 controller = (IMyShipController)block;
@@ -331,9 +357,10 @@ namespace IngameScript
 
         void UpdateMyIntel(TimeSpan timestamp)
         {
+            if (timestamp == TimeSpan.Zero) return;
             if (controller == null) return;
             FriendlyShipIntel myIntel;
-            IMyCubeGrid cubeGrid = Program.Me.CubeGrid;
+            IMyCubeGrid cubeGrid = ProgramReference.CubeGrid;
             var key = MyTuple.Create(IntelItemType.Friendly, cubeGrid.EntityId);
             if (IntelItems.ContainsKey(key))
                 myIntel = (FriendlyShipIntel)IntelItems[key];
@@ -351,7 +378,8 @@ namespace IngameScript
             foreach (var processor in intelProcessors)
                 processor.ProcessIntel(myIntel);
 
-            ReportFleetIntelligence(myIntel, timestamp);
+            if (Master != null) Master.ReportFleetIntelligence(myIntel, timestamp);
+            else ReportFleetIntelligence(myIntel, timestamp);
         }
 
         void GetSyncMessages(TimeSpan timestamp)
@@ -412,6 +440,8 @@ namespace IngameScript
 
         void GetTimeMessage(TimeSpan timestamp)
         {
+            if (timestamp == TimeSpan.Zero) return;
+
             MyIGCMessage? msg = null;
 
             while (TimeListener.HasPendingMessage)
@@ -501,7 +531,7 @@ namespace IngameScript
         void Promote()
         {
             IsMaster = true;
-            CanonicalTimeSourceID = Program.Me.EntityId;
+            CanonicalTimeSourceID = ProgramReference.EntityId;
             if (EnemyPriorities != null) foreach(var kvp in EnemyPriorities) MasterEnemyPriorities.Add(kvp.Key, kvp.Value);
             CanonicalTimeDiff = TimeSpan.Zero;
         }

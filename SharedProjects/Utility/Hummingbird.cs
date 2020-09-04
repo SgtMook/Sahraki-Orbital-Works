@@ -37,11 +37,33 @@ namespace IngameScript
             return hummingbird;
         }
 
+        public static bool CheckHummingbirdComponents(IMyShipMergeBlock baseplate, ref IMyShipConnector connector, ref IMyMotorStator turretRotor, ref List<IMyTerminalBlock> PartsScratchpad, ref string status)
+        {
+            var releaseOther = GridTerminalHelper.OtherMergeBlock(baseplate);
+            if (releaseOther == null || !releaseOther.IsFunctional || !releaseOther.Enabled) return false;
+
+            PartsScratchpad.Clear();
+
+            var gotParts = GridTerminalHelper.Base64BytePosToBlockList(releaseOther.CustomData, releaseOther, ref PartsScratchpad);
+
+            if (!gotParts) return false;
+
+            foreach (var block in PartsScratchpad)
+            {
+                if (!block.IsFunctional) return false;
+                if (block is IMyMotorStator) turretRotor = (IMyMotorStator)block;
+                if (block is IMyShipConnector) connector = (IMyShipConnector)block;
+            }
+            return true;
+        }
+
         public const string GroupName = "[HB-GROUP]";
-        List<IMySmallGatlingGun> Gats = new List<IMySmallGatlingGun>();
-        TriskelionDrive Drive = new TriskelionDrive();
+        public const float RecommendedServiceFloor = 15;
+        public const float RecommendedServiceCeiling = 35;
+        public List<IMySmallGatlingGun> Gats = new List<IMySmallGatlingGun>();
+        public TriskelionDrive Drive = new TriskelionDrive();
         IMyLargeTurretBase Designator;
-        IMyShipController Controller;
+        public IMyShipController Controller;
         IMyMotorStator TurretRotor;
         Vector3D destination = new Vector3D();
         Vector3D target = Vector3D.Zero;
@@ -52,12 +74,12 @@ namespace IngameScript
 
         PID TurretPID;
 
-        float TP = 30;
-        float TI = 1.25f;
-        float TD = 20;
+        float TP = 50;
+        float TI = 5f;
+        float TD = 100;
         float TC = 0.95f;
 
-        int run = 0;
+        public int LifeTimeTicks = 0;
         int kRunEveryXUpdates = 5;
 
         int fireTicks = 0;
@@ -67,9 +89,26 @@ namespace IngameScript
         Vector3D LastAcceleration = Vector3D.Zero;
         MatrixD LastReference = MatrixD.Zero;
 
-        public void SetTarget(Vector3 newTarget)
+        public void SetTarget(Vector3D targetPos, Vector3D targetVel)
         {
-            target = newTarget;
+            linearVelocity = Controller.GetShipVelocities().LinearVelocity;
+
+            var Acceleration = linearVelocity - LastLinearVelocity;
+            if (LastAcceleration == Vector3D.Zero) LastAcceleration = Acceleration;
+            if (LastReference == MatrixD.Zero) LastReference = Gats[0].WorldMatrix;
+
+            var CurrentAccelerationPreviousFrame = Vector3D.TransformNormal(Acceleration, MatrixD.Transpose(LastReference));
+
+            var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, Gats[0].WorldMatrix);
+            var velocityAdjust = linearVelocity + (accelerationAdjust) * 0.05;
+
+            Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(targetVel - velocityAdjust, targetPos + targetVel * 0.05f - (Gats[0].WorldMatrix.Translation + velocityAdjust * 0.22), 400);
+
+            LastAcceleration = linearVelocity - LastLinearVelocity;
+            LastReference = Gats[0].WorldMatrix;
+            LastLinearVelocity = linearVelocity;
+
+            target = relativeAttackPoint + Gats[0].WorldMatrix.Translation;
         }
 
         public void SetDest(Vector3 newDest)
@@ -90,6 +129,7 @@ namespace IngameScript
                 TurretRotor.UpperLimitDeg = 30;
             }
             Drive.SetUp(kRunEveryXUpdates);
+            Drive.DesiredAltitude = RecommendedServiceFloor;
         }
 
         bool CollectParts(IMyTerminalBlock block, IMyCubeBlock reference)
@@ -121,48 +161,52 @@ namespace IngameScript
             return false;
         }
 
+        public bool IsOK()
+        {
+            if (Controller.WorldMatrix.Translation == Vector3D.Zero || !Controller.IsWorking) return false;
+
+            foreach (var engine in Drive.HoverEngines)
+            {
+                if (engine.Block.WorldMatrix.Translation == Vector3D.Zero || !engine.Block.IsFunctional) return false;
+            }
+
+            return true;
+        }
+
         public void Update()
         {
-            run++;
-            if (run % kRunEveryXUpdates == 0)
+            LifeTimeTicks++;
+
+            // Startup Subroutine
+            if (LifeTimeTicks == 1)
+            {
+                foreach (var engine in Drive.HoverEngines)
+                {
+                    engine.AltitudeMin = 1;
+                    engine.PushOnly = true;
+                }
+            }
+
+            if (LifeTimeTicks == 60)
+            {
+                foreach (var engine in Drive.HoverEngines)
+                {
+                    engine.AltitudeMin = 2;
+                }
+            }
+
+            if (LifeTimeTicks == 120)
+            {
+                foreach (var engine in Drive.HoverEngines)
+                {
+                    engine.AltitudeMin = 7;
+                }
+            }
+
+            if (LifeTimeTicks % kRunEveryXUpdates == 0)
             {
                 Vector3D PlanetDir = PlanetPos - Controller.WorldMatrix.Translation;
                 PlanetDir.Normalize();
-
-                // Get target
-                if (Designator != null && Designator.HasTarget)
-                {
-                    linearVelocity = Controller.GetShipVelocities().LinearVelocity;
-                    var targetEntity = Designator.GetTargetedEntity();
-
-                    var Acceleration = linearVelocity - LastLinearVelocity;
-                    if (LastAcceleration == Vector3D.Zero) LastAcceleration = Acceleration;
-                    if (LastReference == MatrixD.Zero) LastReference = Gats[0].WorldMatrix;
-
-                    var CurrentAccelerationPreviousFrame = Vector3D.TransformNormal(Acceleration, MatrixD.Transpose(LastReference));
-
-                    var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, Gats[0].WorldMatrix);
-                    var velocityAdjust = linearVelocity + (accelerationAdjust) * 0.05;
-
-                    Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(targetEntity.Velocity - velocityAdjust, targetEntity.Position + targetEntity.Velocity * 0.05f - (Gats[0].WorldMatrix.Translation + velocityAdjust * 0.22), 400);
-
-                    LastAcceleration = linearVelocity - LastLinearVelocity;
-                    LastReference = Gats[0].WorldMatrix;
-                    LastLinearVelocity = linearVelocity;
-
-                    target = relativeAttackPoint + Gats[0].WorldMatrix.Translation;
-
-                    // Testing - chase target
-                    var diff = Gats[0].WorldMatrix.Translation - targetEntity.Position;
-                    diff.Normalize();
-                    var orbit = diff.Cross(PlanetDir);
-                    diff *= 400;
-                    destination = targetEntity.Position + diff + orbit * 100;
-                }
-                else
-                {
-                    target = Vector3D.Zero;
-                }
 
                 // Orient Self
                 Drive.Turn(Gats.Count > 0 ? Gats[0].WorldMatrix : Controller.WorldMatrix, target);
@@ -170,17 +214,18 @@ namespace IngameScript
                 // Aim Turret
                 if (TurretRotor != null)
                 {
-                    if (target != Vector3D.Zero)
+                    if (target != Vector3D.Zero && Drive.GravAngle < Math.PI * 0.1)
                     {
                         var TurretAngle = TrigHelpers.FastAsin(Gats[0].WorldMatrix.Forward.Dot(PlanetDir));
 
                         Vector3D TargetDir = target - Gats[0].WorldMatrix.Translation;
+                        var targetDist = TargetDir.Length();
                         TargetDir.Normalize();
                         var TargetAngle = TrigHelpers.FastAsin(TargetDir.Dot(PlanetDir));
 
                         var angleDiff = TargetAngle - TurretAngle;
 
-                        if (VectorHelpers.VectorAngleBetween(Gats[0].WorldMatrix.Forward, TargetDir) < 0.05)
+                        if (VectorHelpers.VectorAngleBetween(Gats[0].WorldMatrix.Forward, TargetDir) < 0.05 && targetDist < 800)
                         {
                             Fire();
                         }
@@ -207,31 +252,12 @@ namespace IngameScript
                 // Check Movement
                 if (destination != Vector3D.Zero)
                 {
-                    var usedEngines = new List<IMyTerminalBlock>();
-                    var destDir = destination - Controller.WorldMatrix.Translation;
-                    destDir -= VectorHelpers.VectorProjection(destDir, PlanetDir);
-                    var dist = destDir.Length();
-
-                    // Status = dist.ToString();
-
-                    if (dist < 20)
+                    Drive.Drive(destination);
+                    if (Drive.Arrived)
                     {
-                        destDir = Vector3D.Zero;
+                        destination = Vector3D.Zero;
+                        Drive.Flush();
                     }
-                    else
-                    {
-                        destDir.Normalize();
-                        var shipVel = Controller.GetShipVelocities().LinearVelocity;
-                        shipVel -= VectorHelpers.VectorProjection(shipVel, PlanetDir);
-                        shipVel *= 0.02;
-                        destDir -= shipVel;
-                        
-                        //Status = $"SHIPVEL {shipVel}, DESTDIR {destDir}, SHIPSPD {shipVel.Length() / 0.02}";
-                        destDir.Normalize();
-                    }
-
-                    Drive.Drive(destDir);
-                    Status = Drive.Status;
                 }
             }
         }

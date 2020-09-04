@@ -55,7 +55,7 @@ namespace IngameScript
             //if (Connector == null) return "NO CONNECTOR";
             //else if (DirectionIndicator == null) return "NO INDICATOR";
             //return "AOK";
-            return HangarTags.ToString();
+            return Connector.CustomName.ToString();
         }
 
         public string SerializeSubsystem()
@@ -63,8 +63,11 @@ namespace IngameScript
             return HomeID.ToString();
         }
 
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
             IntelProvider.AddIntelMutator(this);
@@ -84,7 +87,7 @@ namespace IngameScript
                     return;
                 }
                 var dock = (DockIntel)intelItems[intelKey];
-                if (dock.OwnerID != Program.Me.CubeGrid.EntityId) HomeID = -1;
+                if (dock.OwnerID != ProgramReference.CubeGrid.EntityId) HomeID = -1;
             }
         }
         #endregion
@@ -139,7 +142,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (block.CubeGrid.EntityId != Program.Me.CubeGrid.EntityId) return false;
+            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
             if (block is IMyShipConnector && (Connector == null || block.CustomName.Contains("[D]"))) Connector = (IMyShipConnector)block;
             if (block is IMyInteriorLight && (DirectionIndicator == null || block.CustomName.Contains("[D]"))) DirectionIndicator = (IMyInteriorLight)block;
 
@@ -162,7 +165,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(Program.Me.CustomData, out result))
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
             string tagString = Parser.Get("Docking", "Tags").ToString();
@@ -198,13 +201,13 @@ namespace IngameScript
 
         bool SetupMerge(IMyTerminalBlock block)
         {
-            if (block.CubeGrid.EntityId != Program.Me.CubeGrid.EntityId) return false;
+            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
             if (!(block is IMyShipMergeBlock)) return false;
             if (!block.CustomName.StartsWith("[RL]")) return false;
 
             var merge = (IMyShipMergeBlock)block;
 
-            merge.CustomData = GridTerminalHelper.BlockBytePosToBase64(Program.Me, merge);
+            merge.CustomData = GridTerminalHelper.BlockBytePosToBase64(ProgramReference, merge);
             return false;
         }
     }

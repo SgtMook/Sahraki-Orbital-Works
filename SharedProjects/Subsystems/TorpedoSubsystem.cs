@@ -60,8 +60,11 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name)
+        IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
         }
@@ -93,7 +96,7 @@ namespace IngameScript
                         if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
 
                         var target = (EnemyShipIntel)kvp.Value;
-                        var isShip = target.Radius > 20 && (target.CurrentVelocity - Controller.GetShipVelocities().LinearVelocity).Length() < 80 && (target.GetPositionFromCanonicalTime(canonicalTime) - Program.Me.GetPosition()).Length() < 2500;
+                        var isShip = target.Radius > 20 && (target.CurrentVelocity - Controller.GetShipVelocities().LinearVelocity).Length() < 80 && (target.GetPositionFromCanonicalTime(canonicalTime) - ProgramReference.GetPosition()).Length() < 2500;
 
                         if (AutofireTargetLog.Contains(kvp.Key.Item2) && !isShip) continue;
 
@@ -103,14 +106,14 @@ namespace IngameScript
                             continue;
                         }
 
-                        if ((target.GetPositionFromCanonicalTime(canonicalTime) - Program.Me.GetPosition()).Length() > 2500)
+                        if ((target.GetPositionFromCanonicalTime(canonicalTime) - ProgramReference.GetPosition()).Length() > 2500)
                         {
                             Torpedo torp;
 
                             while (ReserveTorpedoes.Count > 0)
                             {
                                 torp = ReserveTorpedoes.Dequeue();
-                                if (torp.OK() && torp.ReserveTime + TimeSpan.FromSeconds(30) > canonicalTime && (torp.Controller.GetPosition() - Program.Me.GetPosition()).Length() < 1000)
+                                if (torp.OK() && torp.ReserveTime + TimeSpan.FromSeconds(30) > canonicalTime && (torp.Controller.GetPosition() - ProgramReference.GetPosition()).Length() < 1000)
                                 {
                                     if (torp.canInitialize) torp.Init(torp.ReserveTime);
                                     else torp.Reserve = false;
@@ -284,8 +287,8 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false; // Allow subgrid
-            if (block is IMyShipController && block.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId) Controller = (IMyShipController)block;
+            if (!ProgramReference.IsSameConstructAs(block)) return false; // Allow subgrid
+            if (block is IMyShipController && block.CubeGrid.EntityId == ProgramReference.CubeGrid.EntityId) Controller = (IMyShipController)block;
 
             if (!block.CustomName.StartsWith("[TRP")) return false;
 

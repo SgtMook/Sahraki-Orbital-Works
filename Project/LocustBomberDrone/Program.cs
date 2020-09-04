@@ -31,7 +31,7 @@ namespace IngameScript
 
             // Add subsystems
             AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
-            IntelSlaveSubsystem intelSubsystem = new IntelSlaveSubsystem();
+            IntelSubsystem intelSubsystem = new IntelSubsystem();
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
 
             LocustCombatSystem combatSubsystem = new LocustCombatSystem();

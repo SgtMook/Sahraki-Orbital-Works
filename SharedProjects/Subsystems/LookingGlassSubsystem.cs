@@ -66,8 +66,11 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name)
+        public IMyTerminalBlock ProgramReference;
+        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
         {
+            ProgramReference = programReference;
+            if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
             UpdateFrequency = UpdateFrequency.Update10;
@@ -167,7 +170,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (!ProgramReference.IsSameConstructAs(block)) return false;
             if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
                 Controller = (IMyShipController)block;
 
@@ -201,8 +204,8 @@ namespace IngameScript
 
         bool FindBases(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
-            if (block is IMyMotorStator && block.CustomName.StartsWith(TagPrefix) && !block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId)
+            if (!ProgramReference.IsSameConstructAs(block)) return false;
+            if (block is IMyMotorStator && block.CustomName.StartsWith(TagPrefix) && !block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == ProgramReference.CubeGrid.EntityId)
             {
                 var indexTagEnd = block.CustomName.IndexOf(']');
                 if (indexTagEnd == -1) return false;
@@ -219,8 +222,8 @@ namespace IngameScript
 
         bool FindUnassignedBases(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
-            if (block is IMyMotorStator && block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == Program.Me.CubeGrid.EntityId)
+            if (!ProgramReference.IsSameConstructAs(block)) return false;
+            if (block is IMyMotorStator && block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == ProgramReference.CubeGrid.EntityId)
             {
                 for (int i = 1; i < LookingGlassArray.Length; i++)
                 {
@@ -238,7 +241,7 @@ namespace IngameScript
 
         bool FindArms(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (!ProgramReference.IsSameConstructAs(block)) return false;
             if (block is IMyMotorStator)
             {
                 for (int i = 1; i < LookingGlassArray.Length; i++)
@@ -628,7 +631,7 @@ namespace IngameScript
         }
         public Vector2 FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
         {
-            if (intel.ID == Network.Program.Me.CubeGrid.EntityId) return new Vector2(float.MaxValue, float.MaxValue);
+            if (intel.ID == Network.ProgramReference.CubeGrid.EntityId) return new Vector2(float.MaxValue, float.MaxValue);
 
             var worldDirection = intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff) - PrimaryCamera.WorldMatrix.Translation;
             var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(PrimaryCamera.WorldMatrix));
@@ -1658,7 +1661,6 @@ namespace IngameScript
         TorpedoSubsystem TorpedoSubsystem;
         HangarSubsystem HangarSubsystem;
         ScannerNetworkSubsystem ScannerSubsystem;
-        DroneForgeSubsystem ForgeSubsystem;
 
         StringBuilder Builder = new StringBuilder();
 
@@ -1669,12 +1671,11 @@ namespace IngameScript
         string FeedbackText = string.Empty;
         bool FeedbackOnTarget = false;
 
-        public LookingGlassPlugin_Combat(TorpedoSubsystem torpedoSubsystem, HangarSubsystem hangarSubsystem, ScannerNetworkSubsystem scannerSubsystem, DroneForgeSubsystem forgeSubsystem)
+        public LookingGlassPlugin_Combat(TorpedoSubsystem torpedoSubsystem, HangarSubsystem hangarSubsystem, ScannerNetworkSubsystem scannerSubsystem)
         {
             TorpedoSubsystem = torpedoSubsystem;
             HangarSubsystem = hangarSubsystem;
             ScannerSubsystem = scannerSubsystem;
-            ForgeSubsystem = forgeSubsystem;
         }
 
         bool FireTorpedoAtCursorTarget(string group, TimeSpan localTime)
@@ -1767,23 +1768,6 @@ namespace IngameScript
             Builder.AppendLine();
             Builder.AppendLine("===  AUTOFORGE  ===");
             Builder.AppendLine();
-
-            if (ForgeSubsystem == null)
-            {
-                Builder.AppendLine("- NO AUTOFORGE     ");
-            }
-            else
-            {
-                if (refillHangerID != -1)
-                {
-                    Builder.AppendLine("- BUILDING         ");
-                    ForgeSubsystem.PrintDrone(1, (long id, TimeSpan releaseTime) => { CommandNewDroneToDockByID(id, releaseTime, refillHangerID); });
-                }
-                else
-                {
-                    Builder.AppendLine("- IDLE             ");
-                }
-            }
 
             foreach (var screen in Host.ActiveLookingGlass.LeftHUDs)
             {

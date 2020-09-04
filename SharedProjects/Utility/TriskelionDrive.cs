@@ -22,7 +22,7 @@ namespace IngameScript
     // CONTROLLER BOTTOM LEFT CORNER FACES DOWN
     public class TriskelionDrive
     {
-        List<HoverEngineDriver> HoverEngines = new List<HoverEngineDriver>();
+        public List<HoverEngineDriver> HoverEngines = new List<HoverEngineDriver>();
         List<IMyGyro> Gyros = new List<IMyGyro>();
         Dictionary<Vector3D, float> DirForces = new Dictionary<Vector3D, float>();
         List<Vector3D> Dirs = new List<Vector3D>();
@@ -34,15 +34,43 @@ namespace IngameScript
         const float sqrt3inv = 0.57735026919f;
         const float VerticalForceRatio = 0.577287712086f;
         const float HorizontalForceRatio = 0.816540811886f;
-        const float MaxPullMultiplier = 0.0f;
+        const float VertiHoriForceRatio = 0.733232f;
 
         public string Status { get; private set; }
+        public float MaxAccel { get { return (float)Controller.GetNaturalGravity().Length() * VertiHoriForceRatio; } }
+
+        public bool Arrived { get; internal set; }
+
+
+        public double GravAngle;
+
+        public float DesiredAltitude;
+        double DesiredVerticalVel = 0;
+
+        public int SpeedLimit = 0;
+
+        public float GetBrakingDistance()
+        {
+            var speed = (float)Controller.GetShipVelocities().LinearVelocity.Length();
+            float aMax = MinThrustRatio * MaxAccel;
+            float decelTime = speed / aMax;
+            return speed * decelTime - 0.5f * aMax * decelTime * decelTime;
+        }
+
+        public float GetMaxSpeedFromBrakingDistance(float distance)
+        {
+            var speed = (float)Controller.GetShipVelocities().LinearVelocity.Length();
+            float aMax = MinThrustRatio * MaxAccel;
+            return (float)Math.Sqrt(2 * distance * aMax);
+        }
 
         PID YawPID;
         PID PitchPID;
         PID SpinPID;
 
         float RC = 0.96f;
+
+        public Vector3D debug_accelDir;
 
         public void AddEngine(HoverEngineDriver engine)
         {
@@ -58,15 +86,18 @@ namespace IngameScript
 
         public void SetUp(double TimeStep)
         {
-            YawPID = new PID(4, 0.01, 4, RC, TimeStep);
-            PitchPID = new PID(4, 0.01, 4, RC, TimeStep);
+            YawPID = new PID(1, 0.00, 1, 0, TimeStep);
+            PitchPID = new PID(1, 0.00, 1, 0, TimeStep);
             SpinPID = new PID(3, 0.05, 1, RC, TimeStep);
 
             MaxForce = HoverEngines[0].MaxThrust;
+            Turn(MatrixD.Zero, Vector3D.Zero);
+            Drive(Vector3D.Zero);
         }
 
         public void Turn(MatrixD Reference, Vector3D target)
         {
+            if (Reference == MatrixD.Zero) return;
             MatrixD orientationMatrix = MatrixD.Identity;
             orientationMatrix.Translation = Reference.Translation;
             Vector3D orientationForward = Controller.WorldMatrix.Forward + Controller.WorldMatrix.Down + Controller.WorldMatrix.Left;
@@ -82,8 +113,9 @@ namespace IngameScript
             gravDir.Normalize();
 
             double yawAngle, pitchAngle, spinAngle;
+            GravAngle = VectorHelpers.VectorAngleBetween(gravDir, orientationMatrix.Forward);
 
-            if (target != Vector3D.Zero)
+            if (target != Vector3D.Zero && GravAngle < Math.PI * 0.1)
             {
                 Vector3D TargetDir = target - orientationMatrix.Translation;
                 TargetDir.Normalize();
@@ -95,70 +127,45 @@ namespace IngameScript
                 spinAngle = 0;
                 SpinPID.Reset();
             }
-            GetRotationAngles(gravDir, orientationMatrix.Forward, orientationMatrix.Left, orientationMatrix.Up, out yawAngle, out pitchAngle);
-            ApplyGyroOverride(PitchPID.Control(pitchAngle), YawPID.Control(yawAngle), spinAngle == 0 ? 0.75 : SpinPID.Control(spinAngle), Gyros, orientationMatrix);
+            TrigHelpers.GetRotationAngles(gravDir, orientationMatrix.Forward, orientationMatrix.Left, orientationMatrix.Up, out yawAngle, out pitchAngle);
+            TrigHelpers.ApplyGyroOverride(PitchPID.Control(pitchAngle), YawPID.Control(yawAngle), SpinPID.Control(spinAngle), Gyros, orientationMatrix);
+
         }
 
-        void GetRotationAngles(Vector3D v_target, Vector3D v_front, Vector3D v_left, Vector3D v_up, out double yaw, out double pitch)
+        public void Drive(Vector3D Destination)
         {
-            //Dependencies: VectorProjection() | VectorAngleBetween()
-            var projectTargetUp = VectorHelpers.VectorProjection(v_target, v_up);
-            var projTargetFrontLeft = v_target - projectTargetUp;
+            if (Destination == Vector3D.Zero) return;
 
-            yaw = VectorHelpers.VectorAngleBetween(v_front, projTargetFrontLeft);
-
-            if (Vector3D.IsZero(projTargetFrontLeft) && !Vector3D.IsZero(projectTargetUp)) //check for straight up case
-                pitch = MathHelper.PiOver2;
-            else
-                pitch = VectorHelpers.VectorAngleBetween(v_target, projTargetFrontLeft); //pitch should not exceed 90 degrees by nature of this definition
-
-            //---Check if yaw angle is left or right  
-            //multiplied by -1 to convert from right hand rule to left hand rule
-            yaw = -1 * Math.Sign(v_left.Dot(v_target)) * yaw;
-
-            //---Check if pitch angle is up or down    
-            pitch = Math.Sign(v_up.Dot(v_target)) * pitch;
-
-            //---Check if target vector is pointing opposite the front vector
-            if (Math.Abs(yaw) <= 1E-6 && v_target.Dot(v_front) < 0)
-            {
-                yaw = Math.PI;
-            }
-        }
-
-        void ApplyGyroOverride(double pitch_speed, double yaw_speed, double roll_speed, List<IMyGyro> gyro_list, MatrixD reference)
-        {
-            if (reference == null) return;
-            var rotationVec = new Vector3D(-pitch_speed, yaw_speed, roll_speed); //because keen does some weird stuff with signs
-            var shipMatrix = reference;
-            var relativeRotationVec = Vector3D.TransformNormal(rotationVec, shipMatrix);
-
-            foreach (var thisGyro in gyro_list)
-            {
-                var gyroMatrix = thisGyro.WorldMatrix;
-                var transformedRotationVec = Vector3D.TransformNormal(relativeRotationVec, Matrix.Transpose(gyroMatrix));
-
-                thisGyro.Pitch = (float)transformedRotationVec.X;
-                thisGyro.Yaw = (float)transformedRotationVec.Y;
-                thisGyro.Roll = (float)transformedRotationVec.Z;
-                thisGyro.GyroOverride = true;
-            }
-        }
-
-        public void Drive(Vector3D normalizedProjectedDirection)
-        {
-            Status = string.Empty;
-
-            if (normalizedProjectedDirection == Vector3D.Zero)
+            if (GravAngle > Math.PI * 0.1)
             {
                 foreach (var engine in HoverEngines)
                 {
                     engine.Block.Enabled = true;
                     engine.OverridePercentage = 0;
-                    continue;
+                    engine.AltitudeMin = DesiredAltitude / VertiHoriForceRatio;
                 }
                 return;
             }
+
+            var gravDir = Controller.GetNaturalGravity();
+            var gravStr = gravDir.Length();
+            gravDir.Normalize();
+            var destDir = Destination - Controller.WorldMatrix.Translation;
+            destDir -= VectorHelpers.VectorProjection(destDir, gravDir);
+            var dist = destDir.Length();
+            Arrived = dist < 20;
+            destDir.Normalize();
+
+            var maxSpeed = SpeedLimit != 0 ? Math.Min(100, GetMaxSpeedFromBrakingDistance((float)dist)) : SpeedLimit;
+            var currentVel = Controller.GetShipVelocities().LinearVelocity;
+            var horiVel = currentVel - VectorHelpers.VectorProjection(Controller.GetShipVelocities().LinearVelocity, gravDir);
+            var vertiVel = currentVel.Dot(-gravDir);
+            var accelDir = maxSpeed * destDir - horiVel;
+
+            accelDir.Normalize();
+            debug_accelDir = accelDir;
+            var mass = Controller.CalculateShipMass().PhysicalMass;
+            var gravForce = gravStr * mass;
 
             DirForces.Clear();
             Dirs.Clear();
@@ -167,32 +174,33 @@ namespace IngameScript
             Dirs.Add(Controller.WorldMatrix.Down);
             Dirs.Add(Controller.WorldMatrix.Left);
 
-            var gravDir = Controller.GetNaturalGravity();
-            var gravStr = gravDir.Length();
-            gravDir.Normalize();
-            var gravForce = gravStr * Controller.CalculateShipMass().PhysicalMass;
-
             float alpha = 0;
+            double altitude;
+            Controller.TryGetPlanetElevation(MyPlanetElevation.Surface, out altitude);
+            DesiredVerticalVel = DesiredAltitude - altitude;
+            var altAdjust = DesiredVerticalVel - vertiVel;
 
             Vector3D PrimaryDriveDir = Vector3D.Zero;
             Vector3D SecondaryDriveDir = Vector3D.Zero;
             Vector3D OpposDriveDir = Vector3D.Zero;
             foreach (var dir in Dirs)
             {
-                var engineDir = -dir;
+                var engineDir = dir;
                 engineDir -= VectorHelpers.VectorProjection(engineDir, gravDir);
                 engineDir.Normalize();
 
-                var engineAngleDiff = VectorHelpers.VectorAngleBetween(engineDir, normalizedProjectedDirection);
+                debug_accelDir = engineDir;
+
+                var engineAngleDiff = VectorHelpers.VectorAngleBetween(engineDir, accelDir);
                 if (engineAngleDiff < 0.3333333333333 * Math.PI)
                 {
-                    DirForces[dir] = 1;
-                    PrimaryDriveDir = dir;
+                    DirForces[dir] = 0;
+                    OpposDriveDir = dir;
                 }
                 else if (engineAngleDiff > 2 * 0.3333333333333 * Math.PI)
                 {
-                    DirForces[dir] = 0f;
-                    OpposDriveDir = dir;
+                    DirForces[dir] = 1f;
+                    PrimaryDriveDir = dir;
                 }
                 else
                 {
@@ -204,53 +212,44 @@ namespace IngameScript
             }
 
             var primaryDriveForce = MaxForce * VerticalForceRatio;
-            var secondaryDriveForce = (primaryDriveForce * (1 - 2 * alpha) + gravForce * (alpha - 1)) / (alpha - 2);
+            var secondaryDriveForce = primaryDriveForce * alpha;
 
             var totalUpForce = primaryDriveForce + secondaryDriveForce;
+            var multiplier = (gravForce + altAdjust * mass) / totalUpForce;
 
-            // var maxPullForce = primaryDriveForce * MaxPullMultiplier;
-            // float adjustPrimary = 0;
-            // float adjustSecondary = 0;
-            // float overdrive = 0;
-
-            //if (totalUpForce > maxPullForce + gravForce)
-            //{
-            //    overdrive = (float)(totalUpForce - maxPullForce - gravForce);
-            //    adjustSecondary = (float)-((alpha * (primaryDriveForce - overdrive + maxPullForce) - secondaryDriveForce - maxPullForce) / ((alpha + 1) * overdrive));
-            //    adjustPrimary = 1 - adjustSecondary;
-            //}
-            //
-            //Status += string.Format("OD: {0:0.00}, TUp: {1:0.0}, MaxP: {2:0.0}, GravF: {3:0.0}", overdrive, totalUpForce, maxPullForce, gravForce) + "\n";
-            //Status += string.Format("Pd: {0:0.00}, Sd: {1:0.0}, A: {2:0.0}", primaryDriveForce, secondaryDriveForce, alpha) + "\n";
-            //Status += string.Format("Dn: {0:0.00}, Nu: {1:0.0}, OSec: {2:0.0}", (alpha + 1) * overdrive, alpha * (primaryDriveForce - overdrive + maxPullForce) - secondaryDriveForce - maxPullForce, adjustSecondary) + "\n";
-
-            //if (PrimaryDriveDir != Vector3D.Zero)
-            //{
-            //    DirForces[PrimaryDriveDir] = Math.Max(0.0001f, 1 - adjustPrimary * overdrive / MaxForce);
-            //}
-            //if (SecondaryDriveDir != Vector3D.Zero)
-            //{
-            //    DirForces[SecondaryDriveDir] = (float)Math.Max(0.00001f, secondaryDriveForce / (MaxForce * VerticalForceRatio) - adjustSecondary * overdrive / MaxForce);
-            //}
-
-            var multiplier = gravForce / totalUpForce;
+            Status = $"{altAdjust}, {dist}";
 
             if (PrimaryDriveDir != Vector3D.Zero)
             {
-                DirForces[PrimaryDriveDir] = Math.Max(0.0001f, (float)multiplier);
+                DirForces[PrimaryDriveDir] = Math.Max(0.01f, (float)multiplier);
             }
             if (SecondaryDriveDir != Vector3D.Zero)
             {
-                DirForces[SecondaryDriveDir] = (float)Math.Max(0.00001f, secondaryDriveForce * (float)multiplier / (MaxForce * VerticalForceRatio));
+                DirForces[SecondaryDriveDir] = (float)Math.Max(0.01f, alpha * (float)multiplier);
             }
+
+            var altMin = 1;
+            if (altitude > 7) altMin = 6;
+            if (altitude > 40) altMin = 10;
 
             foreach (var engine in HoverEngines)
             {
+                engine.AltitudeMin = altMin;
                 engine.Block.Enabled = OpposDriveDir != engine.Block.WorldMatrix.Forward;
                 engine.OverridePercentage = DirForces[engine.Block.WorldMatrix.Forward];
             }
+        }
 
-            Status += string.Format("Mult: {0:0.00}, P: {1:0.0}, S: {2:0.0}", multiplier, PrimaryDriveDir == Vector3D.Zero ? 0 : DirForces[PrimaryDriveDir], SecondaryDriveDir == Vector3D.Zero ? 0 : DirForces[SecondaryDriveDir]) + "\n";
+        public void Flush()
+        {
+            foreach (var engine in HoverEngines)
+            {
+                engine.Block.Enabled = true;
+                engine.OverridePercentage = 0;
+                engine.AltitudeMin = 10;
+            }
+            Arrived = false;
+            return;
         }
     }
 }
