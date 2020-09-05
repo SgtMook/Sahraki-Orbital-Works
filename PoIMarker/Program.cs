@@ -54,7 +54,8 @@ namespace IngameScript
             if (block is IMyRadioAntenna || block is IMyGyro || block is IMyThrust || 
                 block is IMyBatteryBlock || block is IMySmallGatlingGun || 
                 block is IMyLargeTurretBase || block is IMyShipController || 
-                block is IMyWarhead || block is IMyMotorStator || block is IMyShipConnector)
+                block is IMyWarhead || block is IMyMotorStator || block is IMyShipConnector || block is IMyInteriorLight ||
+                block is IMyCameraBlock)
                 PartsOfInterest.Add(block);
             if (block is IMyShipMergeBlock && block.CustomName.Contains("<BASE>")) Base = (IMyShipMergeBlock)block;
 

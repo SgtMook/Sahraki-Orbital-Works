@@ -62,9 +62,11 @@ namespace IngameScript
         public const float RecommendedServiceCeiling = 35;
         public List<IMySmallGatlingGun> Gats = new List<IMySmallGatlingGun>();
         public TriskelionDrive Drive = new TriskelionDrive();
-        IMyLargeTurretBase Designator;
+        public IMyLargeTurretBase Designator;
         public IMyShipController Controller;
-        IMyMotorStator TurretRotor;
+        public IMyMotorStator TurretRotor;
+        public IMyTerminalBlock Base;
+        public IMyRadioAntenna Antenna;
         Vector3D destination = new Vector3D();
         Vector3D target = Vector3D.Zero;
 
@@ -91,6 +93,15 @@ namespace IngameScript
 
         public void SetTarget(Vector3D targetPos, Vector3D targetVel)
         {
+            if (targetPos == Vector3D.Zero)
+            {
+                target = Vector3D.Zero;
+                return;
+            }
+
+            while (Gats.Count > 0 && !Gats[0].IsWorking) Gats.RemoveAtFast(0);
+            if (Gats.Count == 0) return;
+
             linearVelocity = Controller.GetShipVelocities().LinearVelocity;
 
             var Acceleration = linearVelocity - LastLinearVelocity;
@@ -150,6 +161,12 @@ namespace IngameScript
 
             if (block is IMyThrust)
                 Drive.AddEngine(new HoverEngineDriver((IMyThrust)block));
+
+            if (block is IMyRadioAntenna)
+                Antenna = (IMyRadioAntenna)block;
+
+            if (block is IMyBeacon)
+                ((IMyBeacon)block).Enabled = false;
 
             if (block is IMyShipController)
             {

@@ -70,8 +70,6 @@ namespace IngameScript
 
         float RC = 0.96f;
 
-        public Vector3D debug_accelDir;
-
         public void AddEngine(HoverEngineDriver engine)
         {
             HoverEngines.Add(engine);
@@ -156,14 +154,13 @@ namespace IngameScript
             Arrived = dist < 20;
             destDir.Normalize();
 
-            var maxSpeed = SpeedLimit != 0 ? Math.Min(100, GetMaxSpeedFromBrakingDistance((float)dist)) : SpeedLimit;
+            var maxSpeed = SpeedLimit == 0 ? Math.Min(100, GetMaxSpeedFromBrakingDistance((float)dist)) : SpeedLimit;
             var currentVel = Controller.GetShipVelocities().LinearVelocity;
             var horiVel = currentVel - VectorHelpers.VectorProjection(Controller.GetShipVelocities().LinearVelocity, gravDir);
             var vertiVel = currentVel.Dot(-gravDir);
             var accelDir = maxSpeed * destDir - horiVel;
 
             accelDir.Normalize();
-            debug_accelDir = accelDir;
             var mass = Controller.CalculateShipMass().PhysicalMass;
             var gravForce = gravStr * mass;
 
@@ -188,8 +185,6 @@ namespace IngameScript
                 var engineDir = dir;
                 engineDir -= VectorHelpers.VectorProjection(engineDir, gravDir);
                 engineDir.Normalize();
-
-                debug_accelDir = engineDir;
 
                 var engineAngleDiff = VectorHelpers.VectorAngleBetween(engineDir, accelDir);
                 if (engineAngleDiff < 0.3333333333333 * Math.PI)

@@ -42,6 +42,9 @@ namespace IngameScript
         {
             Host = host;
         }
+
+        bool setup = false;
+
         public void CheckHummingbird()
         {
             status = releaseStage.ToString();
@@ -62,7 +65,8 @@ namespace IngameScript
             {
                 // Move pistons
                 if (Piston.CurrentPosition == Piston.MinLimit) releaseStage = 2;
-            } else if (releaseStage < 0)
+            }
+            else if (releaseStage < 0)
             {
                 releaseStage++;
             }
@@ -71,6 +75,37 @@ namespace IngameScript
 
         public void Update()
         {
+            if (!setup)
+            {
+                setup = true;
+                Piston.Velocity = 0.2f;
+
+                if (!Hummingbird.CheckHummingbirdComponents(ChasisMerge, ref hummingbirdConnector, ref turretRotor, ref PartScratchpad, ref status)) return;
+
+                if (Hummingbird.CheckHummingbirdComponents(TurretMerge, ref hummingbirdConnector, ref turretRotor, ref PartScratchpad, ref status))
+                {
+                    turretRotor.Detach();
+                    releaseStage = 1;
+                    Piston.Velocity = -0.2f;
+                    return;
+                }
+
+                if (turretRotor != null)
+                {
+                    Hummingbird = Hummingbird.GetHummingbird(turretRotor, Host.Program.GridTerminalSystem.GetBlockGroupWithName(Hummingbird.GroupName));
+                    if (Hummingbird.Gats.Count == 0)
+                    {
+                        Hummingbird = null;
+                        TurretMerge.Enabled = true;
+                        return;
+                    }
+                    releaseStage = 20;
+                    turretRotor.Displacement = 0.11f;
+                    return;
+                }
+            }
+
+
             if (releaseStage > 1 && releaseStage < 20) releaseStage++;
             if (releaseStage == 2)
             {
@@ -130,6 +165,7 @@ namespace IngameScript
         int runs;
 
         const double BirdSineConstantSeconds = 6;
+        const double BirdPendulumConstantSeconds = 12;
 
         public HummingbirdCommandSubsystem(IIntelProvider intelProvider)
         {
@@ -208,56 +244,85 @@ namespace IngameScript
             if (runs % 20 == 0)
             {
                 var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
-                var wp = new Waypoint();
                 foreach (var intelItem in intelItems)
                 {
                     if (intelItem.Key.Item1 == IntelItemType.Enemy)
                     {
                         hasTarget = true;
+                        int birdIndex = 0;
                         // Be smart about picking enemies later
                         foreach (var bird in Hummingbirds)
                         {
-                            var birdTheta = (bird.LifeTimeTicks * Math.PI / (BirdSineConstantSeconds * 30) % (2 * Math.PI)) - Math.PI;
+                            if (bird.Gats.Count == 0) continue;
+                            var birdAltitudeTheta = Math.PI * ((runs / (BirdSineConstantSeconds * 30) % 2) - 1);
+                            var birdSwayTheta = Math.PI * ((runs / (BirdPendulumConstantSeconds * 30) % 2) - 1);
                             var targetPos = intelItem.Value.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff);
 
                             var gravDir = bird.Controller.GetTotalGravity();
                             gravDir.Normalize();
 
-                            bird.SetTarget(targetPos, intelItem.Value.GetVelocity() - gravDir * (float)TrigHelpers.FastCos(birdTheta) * 2);
+                            bird.SetTarget(targetPos, intelItem.Value.GetVelocity() - gravDir * (float)TrigHelpers.FastCos(birdAltitudeTheta) * 2);
 
-                            var diff = bird.Controller.WorldMatrix.Translation - targetPos;
-                            var orbit = diff.Cross(gravDir);
+                            var targetToBase = bird.Base.WorldMatrix.Translation - targetPos;
+                            targetToBase -= VectorHelpers.VectorProjection(targetToBase, gravDir);
+                            var targetToBaseDist = targetToBase.Length();
+                            targetToBase.Normalize();
 
-                            diff.Normalize();
-                            orbit.Normalize();
-                            diff *= 600;
-                            bird.SetDest(targetPos + diff + orbit * 200);
-                            bird.Drive.SpeedLimit = 80;
-                            bird.Drive.DesiredAltitude = (float)TrigHelpers.FastSin(birdTheta) * 
+                            var engageLocationLocus = targetToBase * Math.Min(600, targetToBaseDist + 400) + targetPos;
+                            var engageLocationSwayDir = targetToBase.Cross(gravDir);
+                            var engageLocationSwayDist = (TrigHelpers.FastCos(birdSwayTheta) - Hummingbirds.Count * 0.5 + birdIndex + 0.5) * 100;
+
+                            bird.SetDest(engageLocationLocus + engageLocationSwayDist * engageLocationSwayDir);
+
+                            //var diff = bird.Controller.WorldMatrix.Translation - targetPos;
+                            //var orbit = diff.Cross(gravDir);
+                            //
+                            //diff.Normalize();
+                            //orbit.Normalize();
+                            //
+                            //if ((int)(bird.LifeTimeTicks/(BirdPendulumConstantSeconds*60)) % 2 == 1)
+                            //{
+                            //    orbit *= -1;
+                            //}
+                            //
+                            //diff *= 600;
+                            //bird.SetDest(targetPos + diff + orbit * 200);
+
+                            bird.Drive.DesiredAltitude = (float)TrigHelpers.FastSin(birdAltitudeTheta + Math.PI * 0.5) * 
                                 (Hummingbird.RecommendedServiceCeiling - Hummingbird.RecommendedServiceFloor) + Hummingbird.RecommendedServiceFloor;
-                            wp.Position = bird.Controller.WorldMatrix.Translation + bird.Drive.debug_accelDir * 20;
+
+                            birdIndex++;
                         }
                     }
                 }
 
-                if (!hasTarget)
+
+                foreach (var bird in Hummingbirds)
                 {
-                    foreach (var bird in Hummingbirds)
+                    if (!hasTarget || bird.Gats.Count == 0) // || Bird.OutOfAmmo
                     {
+                        // Retire drone - return to mothership and land nearby, then power off for recovery
                         bird.SetTarget(Vector3D.Zero, Vector3D.Zero);
                         bird.SetDest(Program.Me.WorldMatrix.Translation + Program.Me.WorldMatrix.Forward * 50);
+                        bird.Drive.SpeedLimit = 0;
+                    }
+                    else
+                    {
+                        // Drone finds target and engage
                     }
                 }
-
-                IntelProvider.ReportFleetIntelligence(wp, timestamp);
             }
 
             foreach (var cradle in Cradles)
             {
                 if (cradle == null) continue;
                 cradle.Update();
-                if (hasTarget && cradle.Hummingbird != null && Hummingbirds.Count < 1)
-                    Hummingbirds.Add(cradle.Release());
+                if (hasTarget && cradle.Hummingbird != null && Hummingbirds.Count < 3)
+                {
+                    Hummingbird bird = cradle.Release();
+                    bird.Base = Program.Me;
+                    Hummingbirds.Add(bird);
+                }
             }
 
             if (runs % 60 == 0)
