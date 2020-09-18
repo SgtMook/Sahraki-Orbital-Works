@@ -29,13 +29,13 @@ namespace IngameScript
         public static double FastCos(double x)
         {
             if (x > Math.PI || x < -Math.PI) return Math.Cos(x);
-            return 1 + x * x * (-0.5 + 0.04166666 * x * x);
+            return 1 + x * x * (-0.5 + x * x * (0.04166666 + x * x * (-0.0013888888 + x * x * 0.0000248015)));
         }
 
         public static double FastSin(double x)
         {
             if (x > Math.PI || x < -Math.PI) return Math.Sin(x);
-            return x * (1 + x * x * (-0.1666666 + 0.00833333 * x * x));
+            return x * (1 + x * x * (-0.1666666 + x * x * (0.00833333 + x * x * (-0.00019841269841 + x * x * 0.00000275573))));
         }
 
         public static double fastTan(double x)

@@ -79,8 +79,9 @@ namespace IngameScript
             Vector3D AutopilotMoveIndicator;
             GetMovementVectors(targetPosition, controller, reference, thrusts[0], currentMaxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
             SetThrusterPowers();
-            SetGyroPowers();
+            SetGyroPowers(true);
             ApplyGyroOverride(0, 0, 0, gyros, reference);
+            ClearGyros();
             Clear();
         }
 
@@ -245,7 +246,7 @@ namespace IngameScript
 
         MyGridProgram Program;
 
-        IMyRemoteControl controller;
+        IMyShipController controller;
         IMyTerminalBlock reference;
 
         ThrusterManager thrusterManager = new ThrusterManager();
@@ -316,8 +317,8 @@ namespace IngameScript
         {
             if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
-            if (block is IMyRemoteControl)
-                controller = (IMyRemoteControl)block;
+            if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
+                controller = (IMyShipController)block;
 
             if (block is IMyThrust)
             {
@@ -413,8 +414,9 @@ namespace IngameScript
             thrusterManager.SmartSetThrust(gridDirIndicator);
         }
 
-        void SetGyroPowers()
+        void SetGyroPowers(bool fake = false)
         {
+            if (fake) return;
             if (reference == null) return;
             double yawAngle = 0, pitchAngle = 0, spinAngle = 0;
             if (targetDirection != Vector3.Zero || targetUp != Vector3.Zero)

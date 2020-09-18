@@ -221,7 +221,7 @@ namespace IngameScript
                     TerminalPropertiesHelper.SetValue(launcher, "Shoot", true);
                 }
             }
-            fireCounter = 6;
+            fireCounter = 3;
         }
 
         public void HoldFire()

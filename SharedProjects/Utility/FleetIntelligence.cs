@@ -863,16 +863,39 @@ namespace IngameScript
                 ID = info.EntityId;
             }
 
-            if (updateSize || DisplayName == null)
+            if (DisplayName == null || DisplayName.StartsWith("S-") || DisplayName.StartsWith("L-"))
             {
-                if (updateSize) LastValidatedCanonicalTime = canonicalTime;
-                Radius = (float)info.BoundingBox.Size.Length() * 0.5f;
-                DisplayName = (info.Type == MyDetectedEntityType.SmallGrid ? "SM-" : "LG-") + ((int)Radius).ToString() + " " + info.EntityId.ToString();
+                if (updateSize || DisplayName == null)
+                {
+                    if (updateSize) LastValidatedCanonicalTime = canonicalTime;
+                    Radius = (float)info.BoundingBox.Size.Length() * 0.5f;
+                    DisplayName = (info.Type == MyDetectedEntityType.SmallGrid ? "S-" : "L-") + ((int)Radius).ToString() + " " + info.EntityId.ToString();
+                }
             }
 
             CurrentPosition = info.BoundingBox.Center;
             CurrentVelocity = info.Velocity;
             CurrentCanonicalTime = canonicalTime;
+        }
+
+        public void FromCubeGrid(IMyCubeGrid grid, TimeSpan canonicalTime, Vector3D velocity)
+        {
+            if (ID != grid.EntityId)
+            {
+                CubeSize = grid.GridSizeEnum;
+                ID = grid.EntityId;
+            }
+
+            if (!string.IsNullOrEmpty(grid.CustomName) && (DisplayName == null || DisplayName.StartsWith("S-") || DisplayName.StartsWith("L-")))
+            {
+                DisplayName = grid.CustomName;
+            }
+
+            Radius = (float)grid.WorldAABB.Size.Length() * 0.5f;
+            CurrentPosition = grid.WorldAABB.Center;
+            CurrentVelocity = velocity;
+            CurrentCanonicalTime = canonicalTime;
+            LastValidatedCanonicalTime = canonicalTime;
         }
     }
     #endregion

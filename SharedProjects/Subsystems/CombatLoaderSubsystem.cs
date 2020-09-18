@@ -19,21 +19,43 @@ using VRageMath;
 
 namespace IngameScript
 {
-    public interface IInventoryRefreshRequester
-    {
-        bool RequestingRefresh();
-        void AcknowledgeRequest();
-    }
+    // TypeIDs:
+    // MyObjectBuilder_AmmoMagazine
+    // MyObjectBuilder_Component
+    //
+    // SubtypeIDs:
+    // NATO_25x184mm
+    // Construction
+    // MetalGrid
+    // InteriorPlate
+    // SteelPlate
+    // Girder
+    // SmallTube
+    // LargeTube
+    // Display
+    // BulletproofGlass
+    // Superconductor
+    // Computer
+    // Reactor
+    // Thrust
+    // GravityGenerator
+    // Medical
+    // RadioCommunication
+    // Detector
+    // Explosives
+    // SolarCell
+    // PowerCell
+    // Canvas
+    // Motor
 
-
-    public class InventoryManagerSubsystem : ISubsystem
+    public class CombatLoaderSubsystem : ISubsystem
     {
         #region ISubsystem
-        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10;
+        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update1;
         
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "refreshparts") GetParts();
+            if (command == "reload") Reload();
         }
         
         public void DeserializeSubsystem(string serialized)
@@ -42,6 +64,17 @@ namespace IngameScript
         
         public string GetStatus()
         {
+            debugBuilder.Clear();
+
+            debugBuilder.AppendLine(TotalInventory.Count.ToString());
+            debugBuilder.AppendLine(InventoryOwners.Count.ToString());
+            debugBuilder.AppendLine(LastCheckIndex.ToString());
+            
+            foreach (var kvp in TotalInventory)
+            {
+                debugBuilder.AppendLine($"{kvp.Key.SubtypeId} - {kvp.Value}");
+            }
+
             return debugBuilder.ToString();
         }
         
@@ -57,20 +90,28 @@ namespace IngameScript
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
+            SortInventory(null);
         }
         
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            SortInventories();
-            ProcessRefreshRequests();
+            runs++;
+
+            if (runs % 20 == 0)
+            {
+                UpdateInventories();
+            }
         }
         #endregion
         const string kInventoryRequestSection = "InventoryRequest";
         MyGridProgram Program;
 
-        List<IMyTerminalBlock> InventoryOwners = new List<IMyTerminalBlock>();
         List<IMyTerminalBlock> StoreInventoryOwners = new List<IMyTerminalBlock>();
         Dictionary<IMyTerminalBlock, Dictionary<MyItemType, int>> InventoryRequests = new Dictionary<IMyTerminalBlock, Dictionary<MyItemType, int>>();
+        public List<IMyTerminalBlock> InventoryOwners = new List<IMyTerminalBlock>();
+        public Dictionary<MyItemType, int> TotalInventoryRequests = new Dictionary<MyItemType, int>();
+        public Dictionary<MyItemType, int> TotalInventory = new Dictionary<MyItemType, int>();
+        public Dictionary<MyItemType, int> NextTotalInventory = new Dictionary<MyItemType, int>();
 
         MyIni iniParser = new MyIni();
         List<MyIniKey> iniKeyScratchpad = new List<MyIniKey>();
@@ -80,51 +121,44 @@ namespace IngameScript
         List<MyItemType> itemTypeScratchpad = new List<MyItemType>();
         Dictionary<MyItemType, MyFixedPoint> inventoryRequestAmountsCache = new Dictionary<MyItemType, MyFixedPoint>();
 
-        List<IInventoryRefreshRequester> RefreshRequesters = new List<IInventoryRefreshRequester>();
-
-        int LastCheckIndex = 0;
+        public int LastCheckIndex = 0;
+        public int UpdateNum = 0;
         int kMaxChecksPerRun = 1;
+        int runs = 0;
+
+        public bool LoadingInventory = false;
 
         StringBuilder debugBuilder = new StringBuilder();
+
+        string CargoGroupName;
+        string StoreGroupName;
+
+        public CombatLoaderSubsystem(string cargoGroupName = "Cargo", string storeGroupName = "Store")
+        {
+            CargoGroupName = cargoGroupName;
+            StoreGroupName = storeGroupName;
+        }
+
         void GetParts()
         {
             LastCheckIndex = 0;
             InventoryOwners.Clear();
             InventoryRequests.Clear();
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            var cargoGroup = Program.GridTerminalSystem.GetBlockGroupWithName(CargoGroupName);
+            if (cargoGroup == null) return;
+            cargoGroup.GetBlocks(null, CollectInventoryOwners);
         }
         
-        bool CollectParts(IMyTerminalBlock block)
+        bool CollectInventoryOwners(IMyTerminalBlock block)
         {
-            // if (!Program.Me.IsSameConstructAs(block)) return false;
-
-            // Exclude types
-            if (block is IMyLargeTurretBase) return false;
-            if (block is IMyReactor) return false;
-            if (block is IMySmallGatlingGun) return false;
-            if (block is IMySmallGatlingGun) return false;
-            if (block is IMyGasGenerator) return false;
-            if (block.CustomName.Contains("[I-X]")) return false;
-        
+            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
             if (block.HasInventory)
             {
-                if (block.CustomName.Contains("[I-S]"))
-                {
-                    StoreInventoryOwners.Add(block);
-                }
-                else
-                {
-                    GetBlockRequestSettings(block);
-                }
+                GetBlockRequestSettings(block);
                 InventoryOwners.Add(block);
             }
 
             return false;
-        }
-
-        public void RegisterRequester(IInventoryRefreshRequester requester)
-        {
-            RefreshRequesters.Add(requester);
         }
 
         void GetBlockRequestSettings(IMyTerminalBlock block)
@@ -147,8 +181,50 @@ namespace IngameScript
                     if (!itemTypeScratchpad.Contains(type)) continue;
 
                     InventoryRequests[block][type] = count;
+
+                    if (!TotalInventoryRequests.ContainsKey(type)) TotalInventoryRequests[type] = 0;
+                    TotalInventoryRequests[type] += count;
                 }
             }
+        }
+
+        void UpdateInventories()
+        {
+            for (int i = LastCheckIndex; i < LastCheckIndex + kMaxChecksPerRun; i++)
+            {
+                if (i < InventoryOwners.Count())
+                {
+                    if (LoadingInventory)
+                    {
+                        SortInventory(InventoryOwners[i]);
+                    }
+
+                    inventoryItemsScratchpad.Clear();
+                    InventoryOwners[i].GetInventory(0).GetItems(inventoryItemsScratchpad);
+
+                    foreach (var item in inventoryItemsScratchpad)
+                    {
+                        if (!NextTotalInventory.ContainsKey(item.Type)) NextTotalInventory[item.Type] = 0;
+                        NextTotalInventory[item.Type] += (int)item.Amount;
+                    }
+                }
+                else
+                {
+                    var inventory = TotalInventory;
+                    TotalInventory = NextTotalInventory;
+                    inventory.Clear();
+                    NextTotalInventory = inventory;
+                    LastCheckIndex = 0;
+                    if (LoadingInventory)
+                    {
+                        LoadingInventory = false;
+                        StoreInventoryOwners.Clear();
+                    }
+                    UpdateNum++;
+                    return;
+                }
+            }
+            LastCheckIndex += kMaxChecksPerRun;
         }
 
         void SortInventories()
@@ -168,29 +244,10 @@ namespace IngameScript
             LastCheckIndex += kMaxChecksPerRun;
         }
 
-        void ProcessRefreshRequests()
-        {
-            bool refresh = false;
-
-            foreach (var requester in RefreshRequesters)
-            {
-                if (requester.RequestingRefresh())
-                {
-                    refresh = true;
-                    break;
-                }
-            }
-
-            if (refresh)
-            {
-                GetParts();
-                foreach (var requester in RefreshRequesters)
-                    requester.AcknowledgeRequest();
-            }
-        }
-
         void SortInventory(IMyTerminalBlock inventoryOwner)
         {
+            if (inventoryOwner == null) return;
+
             var inventory = inventoryOwner.GetInventory(inventoryOwner.InventoryCount - 1);
             inventoryRequestAmountsCache.Clear();
 
@@ -270,6 +327,30 @@ namespace IngameScript
             }
         }
 
+        void Reload()
+        {
+            UpdateNum++;
+            StoreInventoryOwners.Clear();
+            var storeGroup = Program.GridTerminalSystem.GetBlockGroupWithName(StoreGroupName);
+            if (storeGroup == null)
+            {
+                return;
+            }
+            storeGroup.GetBlocksOfType<IMyTerminalBlock>(null, CollectStores);
 
+            LoadingInventory = true;
+            LastCheckIndex = 0;
+            NextTotalInventory.Clear();
+        }
+
+        bool CollectStores(IMyTerminalBlock block)
+        {
+            if (block.HasInventory)
+            {
+                StoreInventoryOwners.Add(block);
+            }
+
+            return false;
+        }
     }
 }

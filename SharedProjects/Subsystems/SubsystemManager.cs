@@ -53,13 +53,21 @@ namespace IngameScript
 
         IMyTerminalBlock ProgramReference;
 
-        public SubsystemManager(MyGridProgram program, IMyTerminalBlock reference = null)
+        DRMSubsystem DRM = null;
+
+        public SubsystemManager(MyGridProgram program, IMyTerminalBlock reference = null, bool useDRM = true)
         {
             ProgramReference = reference;
             if (reference == null) ProgramReference = program.Me;
             Program = program;
             ParseConfigs();
             if (OutputMode == OutputMode.Profile) profiler = new Profiler(program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
+
+            if (useDRM)
+            {
+                DRM = new DRMSubsystem();
+                DRM.Setup(Program, "", Program.Me);
+            }
         }
 
         // [Manager]
@@ -77,18 +85,10 @@ namespace IngameScript
             if (Parser.ContainsKey("Manager", "StartActive")) Active = Parser.Get("Manager", "StartActive").ToBoolean();
         }
 
-        public string AddSubsystem(string name, ISubsystem subsystem)
+        public void AddSubsystem(string name, ISubsystem subsystem)
         {
-            if (!Subsystems.ContainsKey(name))
-            {
-                Subsystems[name] = subsystem;
-                subsystem.Setup(Program, name);
-                return "AOK";
-            }
-            else
-            {
-                return "ERR: Name already added";
-            }
+            Subsystems[name] = subsystem;
+            subsystem.Setup(Program, name);
         }
 
         public void Reset()
@@ -178,7 +178,7 @@ namespace IngameScript
 
         public void Update(UpdateType updateSource)
         {
-            if (Active)
+            if (Active && (DRM == null || DRM.LicenseOK))
             {
                 if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Setup frequencies");
                 if (OutputMode == OutputMode.Profile) profiler.UpdateRuntime();
@@ -214,6 +214,8 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            if (DRM != null && !DRM.LicenseOK) return string.Empty;
+
             StatusBuilder.Clear();
 
             if (OutputMode == OutputMode.Profile)

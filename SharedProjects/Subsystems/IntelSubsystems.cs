@@ -284,7 +284,7 @@ namespace IngameScript
 
         StringBuilder debugBuilder = new StringBuilder();
 
-        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(4);
+        TimeSpan kIntelTimeout = TimeSpan.FromSeconds(2);
 
         long CanonicalTimeSourceID;
         int CanonicalTimeSourceRank;
@@ -440,6 +440,8 @@ namespace IngameScript
 
         void GetTimeMessage(TimeSpan timestamp)
         {
+            debugBuilder.Clear();
+            debugBuilder.AppendLine(canonicalTimeDiff.ToString());
             if (timestamp == TimeSpan.Zero) return;
 
             MyIGCMessage? msg = null;
@@ -467,7 +469,7 @@ namespace IngameScript
                 {
                     HighestRank = unpacked.Item2;
                     HighestRankID = tMsg.Source;
-                    if (IsMaster) Demote(HighestRankID);
+                    if (IsMaster) Demote(HighestRankID, HighestRank);
                 }
             }
         }
@@ -532,15 +534,17 @@ namespace IngameScript
         {
             IsMaster = true;
             CanonicalTimeSourceID = ProgramReference.EntityId;
+            CanonicalTimeSourceRank = Rank;
             if (EnemyPriorities != null) foreach(var kvp in EnemyPriorities) MasterEnemyPriorities.Add(kvp.Key, kvp.Value);
             CanonicalTimeDiff = TimeSpan.Zero;
         }
 
-        void Demote(long newMasterID)
+        void Demote(long newMasterID, int newMasterRank)
         {
             IsMaster = false;
             CanonicalTimeSourceID = newMasterID;
             EnemyPriorities = null;
+            CanonicalTimeSourceRank = newMasterRank;
             MasterEnemyPriorities.Clear();
         }
     }

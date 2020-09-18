@@ -45,7 +45,9 @@ namespace IngameScript
 
             if (host == null) return new NullTask();
 
-            return new HoneybeeMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, IntelProvider, MonitorSubsystem, DockingSubsystem, DockTaskGenerator, UndockTaskGenerator);
+            Task = new HoneybeeMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, target, host, IntelProvider, MonitorSubsystem, DockingSubsystem, DockTaskGenerator, UndockTaskGenerator);
+
+            return Task;
         }
         #endregion
 
@@ -59,6 +61,8 @@ namespace IngameScript
         IIntelProvider IntelProvider;
         IMonitorSubsystem MonitorSubsystem;
 
+        public HoneybeeMiningTask Task;
+
         public HoneybeeMiningTaskGenerator(MyGridProgram program, HoneybeeMiningSystem miningSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IDockingSubsystem dockingSubsystem, DockTaskGenerator dockTaskGenerator, UndockFirstTaskGenerator undockTaskGenerator, IIntelProvider intelProvder, IMonitorSubsystem monitorSubsystem)
         {
             Program = program;
@@ -70,6 +74,8 @@ namespace IngameScript
             IntelProvider = intelProvder;
             MonitorSubsystem = monitorSubsystem;
             DockingSubsystem = dockingSubsystem;
+            Task = new HoneybeeMiningTask(Program, MiningSystem, Autopilot, AgentSubsystem, new Waypoint(), new AsteroidIntel(), IntelProvider, MonitorSubsystem, DockingSubsystem, DockTaskGenerator, UndockTaskGenerator);
+            Task.Do(new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, null);
         }
     }
 
@@ -84,24 +90,7 @@ namespace IngameScript
 
         public void Do(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, Profiler profiler)
         {
-            // DEBUG
-            //debugBuilder.Clear();
-            //for (int i = 0; i < 11; i++)
-            //{
-            //    for (int j = 0; j < 11; j++)
-            //    {
-            //        debugBuilder.Append(miningMatrix[i, j]);
-            //    }
-            //    debugBuilder.AppendLine();
-            //}
-            //
-            //foreach (var percentage in LastSampleCargoPercentages)
-            //{
-            //    debugBuilder.AppendLine(percentage.ToString());
-            //}
-            //
-            //AgentSubsystem.Status = debugBuilder.ToString();
-            // DEBUG
+            if (canonicalTime == TimeSpan.Zero) return;
             if (MiningSystem.Recalling > 0 || currentPosition > 120)
             {
                 Recalling = true;
@@ -199,7 +188,7 @@ namespace IngameScript
                         HitOre = false;
                     }
                     state = 3;
-                    MineTask.Destination.MaxSpeed = 1;
+                    MineTask.Destination.MaxSpeed = 2;
                     LastSampleCargoPercentages.Clear();
                 }
             }
@@ -256,7 +245,7 @@ namespace IngameScript
             }
             else if (state == 4) // Going home
             {
-                if (DockingSubsystem.HomeID == -1)
+                if (DockingSubsystem == null || DockingSubsystem.HomeID == -1 || DockTaskGenerator == null || UndockTaskGenerator == null)
                 {
                     state = 9999;
                 }
@@ -283,7 +272,7 @@ namespace IngameScript
             }
             else if (state == 6) // Undocking
             { 
-                if (DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected)
+                if (DockingSubsystem != null && DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connected)
                 {
                     if (UndockTask == null)
                     {
@@ -329,6 +318,7 @@ namespace IngameScript
         Vector3D ApproachPoint;
         Vector3D MiningEnd;
         Vector3D Perpendicular;
+        Vector3D CoPerp;
         Vector3D SurfacePoint;
         ITask HomeTask = null;
         ITask UndockTask = null;
@@ -336,12 +326,12 @@ namespace IngameScript
         DockTaskGenerator DockTaskGenerator;
         UndockFirstTaskGenerator UndockTaskGenerator;
 
-        int currentPosition = 0;
+        public int currentPosition = 0;
         
         double MiningDepth;
         double SurfaceDist;
 
-        int state = 6;
+        public int state = 6;
 
         bool Recalling = false;
 
@@ -377,6 +367,7 @@ namespace IngameScript
             double lDoc, det;
             GetSphereLineIntersects(host.Position, host.Radius, target.Position, target.Direction, out lDoc, out det);
             Perpendicular = GetPerpendicular(target.Direction);
+            CoPerp = Perpendicular.Cross(target.Direction);
 
             if (det < 0)
             {
@@ -387,7 +378,7 @@ namespace IngameScript
 
             SurfaceDist = -lDoc + Math.Sqrt(det);
 
-            ApproachPoint = target.Position + target.Direction * SurfaceDist;
+            ApproachPoint = target.Position + target.Direction * SurfaceDist * 0.3;
             ExitPoint = ApproachPoint;
 
             EntryPoint = target.Position + target.Direction * miningSystem.CloseDist;
@@ -400,10 +391,10 @@ namespace IngameScript
 
             LeadTask.Destination.Position = ApproachPoint;
             LeadTask.Destination.Direction = target.Direction * -1;
-            LeadTask.Destination.DirectionUp = Perpendicular;
+            LeadTask.Destination.DirectionUp = Perpendicular + CoPerp;
             intelProvider.ReportFleetIntelligence(LeadTask.Destination, TimeSpan.FromSeconds(1));
             MineTask.Destination.Direction = target.Direction * -1;
-            MineTask.Destination.DirectionUp = Perpendicular;
+            MineTask.Destination.DirectionUp = Perpendicular + CoPerp;
             MineTask.Destination.Position = EntryPoint;
 
             DockTaskGenerator = dockTaskGenerator;

@@ -22,7 +22,7 @@ namespace IngameScript
     public class ScannerNetworkSubsystem : ISubsystem
     {
         #region ISubsystem
-        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10;
+        public UpdateFrequency UpdateFrequency => UpdateFrequency.Update1;
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
@@ -49,13 +49,49 @@ namespace IngameScript
             ProgramReference = programReference;
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
+            if (!WCAPI.Activate(program.Me)) WCAPI = null;
             GetParts();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
-            TryScan(timestamp);
-            if (Designator != null) UpdateDesignator(timestamp);
+            runs++;
+            if (runs % 10 == 0)
+            {
+                TryScan(timestamp);
+                if (Designator != null) UpdateDesignator(timestamp);
+                UpdateHardLock1();
+            } else if (runs % 10 == 1)
+            {
+                UpdateHardLock2(timestamp);
+            }
+        }
+
+        void UpdateHardLock1()
+        {
+            WCTargetVelocityScratchpad.Clear();
+            foreach(var target in WCHardlockTargets.Values)
+            {
+                WCTargetVelocityScratchpad.Add(target.EntityId, target.GetPosition());
+            }
+        }
+
+        void UpdateHardLock2(TimeSpan timestamp)
+        {
+            var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+            foreach (var target in WCHardlockTargets.Values)
+            {
+                var velocity = (target.GetPosition() - WCTargetVelocityScratchpad[target.EntityId]) * 60;
+                IFleetIntelligence intel;
+                var intelKey = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
+                if (!intelItems.TryGetValue(intelKey, out intel))
+                {
+                    intel = new EnemyShipIntel();
+                }
+
+                ((EnemyShipIntel)intel).FromCubeGrid(target, timestamp + IntelProvider.CanonicalTimeDiff, velocity);
+                IntelProvider.ReportFleetIntelligence(intel, timestamp);
+            }
         }
 
         #endregion
@@ -65,15 +101,28 @@ namespace IngameScript
         string TagPrefix = string.Empty;
         string DesignatorPrefix = string.Empty;
 
-        List<ScannerArray> ScannerArrays = new List<ScannerArray>();
+        int runs = 0;
+
+        List<ScannerGroup> ScannerGroups = new List<ScannerGroup>();
         List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
         IMyCameraBlock Designator;
 
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
+        List<IMyTerminalBlock> WCTurrets = new List<IMyTerminalBlock>();
+
+        Dictionary<IMyEntity, float> GetThreatsScratchpad = new Dictionary<IMyEntity, float>();
 
         StringBuilder debugBuilder = new StringBuilder();
 
-        public ScannerNetworkSubsystem(IIntelProvider intelProvider, string tag = "SE")
+        WcPbApi WCAPI = new WcPbApi();
+
+        public Dictionary<long, IMyCubeGrid> WCHardlockTargets = new Dictionary<long, IMyCubeGrid>();
+        Dictionary<long, Vector3D> WCTargetVelocityScratchpad = new Dictionary<long, Vector3D>();
+
+        int ScanExtent;
+        float ScanScatter;
+
+        public ScannerNetworkSubsystem(IIntelProvider intelProvider, string tag = "SE", int scanExtent = 30, float scanScatter = 0.25f)
         {
             IntelProvider = intelProvider;
             if (tag != string.Empty)
@@ -81,61 +130,34 @@ namespace IngameScript
                 TagPrefix = $"[{tag}";
                 DesignatorPrefix = $"[{tag}] <D> T:";
             }
+
+            ScanExtent = scanExtent;
+            ScanScatter = scanScatter;
         }
 
         void GetParts()
         {
-            ScannerArrays.Clear();
             Cameras.Clear();
             Designator = null;
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetTurrets);
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetBases);
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetArms);
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetCameras);
-
-            debugBuilder.AppendLine($"CAMERAS: {Cameras.Count}");
-            debugBuilder.AppendLine($"ARRAYS: {ScannerArrays.Count}");
         }
 
         bool GetTurrets(IMyTerminalBlock block)
         {
             if (!ProgramReference.IsSameConstructAs(block)) return false;
-            if (block is IMyLargeTurretBase) Turrets.Add((IMyLargeTurretBase)block);
-            return false;
-        }
-
-        bool GetBases(IMyTerminalBlock block)
-        {
-            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
-            if (!(block is IMyMotorStator)) return false;
-            if (!block.CustomName.StartsWith(TagPrefix)) return false;
-            if (!block.CustomName.Contains("Base")) return false;
-
-            ScannerArray scanner = new ScannerArray(this);
-            scanner.AddPart(block);
-            ScannerArrays.Add(scanner);
-            return false;
-        }
-
-        bool GetArms(IMyTerminalBlock block)
-        {
-            if (!(block is IMyMotorStator)) return false;
-            foreach (var array in ScannerArrays)
+            if (block is IMyLargeTurretBase)
             {
-                if (block.CubeGrid.EntityId == array.Base.TopGrid.EntityId)
-                {
-                    array.AddPart(block);
-                    break;
-                }
+                if (WCAPI != null && WCAPI.HasCoreWeapon(block)) WCTurrets.Add(block);
+                else Turrets.Add((IMyLargeTurretBase)block);
             }
-
             return false;
         }
 
         bool GetCameras(IMyTerminalBlock block)
         {
             if (!(block is IMyCameraBlock)) return false;
-            if (!block.CustomName.StartsWith(TagPrefix)) return false;
+            if (!(block.CustomName.StartsWith(TagPrefix))) return false;
 
             var camera = (IMyCameraBlock)block;
 
@@ -144,15 +166,6 @@ namespace IngameScript
                 Designator = camera;
                 Designator.EnableRaycast = true;
                 return false;
-            }
-
-            foreach (var array in ScannerArrays)
-            {
-                if (block.CubeGrid.EntityId == array.Base.TopGrid.EntityId || block.CubeGrid.EntityId == array.Arm.TopGrid.EntityId)
-                {
-                    array.AddPart(block);
-                    return false;
-                }
             }
 
             if (camera.IsSameConstructAs(ProgramReference))
@@ -172,6 +185,7 @@ namespace IngameScript
             foreach (var kvp in intelItems)
             {
                 if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
+                if (WCHardlockTargets.ContainsKey(kvp.Key.Item2)) continue; // Don't scan hardlocked targets
                 EnemyShipIntel enemy = (EnemyShipIntel)kvp.Value;
 
                 int priority = IntelProvider.GetPriority(kvp.Key.Item2);
@@ -187,6 +201,8 @@ namespace IngameScript
 
             }
 
+            var intelDict = IntelProvider.GetFleetIntelligences(localTime);
+
             foreach (var turret in Turrets)
             {
                 if (!turret.HasTarget) continue;
@@ -195,7 +211,7 @@ namespace IngameScript
                 if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid) continue;
                 if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) continue;
 
-                var intelDict = IntelProvider.GetFleetIntelligences(localTime);
+                if (WCHardlockTargets.ContainsKey(target.EntityId)) continue; // Don't scan hardlocked targets
                 var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
                 var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
                 TargetIntel.ID = target.EntityId;
@@ -206,6 +222,24 @@ namespace IngameScript
                 }
             }
 
+            debugBuilder.Clear();
+
+            // WC only
+            if (WCAPI != null)
+            {
+                GetThreatsScratchpad.Clear();
+                WCAPI.GetSortedThreats(ProgramReference.CubeGrid, GetThreatsScratchpad);
+
+                foreach (var enemy in GetThreatsScratchpad.Keys)
+                {
+                    if (enemy is IMyCubeGrid && !WCHardlockTargets.ContainsKey(enemy.EntityId))
+                    {
+                        var enemyGrid = (IMyCubeGrid)enemy;
+                        WCHardlockTargets.Add(enemyGrid.EntityId, enemyGrid);
+                        //TryScanTarget(enemyGrid.WorldAABB.Center, localTime, null);
+                    }
+                }
+            }
         }
 
         public void TryScanTarget(Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy = null)
@@ -214,12 +248,29 @@ namespace IngameScript
             var offsetDist = 0d;
             var random = new Random();
             if (enemy == null) enemy = new EnemyShipIntel();
-            else offsetDist = enemy.Radius * 0.25;
+            else offsetDist = enemy.Radius * ScanScatter;
             Vector3D offset;
             int scanCount = 0;
 
+            for (int i = 0; i < ScannerGroups.Count; i++)
+            {
+                offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
+                if (ScannerGroups[i] != null)
+                {
+                    var result = ScannerGroups[i].TryScan(IntelProvider, targetPosition + offset, enemy, localTime);
+                    if (result == TryScanResults.Scanned)
+                    {
+                        scanned = true;
+                        break;
+                    }
+                }
+            }
+
+            if (scanned) return;
+
             foreach (var camera in Cameras)
             {
+                if (!camera.IsWorking) continue;
                 offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
                 var result = CameraTryScan(IntelProvider, camera, targetPosition + offset, localTime, enemy);
                 scanCount++;
@@ -233,21 +284,18 @@ namespace IngameScript
                     break;
                 }
             }
+        }
 
-            if (scanned) return;
+        public void AddScannerGroup(ScannerGroup group)
+        {
+            ScannerGroups.Add(group);
+            group.Host = this;
+        }
 
-            for (int i = 0; i < ScannerArrays.Count; i++)
-            {
-                offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
-                if (ScannerArrays[i] != null && ScannerArrays[i].IsOK())
-                {
-                    var result = ScannerArrays[i].TryScan(IntelProvider, ProgramReference.WorldMatrix.Translation, targetPosition + offset, enemy, localTime);
-                    if (result == TryScanResults.Scanned)
-                    {
-                        break;
-                    }
-                }
-            }
+        public void RemoveScannerGroup(ScannerGroup group)
+        {
+            ScannerGroups.Remove(group);
+            group.Host = null;
         }
 
         public enum TryScanResults
@@ -256,14 +304,14 @@ namespace IngameScript
             CannotScan,
             Missed,
         }
-        public static TryScanResults CameraTryScan(IIntelProvider intelProvider, IMyCameraBlock camera, Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy)
+        public TryScanResults CameraTryScan(IIntelProvider intelProvider, IMyCameraBlock camera, Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy)
         {
             var cameraToTarget = targetPosition - camera.WorldMatrix.Translation;
             var cameraDist = cameraToTarget.Length();
             cameraToTarget.Normalize();
 
-            if (!camera.CanScan(cameraDist + 30)) return TryScanResults.CannotScan;
-            var cameraFinalPosition = cameraToTarget * (cameraDist + 30) + camera.WorldMatrix.Translation;
+            if (!camera.CanScan(cameraDist + this.ScanExtent)) return TryScanResults.CannotScan;
+            var cameraFinalPosition = cameraToTarget * (cameraDist + this.ScanExtent) + camera.WorldMatrix.Translation;
             if (!camera.CanScan(targetPosition)) return TryScanResults.CannotScan;
 
             var info = camera.Raycast(cameraFinalPosition);
@@ -299,57 +347,31 @@ namespace IngameScript
         }
     }
 
-    public class ScannerArray
+    public class ScannerGroup
     {
-        List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
-        public IMyMotorStator Base;
-        public IMyMotorStator Arm;
-        string tagPrefix = string.Empty;
-
-        ScannerNetworkSubsystem Host;
-
-        StringBuilder debugBuilder = new StringBuilder();
-
-        public ScannerArray(ScannerNetworkSubsystem host)
+        public ScannerNetworkSubsystem Host;
+        public ScannerGroup(List<IMyCameraBlock> cameras)
         {
-            Host = host;
-        }
-
-        public bool IsOK()
-        {
-            return Base != null && Cameras.Count > 0;
-        }
-
-        public ScannerNetworkSubsystem.TryScanResults TryScan(IIntelProvider intelProvider, Vector3D myPosition, Vector3D targetPosition, EnemyShipIntel enemy, TimeSpan localTime)
-        {
-            var toTarget = targetPosition - myPosition;
-            var dist = toTarget.Length();
-            toTarget.Normalize();
-            if (VectorHelpers.VectorAngleBetween(toTarget, Base.WorldMatrix.Up) > 0.55 * Math.PI) return ScannerNetworkSubsystem.TryScanResults.CannotScan;
-
+            Cameras = cameras;
             foreach (var camera in Cameras)
             {
-                var result = ScannerNetworkSubsystem.CameraTryScan(intelProvider, camera, targetPosition, localTime, enemy);
+                camera.EnableRaycast = true;
+            }
+        }
+
+        public List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
+
+        public ScannerNetworkSubsystem.TryScanResults TryScan(IIntelProvider intelProvider, Vector3D targetPosition, EnemyShipIntel enemy, TimeSpan localTime)
+        {
+            foreach (var camera in Cameras)
+            {
+                if (!camera.IsWorking) continue;
+                var result = Host.CameraTryScan(intelProvider, camera, targetPosition, localTime, enemy);
                 if (result == ScannerNetworkSubsystem.TryScanResults.Scanned) return result;
                 if (result == ScannerNetworkSubsystem.TryScanResults.Missed) return ScannerNetworkSubsystem.TryScanResults.CannotScan; // This array cannot scan
             }
 
             return ScannerNetworkSubsystem.TryScanResults.CannotScan;
-        }
-
-        public void AddPart(IMyTerminalBlock block)
-        {
-            if (block is IMyCameraBlock)
-            {
-                IMyCameraBlock camera = (IMyCameraBlock)block;
-                Cameras.Add(camera);
-                camera.EnableRaycast = true;
-            }
-            if (block is IMyMotorStator)
-            {
-                if (block.CustomName.Contains("Base")) Base = (IMyMotorStator)block;
-                else Arm = (IMyMotorStator)block;
-            }
         }
     }
 }

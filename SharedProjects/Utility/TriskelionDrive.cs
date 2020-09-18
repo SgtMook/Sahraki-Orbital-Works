@@ -88,7 +88,10 @@ namespace IngameScript
             PitchPID = new PID(1, 0.00, 1, 0, TimeStep);
             SpinPID = new PID(3, 0.05, 1, RC, TimeStep);
 
-            MaxForce = HoverEngines[0].MaxThrust;
+            if (HoverEngines.Count > 0)
+                MaxForce = HoverEngines[0].MaxThrust;
+
+            // JIT
             Turn(MatrixD.Zero, Vector3D.Zero);
             Drive(Vector3D.Zero);
         }

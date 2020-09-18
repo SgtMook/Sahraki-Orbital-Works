@@ -44,12 +44,12 @@ namespace IngameScript
             }
             if (command == "activateplugin") ActivatePlugin((string)argument);
             if (command == "cycleplugin") CyclePlugin();
-            if (command == "up") DoW(timestamp);
-            if (command == "down") DoS(timestamp);
-            if (command == "left") DoA(timestamp);
-            if (command == "right") DoD(timestamp);
-            if (command == "enter") DoSpace(timestamp);
-            if (command == "cancel") DoC(timestamp);
+            if (command == "up" || command == "8") DoW(timestamp);
+            if (command == "down" || command == "5") DoS(timestamp);
+            if (command == "left" || command == "4") DoA(timestamp);
+            if (command == "right" || command == "6") DoD(timestamp);
+            if (command == "enter" || command == "3") DoSpace(timestamp);
+            if (command == "cancel" || command == "7") DoC(timestamp);
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -74,7 +74,6 @@ namespace IngameScript
             Program = program;
             GetParts();
             UpdateFrequency = UpdateFrequency.Update10;
-            AddDefaultPlugins();
             if (!OverrideThrusters && LookingGlasses.Count == 1)
             {
                 ActiveLookingGlass = LookingGlasses[0];
@@ -275,12 +274,6 @@ namespace IngameScript
             if (ActivePlugin == null) ActivePlugin = plugin;
         }
 
-        void AddDefaultPlugins()
-        {
-            AddPlugin("command", new LookingGlassPlugin_Command());
-            AddPlugin("lidar", new LookingGlassPlugin_Lidar());
-        }
-
         public void ActivatePlugin(string name)
         {
             if (Plugins.ContainsKey(name)) ActivePlugin = Plugins[name];
@@ -325,32 +318,32 @@ namespace IngameScript
 
         void DoA(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.DoA(timestamp);
+            if (ActivePlugin != null) ActivePlugin.Do4(timestamp);
         }
 
         void DoS(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.DoS(timestamp);
+            if (ActivePlugin != null) ActivePlugin.Do5(timestamp);
         }
 
         void DoD(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.DoD(timestamp);
+            if (ActivePlugin != null) ActivePlugin.Do6(timestamp);
         }
 
         void DoW(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.DoW(timestamp);
+            if (ActivePlugin != null) ActivePlugin.Do8(timestamp);
         }
 
         void DoC(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.DoC(timestamp);
+            if (ActivePlugin != null) ActivePlugin.Do7(timestamp);
         }
 
         void DoSpace(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.DoSpace(timestamp);
+            if (ActivePlugin != null) ActivePlugin.Do3(timestamp);
         }
 
         void UpdateSwivels()
@@ -498,7 +491,9 @@ namespace IngameScript
             {
                 LeftHUD.Alignment = TextAlignment.RIGHT;
                 LeftHUD.FontSize = 0.55f;
-                LeftHUD.TextPadding = 9;
+
+                if (LeftHUD.BlockDefinition.SubtypeId == "SmallTextPanel") LeftHUD.TextPadding = 2;
+                else LeftHUD.TextPadding = 9;
                 LeftHUD.Font = "Monospace";
                 LeftHUD.ContentType = ContentType.TEXT_AND_IMAGE;
             }
@@ -507,6 +502,8 @@ namespace IngameScript
             {
                 RightHUD.FontSize = 0.55f;
                 RightHUD.TextPadding = 9;
+                if (RightHUD.BlockDefinition.SubtypeId == "SmallTextPanel") RightHUD.TextPadding = 2;
+                else RightHUD.TextPadding = 9;
                 RightHUD.Font = "Monospace";
                 RightHUD.ContentType = ContentType.TEXT_AND_IMAGE;
             }
@@ -743,12 +740,12 @@ namespace IngameScript
 
     public interface ILookingGlassPlugin
     {
-        void DoA(TimeSpan localTime);
-        void DoS(TimeSpan localTime);
-        void DoD(TimeSpan localTime);
-        void DoW(TimeSpan localTime);
-        void DoC(TimeSpan localTime);
-        void DoSpace(TimeSpan localTime);
+        void Do4(TimeSpan localTime);
+        void Do5(TimeSpan localTime);
+        void Do6(TimeSpan localTime);
+        void Do8(TimeSpan localTime);
+        void Do7(TimeSpan localTime);
+        void Do3(TimeSpan localTime);
 
         void UpdateHUD(TimeSpan localTime);
         void UpdateState(TimeSpan localTime);
@@ -762,7 +759,7 @@ namespace IngameScript
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
-        public void DoA(TimeSpan localTime)
+        public void Do4(TimeSpan localTime)
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -775,7 +772,7 @@ namespace IngameScript
             }
         }
 
-        public void DoS(TimeSpan localTime)
+        public void Do5(TimeSpan localTime)
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -792,7 +789,7 @@ namespace IngameScript
             }
         }
 
-        public void DoD(TimeSpan localTime)
+        public void Do6(TimeSpan localTime)
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -804,7 +801,7 @@ namespace IngameScript
                 TargetSelection_TaskTypesIndex = Host.DeltaSelection(TargetSelection_TaskTypesIndex, TargetSelection_TaskTypes.Count, true);
             }
         }
-        public void DoW(TimeSpan localTime)
+        public void Do8(TimeSpan localTime)
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -820,7 +817,7 @@ namespace IngameScript
             }
         }
 
-        public void DoC(TimeSpan localTime)
+        public void Do7(TimeSpan localTime)
         {
             if (CurrentUIMode == UIMode.SelectTarget)
             {
@@ -832,7 +829,7 @@ namespace IngameScript
             }
         }
 
-        public void DoSpace(TimeSpan localTime)
+        public void Do3(TimeSpan localTime)
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -1290,7 +1287,7 @@ namespace IngameScript
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
-        public void DoA(TimeSpan localTime)
+        public void Do4(TimeSpan localTime)
         {
             if (TargetPriority_Selection < TargetPriority_TargetList.Count)
             {
@@ -1301,12 +1298,12 @@ namespace IngameScript
             }
         }
 
-        public void DoS(TimeSpan localTime)
+        public void Do5(TimeSpan localTime)
         {
             TargetPriority_Selection = Host.DeltaSelection(TargetPriority_Selection, TargetPriority_TargetList.Count, true);
         }
 
-        public void DoD(TimeSpan localTime)
+        public void Do6(TimeSpan localTime)
         {
             if (TargetPriority_Selection < TargetPriority_TargetList.Count)
             {
@@ -1316,16 +1313,16 @@ namespace IngameScript
                 Host.IntelProvider.SetPriority(iD, priority + 1);
             }
         }
-        public void DoW(TimeSpan localTime)
+        public void Do8(TimeSpan localTime)
         {
             TargetPriority_Selection = Host.DeltaSelection(TargetPriority_Selection, TargetPriority_TargetList.Count, false);
         }
 
-        public void DoC(TimeSpan localTime)
+        public void Do7(TimeSpan localTime)
         {
         }
 
-        public void DoSpace(TimeSpan localTime)
+        public void Do3(TimeSpan localTime)
         {
             Host.ActiveLookingGlass.DoScan(localTime);
         }
@@ -1545,7 +1542,7 @@ namespace IngameScript
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
-        public void DoA(TimeSpan localTime)
+        public void Do4(TimeSpan localTime)
         {
             if (TorpedoSubsystem != null)
             {
@@ -1558,7 +1555,7 @@ namespace IngameScript
             FeedbackText = "NOT LOADED";
         }
 
-        public void DoS(TimeSpan localTime)
+        public void Do5(TimeSpan localTime)
         {
             if (TorpedoSubsystem != null)
             {
@@ -1571,7 +1568,7 @@ namespace IngameScript
             FeedbackText = "NOT LOADED";
         }
 
-        public void DoD(TimeSpan localTime)
+        public void Do6(TimeSpan localTime)
         {
             if (closestEnemyToCursorID == -1)
             {
@@ -1610,11 +1607,11 @@ namespace IngameScript
 
             if (!launched) FeedbackText = "DRONES UNAVAILABLE";
         }
-        public void DoW(TimeSpan localTime)
+        public void Do8(TimeSpan localTime)
         {
         }
 
-        public void DoC(TimeSpan localTime)
+        public void Do7(TimeSpan localTime)
         {
             var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
             var targetKey = MyTuple.Create(IntelItemType.NONE, (long)0);
@@ -1633,7 +1630,7 @@ namespace IngameScript
             }
         }
 
-        public void DoSpace(TimeSpan localTime)
+        public void Do3(TimeSpan localTime)
         {
             if (ScannerSubsystem != null)
             {

@@ -52,4 +52,38 @@ namespace IngameScript
             return relativePosition + relativeVelocity * t;
         }
     }
+
+    public static class InventoryHelpers
+    {
+        /// <param name="source">The source inventory</param>
+        /// <param name="target">The target inventory</param>
+        /// <param name="item">The item to be transfered</param>
+        /// <param name="amount">The maximum amount to transfer</param>
+        /// <returns>The amount that still needs to be transfered</returns>
+        public static MyFixedPoint TransferAsMuchAsPossible(IMyInventory source, IMyInventory target, MyInventoryItem item, MyFixedPoint amount)
+        {
+            var remainingVolume = target.MaxVolume - target.CurrentVolume;
+            MyItemInfo itemInfo = item.Type.GetItemInfo();
+
+            // If at least 1% volume left
+            float minEmptyVol = 0.01f;
+
+            if (remainingVolume > target.MaxVolume * minEmptyVol)
+            {
+                var transferAmt = MyFixedPoint.Min(item.Amount, amount);
+                var totalVolume = transferAmt * itemInfo.Volume;
+
+                if (totalVolume > remainingVolume)
+                    transferAmt = remainingVolume * (1f / itemInfo.Volume);
+
+                if (!itemInfo.UsesFractions)
+                    transferAmt = MyFixedPoint.Floor(transferAmt);
+
+                if (source.TransferItemTo(target, item, transferAmt))
+                    amount -= transferAmt;
+            }
+
+            return amount;
+        }
+    }
 }

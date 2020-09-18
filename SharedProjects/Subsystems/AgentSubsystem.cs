@@ -176,7 +176,7 @@ namespace IngameScript
 
         Dictionary<TaskType, ITaskGenerator> TaskGenerators = new Dictionary<TaskType, ITaskGenerator>();
 
-        Queue<ITask> TaskQueue = new Queue<ITask>();
+        public Queue<ITask> TaskQueue = new Queue<ITask>();
 
         StringBuilder DebugBuilder = new StringBuilder();
 

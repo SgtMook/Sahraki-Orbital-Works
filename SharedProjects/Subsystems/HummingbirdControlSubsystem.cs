@@ -58,13 +58,28 @@ namespace IngameScript
                 if (turretRotor == null || hummingbirdConnector == null) return;
 
                 turretRotor.Detach();
+
+                Connector.Connect();
+                if (Host.AmmoBox != null)
+                {
+                    var inventoryItem = Host.AmmoBox.GetItemAt(0);
+                    if (inventoryItem != null)
+                    {
+                        Host.AmmoBox.TransferItemTo(Connector.OtherConnector.GetInventory(0), (MyInventoryItem)inventoryItem);
+                    }
+                }
+                Connector.Disconnect();
+
                 releaseStage = 1;
                 Piston.Velocity = -0.2f;
             }
             else if (releaseStage == 1)
             {
                 // Move pistons
-                if (Piston.CurrentPosition == Piston.MinLimit) releaseStage = 2;
+                if (Piston.CurrentPosition == Piston.MinLimit)
+                {
+                    releaseStage = 2;
+                }
             }
             else if (releaseStage < 0)
             {
@@ -107,33 +122,28 @@ namespace IngameScript
 
 
             if (releaseStage > 1 && releaseStage < 20) releaseStage++;
-            if (releaseStage == 2)
+            if (releaseStage == 5)
             {
-                Connector.Connect();
 
             }
-            else if (releaseStage == 3)
+            else if (releaseStage == 7)
             {
-                // Cargo transfer here
+
             }
-            else if (releaseStage == 4)
-            {
-                Connector.Disconnect();
-            }
-            else if (releaseStage == 5)
+            else if (releaseStage == 8)
             {
                 GridTerminalHelper.OtherMergeBlock(TurretMerge).Enabled = false;
                 TurretMerge.Enabled = false;
             }
-            else if (releaseStage == 6)
+            else if (releaseStage == 9)
             {
                 turretRotor.Attach();
             }
-            else if (releaseStage == 8)
+            else if (releaseStage == 10)
             {
                 Piston.Velocity = 0.2f;
             }
-            else if (releaseStage > 8 && Piston.CurrentPosition == Piston.MaxLimit)
+            else if (releaseStage > 11 && Piston.CurrentPosition == Piston.MaxLimit)
             {
                 turretRotor.Displacement = 0.11f;
                 Hummingbird = Hummingbird.GetHummingbird(turretRotor, Host.Program.GridTerminalSystem.GetBlockGroupWithName(Hummingbird.GroupName));
@@ -161,15 +171,44 @@ namespace IngameScript
         List<Hummingbird> DeadBirds = new List<Hummingbird>();
 
         HummingbirdCradle[] Cradles = new HummingbirdCradle[8];
+        IMyShipController Controller;
+        public IMyInventory AmmoBox;
+
+        Dictionary<Hummingbird, ScannerGroup> BirdScannerGroups = new Dictionary<Hummingbird, ScannerGroup>();
 
         int runs;
 
+
+        // TODO: Move to config?
         const double BirdSineConstantSeconds = 6;
         const double BirdPendulumConstantSeconds = 12;
+        const double BirdOrbitSeconds = 30;
+        const int MaxEngagementDist = 4000;
+        const int MinEngagementSize = 20;
+        const int BirdOrbitDist = 100;
 
-        public HummingbirdCommandSubsystem(IIntelProvider intelProvider)
+        Dictionary<int, int[]> EnemyCountToNumBirdsPerEnemy = new Dictionary<int, int[]> ()
+        {
+            { 1, new [] {2} },
+            { 2, new [] {2, 2} },
+            { 3, new [] {2, 1, 1} },
+            { 4, new [] {1, 1, 1, 1} },
+        };
+
+
+        Dictionary<EnemyShipIntel, int> EnemyToNumBirds = new Dictionary<EnemyShipIntel, int>();
+        Dictionary<EnemyShipIntel, int> EnemyToAssignedBirds = new Dictionary<EnemyShipIntel, int>();
+        Dictionary<Hummingbird, long> BirdToEnemy = new Dictionary<Hummingbird, long>();
+        List<EnemyShipIntel> TopEnemies = new List<EnemyShipIntel>();
+        Dictionary<EnemyShipIntel, int> EnemyToScore = new Dictionary<EnemyShipIntel, int>();
+
+        bool NeedsMoreBirds = false;
+        int BirdReleaseTimeout = 0;
+
+        public HummingbirdCommandSubsystem(IIntelProvider intelProvider, ScannerNetworkSubsystem scannerSubsystem)
         {
             IntelProvider = intelProvider;
+            ScannerSubsystem = scannerSubsystem;
         }
 
         #region ISubsystem
@@ -178,6 +217,7 @@ namespace IngameScript
             if (command == "SetTarget") SetTarget(ParseGPS((string)argument));
             if (command == "SetDest") SetDest(ParseGPS((string)argument));
             if (command == "Release") Release();
+            if (command == "Recall") Recall();
         }
 
         IMyTerminalBlock ProgramReference;
@@ -190,6 +230,11 @@ namespace IngameScript
             UpdateFrequency = UpdateFrequency.Update1;
 
             GetParts();
+            Update(TimeSpan.Zero, UpdateFrequency.None);
+
+            // JIT
+            TriskelionDrive drive = new TriskelionDrive();
+            drive.SetUp(0);
         }
 
         void GetParts()
@@ -199,6 +244,12 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
+            if (block is IMyShipController && ProgramReference.CubeGrid.EntityId == block.CubeGrid.EntityId)
+                Controller = (IMyShipController)block;
+
+            if (block.HasInventory && block.CustomName.StartsWith("HB-AMMO"))
+                AmmoBox = block.GetInventory(0);
+
             if (!ProgramReference.IsSameConstructAs(block)) return false; // Allow subgrid
 
             bool Chasis = block.CustomName.StartsWith("[HBC-CHS");
@@ -227,88 +278,235 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
+            if (timestamp == TimeSpan.Zero) return;
             foreach (var bird in Hummingbirds)
             {
-                if (bird.IsOK()) bird.Update();
+                if (bird.IsAlive()) bird.Update();
                 else DeadBirds.Add(bird);
             }
 
             foreach (var bird in DeadBirds)
             {
-                Hummingbirds.Remove(bird);
+                DeregisterBird(bird);
             }
-
-            var hasTarget = false;
 
             runs++;
             if (runs % 20 == 0)
             {
                 var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+
+                // Get the top targets
+                TopEnemies.Clear();
+                EnemyToScore.Clear();
+
                 foreach (var intelItem in intelItems)
                 {
                     if (intelItem.Key.Item1 == IntelItemType.Enemy)
                     {
-                        hasTarget = true;
-                        int birdIndex = 0;
-                        // Be smart about picking enemies later
-                        foreach (var bird in Hummingbirds)
+                        var esi = (EnemyShipIntel)intelItem.Value;
+                        var dist = (esi.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff) - ProgramReference.WorldMatrix.Translation).Length();
+                        if (dist > MaxEngagementDist) continue;
+
+                        var priority = IntelProvider.GetPriority(esi.ID);
+                        var size = esi.Radius;
+
+                        if (size < MinEngagementSize && priority < 3) continue;
+
+                        if (priority < 2) continue;
+
+                        int score = (int)(priority * 10000 + size);
+
+                        EnemyToScore[esi] = score;
+
+                        for (int i = 0; i <= TopEnemies.Count; i++)
                         {
-                            if (bird.Gats.Count == 0) continue;
-                            var birdAltitudeTheta = Math.PI * ((runs / (BirdSineConstantSeconds * 30) % 2) - 1);
-                            var birdSwayTheta = Math.PI * ((runs / (BirdPendulumConstantSeconds * 30) % 2) - 1);
-                            var targetPos = intelItem.Value.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff);
-
-                            var gravDir = bird.Controller.GetTotalGravity();
-                            gravDir.Normalize();
-
-                            bird.SetTarget(targetPos, intelItem.Value.GetVelocity() - gravDir * (float)TrigHelpers.FastCos(birdAltitudeTheta) * 2);
-
-                            var targetToBase = bird.Base.WorldMatrix.Translation - targetPos;
-                            targetToBase -= VectorHelpers.VectorProjection(targetToBase, gravDir);
-                            var targetToBaseDist = targetToBase.Length();
-                            targetToBase.Normalize();
-
-                            var engageLocationLocus = targetToBase * Math.Min(600, targetToBaseDist + 400) + targetPos;
-                            var engageLocationSwayDir = targetToBase.Cross(gravDir);
-                            var engageLocationSwayDist = (TrigHelpers.FastCos(birdSwayTheta) - Hummingbirds.Count * 0.5 + birdIndex + 0.5) * 100;
-
-                            bird.SetDest(engageLocationLocus + engageLocationSwayDist * engageLocationSwayDir);
-
-                            //var diff = bird.Controller.WorldMatrix.Translation - targetPos;
-                            //var orbit = diff.Cross(gravDir);
-                            //
-                            //diff.Normalize();
-                            //orbit.Normalize();
-                            //
-                            //if ((int)(bird.LifeTimeTicks/(BirdPendulumConstantSeconds*60)) % 2 == 1)
-                            //{
-                            //    orbit *= -1;
-                            //}
-                            //
-                            //diff *= 600;
-                            //bird.SetDest(targetPos + diff + orbit * 200);
-
-                            bird.Drive.DesiredAltitude = (float)TrigHelpers.FastSin(birdAltitudeTheta + Math.PI * 0.5) * 
-                                (Hummingbird.RecommendedServiceCeiling - Hummingbird.RecommendedServiceFloor) + Hummingbird.RecommendedServiceFloor;
-
-                            birdIndex++;
+                            if (i == TopEnemies.Count || score > EnemyToScore[TopEnemies[i]])
+                            {
+                                TopEnemies.Insert(i, esi);
+                                break;
+                            }
                         }
                     }
                 }
 
+                // Determine how many birds should be assigned to each enemy
+                EnemyToNumBirds.Clear();
+
+                int totalNeededBirds = 0;
+                
+                for (int i = 0; i < TopEnemies.Count && i < 4; i++)
+                {
+                    EnemyToNumBirds[TopEnemies[i]] = EnemyCountToNumBirdsPerEnemy[TopEnemies.Count][i];
+                    EnemyToAssignedBirds[TopEnemies[i]] = 0;
+                    totalNeededBirds += EnemyToNumBirds[TopEnemies[i]];
+                }
+
+                // Remove excess birds from enemies
+                foreach (var bird in Hummingbirds)
+                {
+                    var birdTargetID = BirdToEnemy[bird];
+                    if (birdTargetID == 0) continue;
+
+                    if (!bird.IsCombatCapable())
+                    {
+                        BirdToEnemy[bird] = 0;
+                        continue;
+                    }
+
+                    var birdTargetKey = MyTuple.Create(IntelItemType.Enemy, birdTargetID);
+                    if (!intelItems.ContainsKey(birdTargetKey))
+                    {
+                        BirdToEnemy[bird] = 0;
+                        continue;
+                    }
+
+                    var birdTarget = (EnemyShipIntel)intelItems[birdTargetKey];
+                    if (!EnemyToNumBirds.ContainsKey(birdTarget) || EnemyToNumBirds[birdTarget] == 0)
+                    {
+                        BirdToEnemy[bird] = 0;
+                        continue;
+                    }
+
+                    EnemyToNumBirds[birdTarget]--;
+                    totalNeededBirds--;
+                }
+
+                // Assign birds to enemies
+                foreach (var bird in Hummingbirds)
+                {
+                    if (totalNeededBirds == 0) break;
+
+                    // Bird can't fight, keep looking
+                    if (!bird.IsCombatCapable()) continue;
+
+                    // Bird already has target, keep looking
+                    if (BirdToEnemy[bird] != 0) continue;
+
+                    EnemyShipIntel targetEnemy = null;
+                    foreach (var enemy in EnemyToNumBirds.Keys)
+                    {
+                        if (EnemyToNumBirds[enemy] > 0)
+                        {
+                            targetEnemy = enemy;
+                            break;
+                        }
+                    }
+
+                    BirdToEnemy[bird] = targetEnemy.ID;
+                    EnemyToNumBirds[targetEnemy]--;
+                    totalNeededBirds--;
+                }
+
+                NeedsMoreBirds = totalNeededBirds > 0;
+                int birdIndex;
+
+                // ASSUME birds are not far enough from main controller that gravity direction matters too much
+                var gravDir = Controller.GetTotalGravity();
+                gravDir.Normalize();
+
+                // For each enemy, assign bird target and destination
+                foreach (var enemy in TopEnemies)
+                {
+                    birdIndex = 0;
+                    foreach (var bird in Hummingbirds)
+                    {
+                        if (BirdToEnemy[bird] != enemy.ID) continue;
+
+                        if (bird.Gats.Count == 0) continue;
+                        var birdAltitudeTheta = Math.PI * ((runs / (BirdSineConstantSeconds * 30) % 2) - 1);
+                        var birdSwayTheta = Math.PI * ((runs / (BirdPendulumConstantSeconds * 30) % 2) - 1);
+                        var targetPos = enemy.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff);
+
+                        bird.SetTarget(targetPos, enemy.GetVelocity() - gravDir * (float)TrigHelpers.FastCos(birdAltitudeTheta) * 2);
+
+                        var targetToBase = bird.Base.WorldMatrix.Translation - targetPos;
+                        targetToBase -= VectorHelpers.VectorProjection(targetToBase, gravDir);
+                        var targetToBaseDist = targetToBase.Length();
+                        targetToBase.Normalize();
+
+                        var engageLocationLocus = targetToBase * Math.Min(600, targetToBaseDist + 400) + targetPos;
+                        var engageLocationSwayDir = targetToBase.Cross(gravDir);
+                        var engageLocationSwayDist = (TrigHelpers.FastCos(birdSwayTheta) - EnemyToAssignedBirds[enemy] * 0.5 + birdIndex + 0.5) * 100;
+
+                        bird.SetDest(engageLocationLocus + engageLocationSwayDist * engageLocationSwayDir);
+
+                        var birdDir = bird.Controller.WorldMatrix.Translation - Controller.WorldMatrix.Translation;
+                        birdDir -= VectorHelpers.VectorProjection(birdDir, gravDir); ;
+                        var birdDist = birdDir.Length();
+
+                        bird.Drive.DesiredAltitude = birdDist < 100 ? Hummingbird.RecommendedServiceCeiling : 
+                            (float)TrigHelpers.FastSin(birdAltitudeTheta + Math.PI * 0.5) *
+                            (Hummingbird.RecommendedServiceCeiling - Hummingbird.RecommendedServiceFloor) + Hummingbird.RecommendedServiceFloor;
+
+                        birdIndex++;
+                    }
+                }
+
+                // Assign orbit task for unassigned birds
+                int numReserveBirds = 0;
+                foreach (var bird in Hummingbirds) if (BirdToEnemy[bird] == 0 && bird.IsCombatCapable()) numReserveBirds++;
+                birdIndex = 0;
+                var randomPoint = new Vector3D(190, 2862, 809);
+                randomPoint -= VectorHelpers.VectorProjection(randomPoint, gravDir);
+                randomPoint.Normalize();
+
+                var randomPointCross = randomPoint.Cross(gravDir);
 
                 foreach (var bird in Hummingbirds)
                 {
-                    if (!hasTarget || bird.Gats.Count == 0) // || Bird.OutOfAmmo
+                    if (BirdToEnemy[bird] != 0) continue;
+                    bird.SetTarget(Vector3D.Zero, Vector3D.Zero);
+                    bird.Drive.DesiredAltitude = 30;
+
+                    if (bird.IsCombatCapable() && !bird.IsRetiring)
                     {
-                        // Retire drone - return to mothership and land nearby, then power off for recovery
-                        bird.SetTarget(Vector3D.Zero, Vector3D.Zero);
-                        bird.SetDest(Program.Me.WorldMatrix.Translation + Program.Me.WorldMatrix.Forward * 50);
-                        bird.Drive.SpeedLimit = 0;
+                        var birdOrbitTheta = Math.PI * (((2 * birdIndex / (float)numReserveBirds) + runs / (BirdOrbitSeconds * 30)) % 2 - 1);
+
+                        var birdOrbitDest = Controller.WorldMatrix.Translation +
+                            TrigHelpers.FastCos(birdOrbitTheta) * randomPoint * BirdOrbitDist +
+                            TrigHelpers.FastSin(birdOrbitTheta) * randomPointCross * BirdOrbitDist;
+
+                        bird.SetDest(birdOrbitDest);
+
+                        birdIndex++;
                     }
-                    else
+                    else if (!bird.IsRetiring)
                     {
-                        // Drone finds target and engage
+                        RetireBird(bird);
+                    }
+                    else if (bird.IsRetiring)
+                    {
+                        if (!bird.IsLanding)
+                        {
+                            var birdDir = bird.Controller.WorldMatrix.Translation - bird.Destination;
+                            birdDir -= VectorHelpers.VectorProjection(birdDir, gravDir);
+                            var birdDist = birdDir.Length();
+                            birdDir.Normalize();
+
+                            if (birdDist < 50)
+                            {
+                                bird.SetDest(Vector3D.Zero);
+                                bird.Drive.Flush();
+                                foreach (var engine in bird.Drive.HoverEngines)
+                                {
+                                    engine.AltitudeMin = 0;
+                                }
+                                bird.IsLanding = true;
+                            }
+                        }
+                        else
+                        {
+                            double altitude;
+                            bird.Controller.TryGetPlanetElevation(MyPlanetElevation.Surface, out altitude);
+                            if (altitude < 6)
+                            {
+                                foreach (var engine in bird.Drive.HoverEngines)
+                                {
+                                    engine.Block.Enabled = false;
+                                    DeadBirds.Add(bird);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -317,41 +515,67 @@ namespace IngameScript
             {
                 if (cradle == null) continue;
                 cradle.Update();
-                if (hasTarget && cradle.Hummingbird != null && Hummingbirds.Count < 3)
-                {
-                    Hummingbird bird = cradle.Release();
-                    bird.Base = Program.Me;
-                    Hummingbirds.Add(bird);
-                }
             }
 
             if (runs % 60 == 0)
             {
+                BirdReleaseTimeout--;
                 for (int i = 0; i < Cradles.Count(); i++)
                 {
                     if (Cradles[i] == null) continue;
                     if (Cradles[i].Hummingbird == null)
+                    {
                         Cradles[i].CheckHummingbird();
+                    }
+                    else if (NeedsMoreBirds && BirdReleaseTimeout <= 0)
+                    {
+                        Hummingbird bird = Cradles[i].Release();
+                        bird.Base = ProgramReference;
+                        RegisterBird(bird);
+                        BirdReleaseTimeout = 5;
+                    }
                 }
             }
 
             DeadBirds.Clear();
         }
 
+        private void RetireBird(Hummingbird bird)
+        {
+            bird.SetDest(Controller.WorldMatrix.Translation);
+            bird.IsRetiring = true;
+        }
+
         public string GetStatus()
         {
-            if (Hummingbirds.Count > 0)
+
+            statusbuilder.Clear();
+
+            //statusbuilder.AppendLine($"NEEDSMOREBIRDS {NeedsMoreBirds}, TIMEOUT {BirdReleaseTimeout}");
+            //statusbuilder.AppendLine($"ENEMIES {TopEnemies.Count}");
+            //
+            //foreach (var kvp in EnemyToNumBirds)
+            //{
+            //    statusbuilder.AppendLine($"- {kvp.Key.DisplayName} : {kvp.Value}");
+            //}
+
+            var inventoryItem = AmmoBox.GetItemAt(0);
+            if (inventoryItem != null)
             {
-                double elev;
-                Hummingbirds[0].Controller.TryGetPlanetElevation(MyPlanetElevation.Surface, out elev);
-                return $"ALT: {elev}, BIRD: {Hummingbirds[0].Drive.Status}";
+                statusbuilder.AppendLine(inventoryItem.Value.Type.SubtypeId);
             }
-            return ""; //$"CRADLE1: {Cradles[1].releaseStage}, BIRDS: {Hummingbirds.Count.ToString()}";
+            else
+            {
+                statusbuilder.AppendLine("NULL");
+
+            }
+            return statusbuilder.ToString();
         }
 
         public MyGridProgram Program { get; private set; }
         public UpdateFrequency UpdateFrequency { get; set; }
         public IIntelProvider IntelProvider;
+        public ScannerNetworkSubsystem ScannerSubsystem;
 
         public string SerializeSubsystem()
         {
@@ -374,9 +598,16 @@ namespace IngameScript
         }
         void Release()
         {
-            if (Cradles[1].Hummingbird != null)
-                Hummingbirds.Add(Cradles[1].Release());
+            if (Cradles[1] != null && Cradles[1].Hummingbird != null)
+                RegisterBird(Cradles[1].Release());
         }
+
+        void Recall()
+        {
+            foreach (var bird in Hummingbirds)
+                RetireBird(bird);
+        }
+
         Vector3D ParseGPS(string s)
         {
             var split = s.Split(':');
@@ -384,5 +615,23 @@ namespace IngameScript
         }
 
         #endregion
+
+        void RegisterBird(Hummingbird newBird)
+        {
+            Hummingbirds.Add(newBird);
+            BirdToEnemy.Add(newBird, 0);
+
+            var birdCamGroup = new ScannerGroup(newBird.Cameras);
+            BirdScannerGroups[newBird] = birdCamGroup;
+            ScannerSubsystem.AddScannerGroup(birdCamGroup);
+        }
+
+        void DeregisterBird(Hummingbird bird)
+        {
+            Hummingbirds.Remove(bird);
+            BirdToEnemy.Remove(bird);
+            ScannerSubsystem.RemoveScannerGroup(BirdScannerGroups[bird]);
+            BirdScannerGroups.Remove(bird);
+        }
     }
 }

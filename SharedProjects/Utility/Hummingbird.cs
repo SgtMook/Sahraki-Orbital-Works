@@ -61,13 +61,16 @@ namespace IngameScript
         public const float RecommendedServiceFloor = 15;
         public const float RecommendedServiceCeiling = 35;
         public List<IMySmallGatlingGun> Gats = new List<IMySmallGatlingGun>();
+        public List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
         public TriskelionDrive Drive = new TriskelionDrive();
         public IMyLargeTurretBase Designator;
         public IMyShipController Controller;
         public IMyMotorStator TurretRotor;
         public IMyTerminalBlock Base;
         public IMyRadioAntenna Antenna;
-        Vector3D destination = new Vector3D();
+        public bool IsRetiring = false;
+        public bool IsLanding = false;
+        public Vector3D Destination = new Vector3D();
         Vector3D target = Vector3D.Zero;
 
         Vector3D PlanetPos;
@@ -124,7 +127,7 @@ namespace IngameScript
 
         public void SetDest(Vector3 newDest)
         {
-            destination = newDest;
+            Destination = newDest;
         }
 
         public Hummingbird()
@@ -153,6 +156,9 @@ namespace IngameScript
             if (block is IMySmallGatlingGun)
                 Gats.Add((IMySmallGatlingGun)block);
 
+            if (block is IMyCameraBlock)
+                Cameras.Add((IMyCameraBlock)block);
+
             if (block is IMyMotorStator)
                 TurretRotor = (IMyMotorStator)block;
 
@@ -178,7 +184,7 @@ namespace IngameScript
             return false;
         }
 
-        public bool IsOK()
+        public bool IsAlive()
         {
             if (Controller.WorldMatrix.Translation == Vector3D.Zero || !Controller.IsWorking) return false;
 
@@ -186,6 +192,16 @@ namespace IngameScript
             {
                 if (engine.Block.WorldMatrix.Translation == Vector3D.Zero || !engine.Block.IsFunctional) return false;
             }
+
+            return true;
+        }
+
+        public bool IsCombatCapable()
+        {
+            // TODO: Check ammo
+            // TODO: Check power?
+            while (Gats.Count > 0 && !Gats[0].IsWorking) Gats.RemoveAtFast(0);
+            if (Gats.Count == 0) return false;
 
             return true;
         }
@@ -267,12 +283,12 @@ namespace IngameScript
                 }
 
                 // Check Movement
-                if (destination != Vector3D.Zero)
+                if (Destination != Vector3D.Zero)
                 {
-                    Drive.Drive(destination);
+                    Drive.Drive(Destination);
                     if (Drive.Arrived)
                     {
-                        destination = Vector3D.Zero;
+                        Destination = Vector3D.Zero;
                         Drive.Flush();
                     }
                 }

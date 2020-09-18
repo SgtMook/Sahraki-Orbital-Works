@@ -24,20 +24,39 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
-        public IntelSubsystem IntelProvider = new IntelSubsystem();
-        public ScannerNetworkSubsystem SensorSubsystem;
-        public HummingbirdCommandSubsystem HummingbirdCommandSubsystem;
+        public AutopilotSubsystem AutopilotSubsystem;
+        public IntelSubsystem IntelSubsystem;
+        public HoneybeeMiningSystem MiningSubsystem;
+        public LookingGlassNetworkSubsystem LookingGlassNetwork;
+        public AgentSubsystem AgentSubsystem;
+        public ScannerNetworkSubsystem ScannerSubsystem;
+        public MonitorSubsystem MonitorSubsystem;
+
         public Program()
         {
             subsystemManager = new SubsystemManager(this);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
-            SensorSubsystem = new ScannerNetworkSubsystem(IntelProvider, "SE", 100, 0);
-            HummingbirdCommandSubsystem = new HummingbirdCommandSubsystem(IntelProvider, SensorSubsystem);
+            AutopilotSubsystem = new AutopilotSubsystem();
+            IntelSubsystem = new IntelSubsystem();
+            MiningSubsystem = new HoneybeeMiningSystem();
+            LookingGlassNetwork = new LookingGlassNetworkSubsystem(IntelSubsystem, "LG", false, false);
+            AgentSubsystem = new AgentSubsystem(IntelSubsystem, AgentClass.None);
+            MonitorSubsystem = new MonitorSubsystem(IntelSubsystem);
 
-            subsystemManager.AddSubsystem("intel", IntelProvider);
-            subsystemManager.AddSubsystem("sensor", SensorSubsystem);
-            subsystemManager.AddSubsystem("hummingbird", HummingbirdCommandSubsystem);
+            var MiningTaskGenerator = new HoneybeeMiningTaskGenerator(this, MiningSubsystem, AutopilotSubsystem, AgentSubsystem, null, null, null, IntelSubsystem, MonitorSubsystem);
+            AgentSubsystem.AddTaskGenerator(MiningTaskGenerator);
+
+            ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
+            LookingGlassNetwork.AddPlugin("combat", new LookingGlass_Pascal(this));
+
+            subsystemManager.AddSubsystem("autopilot", AutopilotSubsystem);
+            subsystemManager.AddSubsystem("intel", IntelSubsystem);
+            subsystemManager.AddSubsystem("mining", MiningSubsystem);
+            subsystemManager.AddSubsystem("agent", AgentSubsystem);
+            subsystemManager.AddSubsystem("scanner", ScannerSubsystem);
+            subsystemManager.AddSubsystem("lookingglass", LookingGlassNetwork);
+            subsystemManager.AddSubsystem("monitor", MonitorSubsystem);
 
             subsystemManager.DeserializeManager(Storage);
         }
@@ -66,12 +85,13 @@ namespace IngameScript
             }
         }
 
-        class LookingGlass_Hummingbird : ILookingGlassPlugin
+        class LookingGlass_Pascal : ILookingGlassPlugin
         {
             public LookingGlassNetworkSubsystem Host { get; set; }
 
             public void Do4(TimeSpan localTime)
             {
+                HostProgram.MiningSubsystem.Recalling = 2;
             }
 
             public void Do7(TimeSpan localTime)
@@ -80,15 +100,30 @@ namespace IngameScript
 
             public void Do6(TimeSpan localTime)
             {
-
+                if (closestEnemyToCursorID != -1)
+                {
+                    HostProgram.IntelSubsystem.SetPriority(closestEnemyToCursorID, 1);
+                }
             }
 
             public void Do5(TimeSpan localTime)
             {
+                var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 10000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
+                HostProgram.ScannerSubsystem.TryScanTarget(pos, localTime);
             }
 
             public void Do3(TimeSpan localTime)
             {
+                Host.ActiveLookingGlass.DoScan(localTime);
+                if (!Host.ActiveLookingGlass.LastDetectedInfo.IsEmpty() && Host.ActiveLookingGlass.LastDetectedInfo.Type == MyDetectedEntityType.Asteroid)
+                {
+                    var w = new Waypoint();
+                    w.Position = (Vector3D)Host.ActiveLookingGlass.LastDetectedInfo.HitPosition;
+                    w.Direction = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Backward;
+                    Host.ReportIntel(w, localTime);
+                    HostProgram.AgentSubsystem.AddTask(TaskType.Mine, MyTuple.Create(IntelItemType.Waypoint, w.ID), CommandType.Override, 0,
+                        localTime + HostProgram.IntelSubsystem.CanonicalTimeDiff);
+                }
             }
 
             public void Do8(TimeSpan localTime)
@@ -109,7 +144,7 @@ namespace IngameScript
             {
             }
 
-            public LookingGlass_Hummingbird(Program program)
+            public LookingGlass_Pascal(Program program)
             {
                 HostProgram = program;
             }
@@ -131,12 +166,12 @@ namespace IngameScript
 
                 Builder.AppendLine("===== CONTROL =====");
                 Builder.AppendLine();
-                Builder.AppendLine("1 - LOCK/UNLOCK");
+                Builder.AppendLine("1 - ");
                 Builder.AppendLine("2 - CAMERA");
-                Builder.AppendLine("3 - DESIGNATE TARGET");
-                Builder.AppendLine("4 - ATTACK TARGET");
-                Builder.AppendLine("5 - RAYCAST");
-                Builder.AppendLine();
+                Builder.AppendLine("3 - START MINE");
+                Builder.AppendLine("4 - STOP MINE");
+                Builder.AppendLine("5 - ");
+                Builder.AppendLine("6 - ");
                 Builder.AppendLine();
                 Builder.AppendLine("===== CONTROL =====");
 
@@ -153,52 +188,6 @@ namespace IngameScript
                 SpriteScratchpad.Clear();
 
                 Host.GetDefaultSprites(SpriteScratchpad);
-
-                float closestDistSqr = 100 * 100;
-                long newClosestIntelID = -1;
-
-                foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
-                {
-                    if (intel.IntelItemType == IntelItemType.Friendly)
-                    {
-                        var fsi = (FriendlyShipIntel)intel;
-
-                        if ((fsi.AgentStatus & AgentStatus.DockedAtHome) != 0) continue;
-
-                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small;
-                        if (fsi.AgentClass == AgentClass.None) options = LookingGlass.IntelSpriteOptions.ShowName;
-
-                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
-                    }
-                    else if (intel.IntelItemType == IntelItemType.Enemy)
-                    {
-                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
-
-                        if (intel.Radius < 10)
-                        {
-                            options = LookingGlass.IntelSpriteOptions.Small;
-                            Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
-                        }
-                        else
-                        {
-                            if (intel.ID == closestEnemyToCursorID)
-                            {
-                                options = LookingGlass.IntelSpriteOptions.ShowTruncatedName | LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithDashes | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
-                                if (FeedbackOnTarget) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
-                            }
-
-                            var distToCenterSqr = Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options).LengthSquared();
-
-                            if (distToCenterSqr < closestDistSqr)
-                            {
-                                closestDistSqr = distToCenterSqr;
-                                newClosestIntelID = intel.ID;
-                            }
-                        }
-                    }
-
-                }
-                closestEnemyToCursorID = newClosestIntelID;
 
                 Builder.Clear();
 

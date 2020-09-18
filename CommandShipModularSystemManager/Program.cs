@@ -44,6 +44,8 @@ namespace IngameScript
             {
                 lookingGlassNetwork = new LookingGlassNetworkSubsystem(intelSubsystem, "LG", !FixedLookingGlass, ThrusterLookingGlass);
                 subsystemManager.AddSubsystem("lookingglass", lookingGlassNetwork);
+                lookingGlassNetwork.AddPlugin("command", new LookingGlassPlugin_Command());
+                lookingGlassNetwork.AddPlugin("lidar", new LookingGlassPlugin_Lidar());
             }
             
             // Hangar system setup

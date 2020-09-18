@@ -67,6 +67,7 @@ namespace IngameScript
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
+            Fire(null, TimeSpan.Zero);
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -208,13 +209,17 @@ namespace IngameScript
                             TorpedoScratchpad.Add(torp);
                             torp.Detonate();
                         } 
-                        else if (torp.Camera != null && torp.Camera.IsWorking)
+                        else if (torp.Cameras.Count > 0)
                         {
-                            MyDetectedEntityInfo detected = torp.Camera.Raycast(extend);
-                            if (detected.EntityId != 0 && (detected.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies || detected.Relationship == MyRelationsBetweenPlayerAndBlock.Neutral))
+                            for (int i = 0; i < torp.Cameras.Count; i++)
                             {
-                                TorpedoScratchpad.Add(torp);
-                                torp.Detonate();
+                                if (!torp.Cameras[i].IsWorking) continue;
+                                MyDetectedEntityInfo detected = torp.Cameras[i].Raycast(extend + torp.CameraExtends[i]);
+                                if (detected.EntityId != 0 && (detected.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies || detected.Relationship == MyRelationsBetweenPlayerAndBlock.Neutral || detected.Relationship == MyRelationsBetweenPlayerAndBlock.NoOwnership))
+                                {
+                                    TorpedoScratchpad.Add(torp);
+                                    torp.Detonate();
+                                }
                             }
                         }
                         else if (torp.Sensor != null && torp.Sensor.IsWorking)
@@ -307,6 +312,8 @@ namespace IngameScript
 
         void Fire(object argument, TimeSpan localTime, bool trickshot = false)
         {
+            if (argument == null) return;
+
             int index;
 
             if ((string)argument == "all")
@@ -350,7 +357,8 @@ namespace IngameScript
         public HashSet<IMyThrust> Thrusters = new HashSet<IMyThrust>();
         public HashSet<IMyBatteryBlock> Batteries = new HashSet<IMyBatteryBlock>();
         public HashSet<IMyGasTank> Tanks = new HashSet<IMyGasTank>();
-        public IMyCameraBlock Camera;
+        public List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
+        public float[] CameraExtends = new float[8];
         public IMySensorBlock Sensor;
         public IMyShipController Controller;
         public string Tag; // HE, CLST, MICRO, etc
@@ -389,7 +397,7 @@ namespace IngameScript
         {
             if (block is IMyShipController) { Controller = (IMyShipController)block; return true; }
             if (block is IMyGyro) { Gyros.Add((IMyGyro)block); return true; }
-            if (block is IMyCameraBlock) { Camera = (IMyCameraBlock)block; Camera.EnableRaycast = true; return true; }
+            if (block is IMyCameraBlock) { var camera = (IMyCameraBlock)block; Cameras.Add(camera); camera.EnableRaycast = true; float.TryParse(camera.CustomData, out CameraExtends[Cameras.Count]); return true; }
             if (block is IMySensorBlock) { Sensor = (IMySensorBlock)block; return true; }
             if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); return true; }
             if (block is IMyWarhead) { Warheads.Add((IMyWarhead)block); return true; }
@@ -837,7 +845,7 @@ namespace IngameScript
         {
             Name = name;
             Children = new List<ITorpedoControllable>();
-            if (Name == "SM") AutoFire = true;
+            AutoFire = false;
         }
 
         public void AddTube(TorpedoTube tube)

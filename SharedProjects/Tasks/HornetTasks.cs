@@ -26,9 +26,10 @@ namespace IngameScript
 
         public ITask GenerateTask(TaskType type, MyTuple<IntelItemType, long> intelKey, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems, TimeSpan canonicalTime, long myID)
         {
-            if (MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.3 ||
+            if (MonitorSubsystem != null &&
+                (MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.3 ||
                 MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) < 0.1 ||
-                MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.1)
+                MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.1))
             {
                 return new NullTask();
             }
@@ -71,9 +72,10 @@ namespace IngameScript
         {
             if (canonicalTime == TimeSpan.Zero) return;
 
-            if (MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.2 ||
+            if (MonitorSubsystem != null && 
+                (MonitorSubsystem.GetPercentage(MonitorOptions.Hydrogen) < 0.2 ||
                 MonitorSubsystem.GetPercentage(MonitorOptions.Cargo) < 0.02 ||
-                MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.1)
+                MonitorSubsystem.GetPercentage(MonitorOptions.Power) < 0.1))
             {
                 GoHome(canonicalTime);
                 return;
@@ -107,6 +109,8 @@ namespace IngameScript
                 if (IntelProvider.GetPriority(enemyIntel.ID) < 2) continue;
 
                 double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
+
+                if (enemyIntel.ID == IntelKey.Item2) dist -= 600;
 
                 if (enemyIntel.CubeSize == MyCubeSize.Small) dist -= 300;
                 if (IntelProvider.GetPriority(enemyIntel.ID) == 3) dist -= 600;
@@ -157,13 +161,16 @@ namespace IngameScript
                 var Acceleration = linearVelocity - LastLinearVelocity;
                 if (LastAcceleration == Vector3D.Zero) LastAcceleration = Acceleration;
                 if (LastReference == MatrixD.Zero) LastReference = controller.WorldMatrix;
+                if (LastEnemyVelocity == Vector3D.Zero) LastEnemyVelocity = shootIntel.GetVelocity();
+
+                var enemyVelocityAdjust = shootIntel.GetVelocity() * 2 - LastEnemyVelocity;
 
                 var CurrentAccelerationPreviousFrame = Vector3D.TransformNormal(Acceleration, MatrixD.Transpose(LastReference));
 
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
                 var velocityAdjust = linearVelocity + (accelerationAdjust) * 0.5;
 
-                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(shootIntel.GetVelocity() - velocityAdjust, shootIntel.GetPositionFromCanonicalTime(canonicalTime) + shootIntel.GetVelocity() * 0.32 - (controller.WorldMatrix.Translation + velocityAdjust * 0.25), CombatSystem.ProjectileSpeed);
+                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(enemyVelocityAdjust - velocityAdjust, shootIntel.GetPositionFromCanonicalTime(canonicalTime) + enemyVelocityAdjust * 0.32 - (controller.WorldMatrix.Translation + velocityAdjust * 0.25), CombatSystem.ProjectileSpeed);
 
                 LastAcceleration = linearVelocity - LastLinearVelocity;
                 LeadTask.Destination.Direction = relativeAttackPoint;
@@ -178,6 +185,7 @@ namespace IngameScript
                 LeadTask.Destination.Velocity = orbitIntel.GetVelocity() * 0.5;
 
                 LastReference = controller.WorldMatrix;
+                LastEnemyVelocity = shootIntel.GetVelocity();
             }
 
             if (!Attack)
@@ -214,6 +222,7 @@ namespace IngameScript
         Vector3D TargetPosition;
         bool TargetPositionSet = false;
 
+        Vector3D LastEnemyVelocity = Vector3D.Zero;
         Vector3D LastLinearVelocity = Vector3D.Zero;
         Vector3D LastAcceleration = Vector3D.Zero;
         MatrixD LastReference = MatrixD.Zero;
