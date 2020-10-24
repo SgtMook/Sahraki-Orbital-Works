@@ -24,9 +24,9 @@ namespace IngameScript
         private Action<ICollection<MyDefinitionId>> _getCoreWeapons;
         private Action<ICollection<MyDefinitionId>> _getCoreTurrets;
         private Action<IMyTerminalBlock, bool, bool, int> _toggleWeaponFire;
-        private Func<IMyTerminalBlock, int, IMyEntity> _getWeaponTarget;
+        private Func<Sandbox.ModAPI.Ingame.IMyTerminalBlock, int, Sandbox.ModAPI.Ingame.MyDetectedEntityInfo> _getWeaponTarget;
         private Func<Sandbox.ModAPI.Ingame.IMyTerminalBlock, bool> _hasCoreWeapon;
-        private Action<VRage.Game.ModAPI.Ingame.IMyEntity, IDictionary<VRage.Game.ModAPI.Ingame.IMyEntity, float>> _getSortedThreats;
+        private Action<Sandbox.ModAPI.Ingame.IMyTerminalBlock, IDictionary<Sandbox.ModAPI.Ingame.MyDetectedEntityInfo, float>> _getSortedThreats;
 
         public bool Activate(IMyTerminalBlock pbBlock)
         {
@@ -69,12 +69,12 @@ namespace IngameScript
 
         public void ToggleWeaponFire(IMyTerminalBlock weapon, bool on, bool allWeapons, int weaponId = 0) =>
             _toggleWeaponFire?.Invoke(weapon, on, allWeapons, weaponId);
-        public IMyEntity GetWeaponTarget(IMyTerminalBlock weapon, int weaponId = 0) =>
-            _getWeaponTarget?.Invoke(weapon, weaponId) ?? null;
+        public MyDetectedEntityInfo? GetWeaponTarget(Sandbox.ModAPI.Ingame.IMyTerminalBlock weapon, int weaponId = 0) =>
+            _getWeaponTarget?.Invoke(weapon, weaponId);
 
         public bool HasCoreWeapon(Sandbox.ModAPI.Ingame.IMyTerminalBlock weapon) => _hasCoreWeapon?.Invoke(weapon) ?? false;
 
-        public void GetSortedThreats(VRage.Game.ModAPI.Ingame.IMyEntity shooter, IDictionary<VRage.Game.ModAPI.Ingame.IMyEntity, float> collection) =>
-    _getSortedThreats?.Invoke(shooter, collection);
+        public void GetSortedThreats(Sandbox.ModAPI.Ingame.IMyTerminalBlock pBlock, IDictionary<Sandbox.ModAPI.Ingame.MyDetectedEntityInfo, float> collection) =>
+            _getSortedThreats?.Invoke(pBlock, collection);
     }
 }

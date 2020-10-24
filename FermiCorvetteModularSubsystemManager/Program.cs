@@ -371,10 +371,6 @@ namespace IngameScript
                     else if (intel.IntelItemType == IntelItemType.Enemy)
                     {
                         LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.None;
-                        if (HostProgram.ScannerSubsystem.WCHardlockTargets.ContainsKey(intel.ID))
-                        {
-                            options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
-                        }
 
                         if (!EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)intel) || Host.IntelProvider.GetPriority(intel.ID) < 2)
                         {
@@ -385,10 +381,10 @@ namespace IngameScript
                         {
                             if (intel.ID == closestEnemyToCursorID)
                             {
-                                options |= LookingGlass.IntelSpriteOptions.ShowDist| LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
-                                if (FeedbackOnTarget) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
-                                if (HostProgram.ScannerSubsystem.WCHardlockTargets.ContainsKey(intel.ID)) options |= LookingGlass.IntelSpriteOptions.ShowName;
-                                else options |= LookingGlass.IntelSpriteOptions.ShowTruncatedName;
+                                options |= LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
+                                if (FeedbackOnTarget) 
+                                    options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
+                                options |= LookingGlass.IntelSpriteOptions.ShowTruncatedName;
                             }
 
                             var distToCenterSqr = Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options).LengthSquared();

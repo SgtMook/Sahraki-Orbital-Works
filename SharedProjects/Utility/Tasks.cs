@@ -357,8 +357,11 @@ namespace IngameScript
             foreach (var kvp in IntelItems)
             {
                 // If it's us, don't care
-                if (kvp.Key.Item2 == Program.Me.CubeGrid.EntityId) continue;
-                if (kvp.Value.Radius == 0) continue;
+                if (kvp.Key.Item2 == Program.Me.CubeGrid.EntityId) 
+                    continue;
+
+                if (kvp.Value.Radius == 0) 
+                    continue;
 
                 // If it's an asteroid or a ship, we might be interested
                 if (kvp.Value.IntelItemType == IntelItemType.Asteroid || kvp.Value.IntelItemType == IntelItemType.Friendly || kvp.Value.IntelItemType == IntelItemType.Enemy)

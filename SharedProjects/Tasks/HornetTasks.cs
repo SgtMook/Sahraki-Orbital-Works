@@ -101,31 +101,39 @@ namespace IngameScript
             double closestIntelDist = CombatSystem.AlertDist;
             foreach (var intel in IntelItems)
             {
-                if (intel.Key.Item1 != IntelItemType.Enemy) continue;
+                if (intel.Key.Item1 != IntelItemType.Enemy) 
+                    continue;
+
                 var enemyIntel = (EnemyShipIntel)intel.Value;
-
-                if (!EnemyShipIntel.PrioritizeTarget(enemyIntel)) continue;
-
-                if (IntelProvider.GetPriority(enemyIntel.ID) < 2) continue;
+                if (!EnemyShipIntel.PrioritizeTarget(enemyIntel)) 
+                    continue;
+                if (IntelProvider.GetPriority(enemyIntel.ID) < 2) 
+                    continue;
 
                 double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
 
                 if (enemyIntel.ID == IntelKey.Item2) dist -= 600;
 
-                if (enemyIntel.CubeSize == MyCubeSize.Small) dist -= 300;
-                if (IntelProvider.GetPriority(enemyIntel.ID) == 3) dist -= 600;
-                if (IntelProvider.GetPriority(enemyIntel.ID) == 4) dist -= 1200;
+                if (enemyIntel.CubeSize == MyCubeSize.Small) 
+                    dist -= 300;
+                if (IntelProvider.GetPriority(enemyIntel.ID) == 3) 
+                    dist -= 600;
+                if (IntelProvider.GetPriority(enemyIntel.ID) == 4) 
+                    dist -= 1200;
                 if (dist < closestIntelDist)
                 {
                     closestIntelDist = dist;
                     shootIntel = enemyIntel;
-                    if (enemyIntel.Radius > 30) orbitIntel = enemyIntel;
+                    if (enemyIntel.Radius > 30) 
+                        orbitIntel = enemyIntel;
                 }
             }
 
-            if (shootIntel == null && CombatSystem.TargetIntel != null && IntelProvider.GetPriority(CombatSystem.TargetIntel.ID) >= 2) shootIntel = CombatSystem.TargetIntel;
+            if (shootIntel == null && CombatSystem.TargetIntel != null && IntelProvider.GetPriority(CombatSystem.TargetIntel.ID) >= 2) 
+                shootIntel = CombatSystem.TargetIntel;
 
-            if (orbitIntel == null) orbitIntel = shootIntel;
+            if (orbitIntel == null) 
+                orbitIntel = shootIntel;
 
             if (orbitIntel == null)
             {
@@ -146,8 +154,10 @@ namespace IngameScript
                 }
 
                 Vector3D toTarget = LeadTask.Destination.Position - Program.Me.WorldMatrix.Translation;
-                if (toTarget.LengthSquared() > 400) LeadTask.Destination.Direction = toTarget;
-                else LeadTask.Destination.Direction = Vector3D.Zero;
+                if (toTarget.LengthSquared() > 400) 
+                    LeadTask.Destination.Direction = toTarget;
+                else 
+                    LeadTask.Destination.Direction = Vector3D.Zero;
 
                 LastAcceleration = Vector3D.Zero;
                 LastReference = MatrixD.Zero;
@@ -159,9 +169,12 @@ namespace IngameScript
                 Vector3D targetPosition = orbitIntel.GetPositionFromCanonicalTime(canonicalTime);
 
                 var Acceleration = linearVelocity - LastLinearVelocity;
-                if (LastAcceleration == Vector3D.Zero) LastAcceleration = Acceleration;
-                if (LastReference == MatrixD.Zero) LastReference = controller.WorldMatrix;
-                if (LastEnemyVelocity == Vector3D.Zero) LastEnemyVelocity = shootIntel.GetVelocity();
+                if (LastAcceleration == Vector3D.Zero) 
+                    LastAcceleration = Acceleration;
+                if (LastReference == MatrixD.Zero) 
+                    LastReference = controller.WorldMatrix;
+                if (LastEnemyVelocity == Vector3D.Zero) 
+                    LastEnemyVelocity = shootIntel.GetVelocity();
 
                 var enemyVelocityAdjust = shootIntel.GetVelocity() * 2 - LastEnemyVelocity;
 
@@ -174,12 +187,15 @@ namespace IngameScript
 
                 LastAcceleration = linearVelocity - LastLinearVelocity;
                 LeadTask.Destination.Direction = relativeAttackPoint;
-                if ((controller.WorldMatrix.Translation - targetPosition).Length() < CombatSystem.FireDist && VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < CombatSystem.FireTolerance) CombatSystem.Fire();
+                if ((controller.WorldMatrix.Translation - targetPosition).Length() < CombatSystem.FireDist && 
+                    VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < CombatSystem.FireTolerance) 
+                    CombatSystem.Fire();
 
                 Vector3D dirTargetToMe = controller.WorldMatrix.Translation - targetPosition;
                 Vector3D dirTargetToOrbitTarget = Vector3D.Cross(dirTargetToMe, controller.WorldMatrix.Up);
                 dirTargetToOrbitTarget.Normalize();
                 dirTargetToMe.Normalize();
+
                 LeadTask.Destination.DirectionUp = Math.Sin(CombatSystem.EngageTheta) * controller.WorldMatrix.Right + Math.Cos(CombatSystem.EngageTheta) * controller.WorldMatrix.Up;
                 LeadTask.Destination.Position = targetPosition + orbitIntel.GetVelocity() + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
                 LeadTask.Destination.Velocity = orbitIntel.GetVelocity() * 0.5;
@@ -191,13 +207,16 @@ namespace IngameScript
             if (!Attack)
             {
                 Vector3D toTarget = TargetPosition - Program.Me.WorldMatrix.Translation;
-                if (toTarget.LengthSquared() > 100) LeadTask.Destination.Position = TargetPosition;
-                else LeadTask.Destination.Position = Vector3D.Zero;
+                if (toTarget.LengthSquared() > 100) 
+                    LeadTask.Destination.Position = TargetPosition;
+                else 
+                    LeadTask.Destination.Position = Vector3D.Zero;
                 LeadTask.Destination.Velocity = Vector3D.Zero;
             }
 
             LastLinearVelocity = linearVelocity;
-            if (LeadTask.Status == TaskStatus.Incomplete) LeadTask.Do(IntelItems, canonicalTime, profiler);
+            if (LeadTask.Status == TaskStatus.Incomplete) 
+                LeadTask.Do(IntelItems, canonicalTime, profiler);
         }
 
         void GoHome(TimeSpan canonicalTime)

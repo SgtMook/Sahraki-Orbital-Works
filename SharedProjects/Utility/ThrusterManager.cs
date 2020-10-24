@@ -22,6 +22,28 @@ namespace IngameScript
 
     public class ThrusterManager
     {
+        // indices line up with Base6Directions.Direction values
+        Vector3D[] DirectionToVectorTable = new Vector3D[] 
+        { 
+            Vector3D.Forward, 
+            Vector3D.Backward, 
+            Vector3D.Left, 
+            Vector3D.Right, 
+            Vector3D.Up, 
+            Vector3D.Down 
+        };
+
+        // indices line up with Base6Directions.Direction values
+        List<IMyThrust>[] DirectionToThrusterList = new List<IMyThrust>[]
+        {
+            new List<IMyThrust>(),
+            new List<IMyThrust>(),
+            new List<IMyThrust>(),
+            new List<IMyThrust>(),
+            new List<IMyThrust>(),
+            new List<IMyThrust>(),
+        };
+
         Dictionary<Base6Directions.Direction, Vector3D> DirectionMap = new Dictionary<Base6Directions.Direction, Vector3D>()
         {
             { Base6Directions.Direction.Up, Vector3D.Up },
