@@ -11,8 +11,13 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Tasks", "SharedProjects\Tas
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Utility", "SharedProjects\Utility\Utility.shproj", "{F7EFCCFA-C507-4160-AB79-8BAA84F8E05F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PascalHeavyMinerModularSubsystemManager", "PascalHeavyMinerModularSubsystemManager\PascalHeavyMinerModularSubsystemManager.csproj", "{195332F7-C60B-48C1-930F-CCC516698133}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		SharedProjects\Subsystems\Subsystems.projitems*{195332f7-c60b-48c1-930f-ccc516698133}*SharedItemsImports = 4
+		SharedProjects\Tasks\Tasks.projitems*{195332f7-c60b-48c1-930f-ccc516698133}*SharedItemsImports = 4
+		SharedProjects\Utility\Utility.projitems*{195332f7-c60b-48c1-930f-ccc516698133}*SharedItemsImports = 4
 		SharedProjects\Subsystems\Subsystems.projitems*{61eba249-19f3-48b6-a25b-a4cee90168ba}*SharedItemsImports = 13
 		SharedProjects\Subsystems\Subsystems.projitems*{c0bf6a7e-e4a7-4ce5-bcca-0bf8f5542793}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{c0bf6a7e-e4a7-4ce5-bcca-0bf8f5542793}*SharedItemsImports = 4
@@ -26,6 +31,8 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{C0BF6A7E-E4A7-4CE5-BCCA-0BF8F5542793}.Debug|x64.ActiveCfg = Debug|x64
 		{C0BF6A7E-E4A7-4CE5-BCCA-0BF8F5542793}.Debug|x64.Build.0 = Debug|x64
+		{195332F7-C60B-48C1-930F-CCC516698133}.Debug|x64.ActiveCfg = Debug|x64
+		{195332F7-C60B-48C1-930F-CCC516698133}.Debug|x64.Build.0 = Debug|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
