@@ -1,14 +1,12 @@
-# Ignore everything
-*
+# https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
-# But not these files...
-!.gitignore
-!*Program.cs
-!*Subsystems.cs
-!*Tasks.cs
-# etc...
+*.cache
+*.png
+*.suo
+*.user
 
-# ...even if they are in subdirectories
-!*/
-!SharedProjects/*.cs
-!SharedProjects/*/*.cs
+.vs/
+
+# Ignore bin dirs
+[Bb]in/
+[Oo]bj/
