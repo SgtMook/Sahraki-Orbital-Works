@@ -72,6 +72,7 @@ namespace IngameScript
             WCTargetVelocityScratchpad.Clear();
             foreach(var target in WCHardlockTargets.Values)
             {
+                if (target.GetPosition() == Vector3D.Zero) continue;
                 WCTargetVelocityScratchpad.Add(target.EntityId, target.GetPosition());
             }
         }
@@ -227,16 +228,31 @@ namespace IngameScript
             // WC only
             if (WCAPI != null)
             {
-                GetThreatsScratchpad.Clear();
-                WCAPI.GetSortedThreats(ProgramReference.CubeGrid, GetThreatsScratchpad);
+                //GetThreatsScratchpad.Clear();
+                //WCAPI.GetSortedThreats(ProgramReference.CubeGrid, GetThreatsScratchpad);
+                //
+                //foreach (var enemy in GetThreatsScratchpad.Keys)
+                //{
+                //    if (enemy is IMyCubeGrid && !WCHardlockTargets.ContainsKey(enemy.EntityId))
+                //    {
+                //        var enemyGrid = (IMyCubeGrid)enemy;
+                //        WCHardlockTargets.Add(enemyGrid.EntityId, enemyGrid);
+                //    }
+                //}
 
-                foreach (var enemy in GetThreatsScratchpad.Keys)
+                foreach (var turret in WCTurrets)
                 {
-                    if (enemy is IMyCubeGrid && !WCHardlockTargets.ContainsKey(enemy.EntityId))
+                    var turretTarget = WCAPI.GetWeaponTarget(turret);
+                    if (turretTarget is IMyFunctionalBlock)
                     {
-                        var enemyGrid = (IMyCubeGrid)enemy;
-                        WCHardlockTargets.Add(enemyGrid.EntityId, enemyGrid);
-                        //TryScanTarget(enemyGrid.WorldAABB.Center, localTime, null);
+                        var targetBlock = (IMyFunctionalBlock)turretTarget;
+                        if (!WCHardlockTargets.ContainsKey(targetBlock.CubeGrid.EntityId))
+                            WCHardlockTargets.Add(targetBlock.CubeGrid.EntityId, targetBlock.CubeGrid);
+
+                        if (turretTarget is IMyWarhead)
+                        {
+                            ((IMyWarhead)turretTarget).Detonate();
+                        }
                     }
                 }
             }

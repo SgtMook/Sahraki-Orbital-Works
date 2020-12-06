@@ -886,10 +886,7 @@ namespace IngameScript
                 ID = grid.EntityId;
             }
 
-            if (!string.IsNullOrEmpty(grid.CustomName) && (DisplayName == null || DisplayName.StartsWith("S-") || DisplayName.StartsWith("L-")))
-            {
-                DisplayName = grid.CustomName;
-            }
+            DisplayName = (grid.GridSizeEnum == MyCubeSize.Small ? "S-" : "L-") + ((int)Radius).ToString() + " " + grid.EntityId.ToString();
 
             Radius = (float)grid.WorldAABB.Size.Length() * 0.5f;
             CurrentPosition = grid.WorldAABB.Center;

@@ -52,7 +52,7 @@ namespace IngameScript
             CombatLoaderSubsystem = new CombatLoaderSubsystem("Fermi Cargo", "Combat Supplies");
 
             ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
-            LookingGlassNetwork.AddPlugin("combat", new LookingGlass_Fermi(this));
+            LookingGlassNetwork.AddPlugin("combat", new LookingGlass_Heisenberg(this));
 
             subsystemManager.AddSubsystem("autopilot", AutopilotSubsystem);
             subsystemManager.AddSubsystem("intel", IntelSubsystem);
@@ -60,8 +60,6 @@ namespace IngameScript
             subsystemManager.AddSubsystem("agent", AgentSubsystem);
             subsystemManager.AddSubsystem("scanner", ScannerSubsystem);
             subsystemManager.AddSubsystem("lookingglass", LookingGlassNetwork);
-            subsystemManager.AddSubsystem("torpedo", TorpedoSubsystem);
-            subsystemManager.AddSubsystem("loader", CombatLoaderSubsystem);
 
             subsystemManager.DeserializeManager(Storage);
         }
@@ -131,7 +129,7 @@ namespace IngameScript
             }
         }
 
-        class LookingGlass_Fermi : ILookingGlassPlugin
+        class LookingGlass_Heisenberg : ILookingGlassPlugin
         {
             public LookingGlassNetworkSubsystem Host { get; set; }
 
@@ -147,24 +145,10 @@ namespace IngameScript
 
             public void Do6(TimeSpan localTime)
             {
-                if (closestEnemyToCursorID != -1)
-                {
-                    HostProgram.IntelSubsystem.SetPriority(closestEnemyToCursorID, 1);
-                    FeedbackOnTarget = true;
-                }
             }
 
             public void Do5(TimeSpan localTime)
             {
-                if (HostProgram.TorpedoSubsystem.TorpedoTubeGroups.ContainsKey("SM"))
-                {
-                    if (FireTorpedoAtCursorTarget("SM", localTime))
-                    {
-                        FeedbackOnTarget = true;
-                        return;
-                    }
-                }
-                FeedbackText = "NOT LOADED";
             }
 
             public void Do3(TimeSpan localTime)
@@ -173,11 +157,6 @@ namespace IngameScript
                 {
                     CAPMode = 1;
                     HostProgram.TaskGenerator.HornetAttackTask.Mode = 1;
-                }
-                else if (CAPMode == 1)
-                {
-                    HostProgram.TaskGenerator.HornetAttackTask.Mode = 0;
-                    CAPMode = 3;
                 }
                 else
                 {
@@ -216,7 +195,7 @@ namespace IngameScript
                 }
             }
 
-            public LookingGlass_Fermi(Program program)
+            public LookingGlass_Heisenberg(Program program)
             {
                 HostProgram = program;
             }

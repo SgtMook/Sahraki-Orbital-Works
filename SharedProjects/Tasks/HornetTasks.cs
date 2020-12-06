@@ -46,7 +46,7 @@ namespace IngameScript
         IMonitorSubsystem MonitorSubsystem;
         IIntelProvider IntelProvider;
 
-        HornetAttackTask HornetAttackTask;
+        public HornetAttackTask HornetAttackTask;
 
         public HornetAttackTaskGenerator(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider)
         {
@@ -110,7 +110,7 @@ namespace IngameScript
 
                 double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation).Length();
 
-                if (enemyIntel.ID == IntelKey.Item2) dist -= 600;
+                if (IntelKey.Item1 == IntelItemType.Enemy && enemyIntel.ID != IntelKey.Item2 && FocusedTarget) continue;
 
                 if (enemyIntel.CubeSize == MyCubeSize.Small) dist -= 300;
                 if (IntelProvider.GetPriority(enemyIntel.ID) == 3) dist -= 600;
@@ -168,21 +168,32 @@ namespace IngameScript
                 var CurrentAccelerationPreviousFrame = Vector3D.TransformNormal(Acceleration, MatrixD.Transpose(LastReference));
 
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
-                var velocityAdjust = linearVelocity + (accelerationAdjust) * 0.5;
+                var velocityAdjust = linearVelocity + (accelerationAdjust) * 0.2;
 
-                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(enemyVelocityAdjust - velocityAdjust, shootIntel.GetPositionFromCanonicalTime(canonicalTime) + enemyVelocityAdjust * 0.32 - (controller.WorldMatrix.Translation + velocityAdjust * 0.25), CombatSystem.ProjectileSpeed);
+                Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(enemyVelocityAdjust - velocityAdjust, shootIntel.GetPositionFromCanonicalTime(canonicalTime) + enemyVelocityAdjust * 0.32 - (controller.WorldMatrix.Translation), CombatSystem.ProjectileSpeed);
 
                 LastAcceleration = linearVelocity - LastLinearVelocity;
                 LeadTask.Destination.Direction = relativeAttackPoint;
                 if ((controller.WorldMatrix.Translation - targetPosition).Length() < CombatSystem.FireDist && VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < CombatSystem.FireTolerance) CombatSystem.Fire();
 
                 Vector3D dirTargetToMe = controller.WorldMatrix.Translation - targetPosition;
-                Vector3D dirTargetToOrbitTarget = Vector3D.Cross(dirTargetToMe, controller.WorldMatrix.Up);
-                dirTargetToOrbitTarget.Normalize();
+                var distTargetToMe = dirTargetToMe.Length();
                 dirTargetToMe.Normalize();
-                LeadTask.Destination.DirectionUp = Math.Sin(CombatSystem.EngageTheta) * controller.WorldMatrix.Right + Math.Cos(CombatSystem.EngageTheta) * controller.WorldMatrix.Up;
-                LeadTask.Destination.Position = targetPosition + orbitIntel.GetVelocity() + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
-                LeadTask.Destination.Velocity = orbitIntel.GetVelocity() * 0.5;
+
+                if (Mode == 0)
+                {
+                    Vector3D dirTargetToOrbitTarget = Vector3D.Cross(dirTargetToMe, controller.WorldMatrix.Up);
+                    dirTargetToOrbitTarget.Normalize();
+
+                    LeadTask.Destination.DirectionUp = Math.Sin(CombatSystem.EngageTheta) * controller.WorldMatrix.Right + Math.Cos(CombatSystem.EngageTheta) * controller.WorldMatrix.Up;
+                    LeadTask.Destination.Position = targetPosition + orbitIntel.GetVelocity() + dirTargetToMe * CombatSystem.EngageDist + dirTargetToOrbitTarget * 200;
+                    LeadTask.Destination.Velocity = orbitIntel.GetVelocity() * 0.5;
+                }
+                else if (Mode == 2)
+                {
+                    LeadTask.Destination.Position = targetPosition + dirTargetToMe * (CombatSystem.EngageDist + (CombatSystem.EngageDist - distTargetToMe));
+                    LeadTask.Destination.Velocity = orbitIntel.GetVelocity();
+                }
 
                 LastReference = controller.WorldMatrix;
                 LastEnemyVelocity = shootIntel.GetVelocity();
@@ -196,6 +207,18 @@ namespace IngameScript
                 LeadTask.Destination.Velocity = Vector3D.Zero;
             }
 
+            if (Mode == 1)
+            {
+                LeadTask.Destination.Position = Vector3D.Zero;
+                LeadTask.Destination.Velocity = Vector3D.Zero;
+
+                if (shootIntel == null)
+                {
+                    LeadTask.Destination.Direction = Vector3D.Zero;
+                    LeadTask.Destination.DirectionUp = Vector3D.Zero;
+                }
+            }
+
             LastLinearVelocity = linearVelocity;
             if (LeadTask.Status == TaskStatus.Incomplete) LeadTask.Do(IntelItems, canonicalTime, profiler);
         }
@@ -203,6 +226,7 @@ namespace IngameScript
         void GoHome(TimeSpan canonicalTime)
         {
             AgentSubsystem.AddTask(TaskType.Dock, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Enqueue, 0, canonicalTime);
+            Autopilot.Clear();
             Status = TaskStatus.Complete;
         }
 
@@ -230,6 +254,9 @@ namespace IngameScript
         float PatrolMaxSpeed = 98;
 
         public bool Attack = true;
+
+        public int Mode = 0; // 0 - standard, 1 - aim only, 2 - kite
+        public bool FocusedTarget = false;
 
         public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider)
         {
