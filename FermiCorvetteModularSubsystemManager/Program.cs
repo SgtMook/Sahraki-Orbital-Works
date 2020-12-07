@@ -133,8 +133,7 @@ namespace IngameScript
 
             public void Do4(TimeSpan localTime)
             {
-                var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 10000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
-                HostProgram.ScannerSubsystem.TryScanTarget(pos, localTime);
+                HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, localTime);
             }
 
             public void Do7(TimeSpan localTime)
