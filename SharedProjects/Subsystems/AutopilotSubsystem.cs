@@ -77,6 +77,7 @@ namespace IngameScript
 
             currentMaxSpeed = MaxCruiseSpeed;
 
+            // Force JIT Compilation
             Vector3D AutopilotMoveIndicator;
             GetMovementVectors(targetPosition, controller, reference, thrusts[0], currentMaxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
             SetThrusterPowers();
@@ -274,12 +275,17 @@ namespace IngameScript
         bool tActive = true;
         bool rActive = true;
 
+        // Translation PID - FAR
         float TP = 2;
         float TI = 0.08f;
         float TD = 3;
+        
+        // Translation PID - NEAR
         float TP2 = 2f;
         float TI2 = 0.08f;
         float TD2 = 2;
+
+        // Rotation PID Values
         float RP = 5;
         float RI = 0.2f;
         float RD = 2;
@@ -400,7 +406,8 @@ namespace IngameScript
         {
             if (reference == null) return;
             Vector3D AutopilotMoveIndicator = Vector3.Zero;
-            if (targetPosition != Vector3D.Zero || targetDrift != Vector3D.Zero) GetMovementVectors(targetPosition, controller, reference, thrusts[0], currentMaxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
+            if (targetPosition != Vector3D.Zero || targetDrift != Vector3D.Zero) 
+                GetMovementVectors(targetPosition, controller, reference, thrusts[0], currentMaxSpeed, out AutopilotMoveIndicator, ref DTranslate, ref ITranslate);
             if (AutopilotMoveIndicator == Vector3.Zero)
             {
                 controller.DampenersOverride = true;
@@ -423,22 +430,25 @@ namespace IngameScript
             double yawAngle = 0, pitchAngle = 0, spinAngle = 0;
             if (targetDirection != Vector3.Zero || targetUp != Vector3.Zero)
             {
-                if (targetDirection != Vector3.Zero) GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
+                if (targetDirection != Vector3.Zero) 
+                    GetRotationAngles(targetDirection, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
                 if (targetUp != Vector3.Zero)
                 {
                     var projectedTargetUp = targetUp - reference.WorldMatrix.Forward.Dot(targetUp) * reference.WorldMatrix.Forward;
                     spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(targetUp));
                 }
 
-                if (DYaw == 0) DYaw = yawAngle;
-                if (DPitch == 0) DPitch = pitchAngle;
+                if (DYaw == 0) 
+                    DYaw = yawAngle;
+                if (DPitch == 0) 
+                    DPitch = pitchAngle;
 
                 IYaw += yawAngle * kRunEveryXUpdates;
                 IPitch += pitchAngle * kRunEveryXUpdates;
-                if (IYaw > 1) IYaw = 1;
-                if (IYaw < -1) IYaw = -1;
-                if (IPitch > 1) IPitch = 1;
-                if (IPitch < -1) IPitch = -1;
+
+                // no point in trying to spin over 180 deg in a direction.
+                IYaw = MathHelper.Clamp(IYaw, -1.0, 1.0);
+                IPitch = MathHelper.Clamp(IPitch, -1.0, 1.0);
 
                 ApplyGyroOverride(pitchAngle * RP + (pitchAngle - DPitch) * RD * kInverseTimeStep + IPitch * RI, yawAngle * RP + (yawAngle - DYaw) * RD * kInverseTimeStep + IYaw * RI, spinAngle * RP, gyros, reference);
             }
@@ -499,7 +509,8 @@ namespace IngameScript
 
         void ApplyGyroOverride(double pitch_speed, double yaw_speed, double roll_speed, List<IMyGyro> gyro_list, IMyTerminalBlock reference)
         {
-            if (reference == null) return;
+            if (reference == null) 
+                return;
             var rotationVec = new Vector3D(-pitch_speed, yaw_speed, roll_speed); //because keen does some weird stuff with signs
             var shipMatrix = reference.WorldMatrix;
             var relativeRotationVec = Vector3D.TransformNormal(rotationVec, shipMatrix);
@@ -539,7 +550,8 @@ namespace IngameScript
             }
 
             Vector3D adjustVector = currentVelocity - targetDrift - VectorHelpers.VectorProjection(currentVelocity - targetDrift, desiredVelocity - targetDrift);
-            if (adjustVector.Length() < (currentVelocity - targetDrift).Length() * 0.1) adjustVector = Vector3.Zero;
+            if (adjustVector.Length() < (currentVelocity - targetDrift).Length() * 0.1) 
+                adjustVector = Vector3.Zero;
 
             Vector3D Error = (desiredVelocity - currentVelocity - adjustVector * 1) * 60 / (aMax * kRunEveryXUpdates);
 
@@ -547,7 +559,8 @@ namespace IngameScript
             float kI = TI;
             float kD = TD;
 
-            if (Error.LengthSquared() > 1) Error.Normalize();
+            if (Error.LengthSquared() > 1) 
+                Error.Normalize();
             else
             {
                 kP = TP2;
@@ -555,17 +568,24 @@ namespace IngameScript
                 kD = TD2;
             }
 
-            if (D == Vector3.Zero) D = Error;
+            if (D == Vector3.Zero) 
+                D = Error;
 
             AutopilotMoveIndicator = kP * Error + kD * (Error - D) * kInverseTimeStep + kI * I;
-            if (distance < 10 && speed < 10) AutopilotMoveIndicator *= 0.5f;
 
-            if (AutopilotMoveIndicator.Length() > 1) AutopilotMoveIndicator /= AutopilotMoveIndicator.Length();
+            // decrease speed when close and slow
+            if (distance < 10 && speed < 10) 
+                AutopilotMoveIndicator *= 0.5f;
+
+            if (AutopilotMoveIndicator.Length() > 1) 
+                AutopilotMoveIndicator /= AutopilotMoveIndicator.Length();
 
             I += Error * kRunEveryXUpdates;
-            if (I.Length() > 5) I *= 5 / I.Length();
+            if (I.Length() > 5) 
+                I *= 5 / I.Length();
             D = Error;
 
+            // if close enough, stop.
             if (targetDrift == Vector3D.Zero && distance < 0.25f && speed < 0.25f)
             {
                 targetPosition = Vector3.Zero;

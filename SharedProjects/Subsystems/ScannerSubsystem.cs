@@ -16,6 +16,7 @@ using VRage.Game.ObjectBuilders.Definitions;
 using VRage.Game;
 using VRage;
 using VRageMath;
+using VRage.GameServices;
 
 namespace IngameScript
 {
@@ -49,7 +50,8 @@ namespace IngameScript
             ProgramReference = programReference;
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
-            if (!WCAPI.Activate(program.Me)) WCAPI = null;
+            if (!WCAPI.Activate(program.Me)) 
+                WCAPI = null;
             GetParts();
         }
 
@@ -59,40 +61,9 @@ namespace IngameScript
             if (runs % 10 == 0)
             {
                 TryScan(timestamp);
-                if (Designator != null) UpdateDesignator(timestamp);
-                UpdateHardLock1();
-            } else if (runs % 10 == 1)
-            {
-                UpdateHardLock2(timestamp);
-            }
-        }
-
-        void UpdateHardLock1()
-        {
-            WCTargetVelocityScratchpad.Clear();
-            foreach(var target in WCHardlockTargets.Values)
-            {
-                if (target.GetPosition() == Vector3D.Zero) continue;
-                WCTargetVelocityScratchpad.Add(target.EntityId, target.GetPosition());
-            }
-        }
-
-        void UpdateHardLock2(TimeSpan timestamp)
-        {
-            var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
-            foreach (var target in WCHardlockTargets.Values)
-            {
-                var velocity = (target.GetPosition() - WCTargetVelocityScratchpad[target.EntityId]) * 60;
-                IFleetIntelligence intel;
-                var intelKey = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
-                if (!intelItems.TryGetValue(intelKey, out intel))
-                {
-                    intel = new EnemyShipIntel();
-                }
-
-                ((EnemyShipIntel)intel).FromCubeGrid(target, timestamp + IntelProvider.CanonicalTimeDiff, velocity);
-                IntelProvider.ReportFleetIntelligence(intel, timestamp);
-            }
+                if (Designator != null) 
+                    UpdateDesignator(timestamp);
+            } 
         }
 
         #endregion
@@ -111,14 +82,11 @@ namespace IngameScript
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
         List<IMyTerminalBlock> WCTurrets = new List<IMyTerminalBlock>();
 
-        Dictionary<IMyEntity, float> GetThreatsScratchpad = new Dictionary<IMyEntity, float>();
+        Dictionary<MyDetectedEntityInfo, float> GetThreatsScratchpad = new Dictionary<MyDetectedEntityInfo, float>();
 
         StringBuilder debugBuilder = new StringBuilder();
 
         WcPbApi WCAPI = new WcPbApi();
-
-        public Dictionary<long, IMyCubeGrid> WCHardlockTargets = new Dictionary<long, IMyCubeGrid>();
-        Dictionary<long, Vector3D> WCTargetVelocityScratchpad = new Dictionary<long, Vector3D>();
 
         int ScanExtent;
         float ScanScatter;
@@ -146,12 +114,17 @@ namespace IngameScript
 
         bool GetTurrets(IMyTerminalBlock block)
         {
-            if (!ProgramReference.IsSameConstructAs(block)) return false;
+            if (!ProgramReference.IsSameConstructAs(block)) 
+                return false;
+            
             if (block is IMyLargeTurretBase)
             {
-                if (WCAPI != null && WCAPI.HasCoreWeapon(block)) WCTurrets.Add(block);
-                else Turrets.Add((IMyLargeTurretBase)block);
+                if (WCAPI != null && WCAPI.HasCoreWeapon(block)) 
+                    WCTurrets.Add(block);
+                else 
+                    Turrets.Add((IMyLargeTurretBase)block);
             }
+
             return false;
         }
 
@@ -185,16 +158,20 @@ namespace IngameScript
             var canonicalTime = localTime + IntelProvider.CanonicalTimeDiff;
             foreach (var kvp in intelItems)
             {
-                if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
-                if (WCHardlockTargets.ContainsKey(kvp.Key.Item2)) continue; // Don't scan hardlocked targets
+                if (kvp.Key.Item1 != IntelItemType.Enemy) 
+                    continue;
                 EnemyShipIntel enemy = (EnemyShipIntel)kvp.Value;
 
                 int priority = IntelProvider.GetPriority(kvp.Key.Item2);
-                if (priority < 1) continue;
+                if (priority < 1) 
+                    continue;
 
-                if (!EnemyShipIntel.PrioritizeTarget(enemy)) continue;
-                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.1) > canonicalTime) continue;
-                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime && priority < 4) continue;
+                if (!EnemyShipIntel.PrioritizeTarget(enemy)) 
+                    continue;
+                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.1) > canonicalTime) 
+                    continue;
+                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime && priority < 4) 
+                    continue;
 
                 Vector3D targetPosition = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
 
@@ -204,66 +181,61 @@ namespace IngameScript
 
             var intelDict = IntelProvider.GetFleetIntelligences(localTime);
 
-            foreach (var turret in Turrets)
-            {
-                if (!turret.HasTarget) continue;
-                var target = turret.GetTargetedEntity();
-                if (target.IsEmpty()) continue;
-                if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid) continue;
-                if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) continue;
-
-                if (WCHardlockTargets.ContainsKey(target.EntityId)) continue; // Don't scan hardlocked targets
-                var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
-                var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-                TargetIntel.ID = target.EntityId;
-
-                if (TargetIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) < canonicalTime)
-                {
-                    TryScanTarget(target.Position, localTime, TargetIntel);
-                }
-            }
-
-            debugBuilder.Clear();
-
-            // WC only
+            // WC only...
             if (WCAPI != null)
             {
-                //GetThreatsScratchpad.Clear();
-                //WCAPI.GetSortedThreats(ProgramReference.CubeGrid, GetThreatsScratchpad);
-                //
-                //foreach (var enemy in GetThreatsScratchpad.Keys)
-                //{
-                //    if (enemy is IMyCubeGrid && !WCHardlockTargets.ContainsKey(enemy.EntityId))
-                //    {
-                //        var enemyGrid = (IMyCubeGrid)enemy;
-                //        WCHardlockTargets.Add(enemyGrid.EntityId, enemyGrid);
-                //    }
-                //}
+                GetThreatsScratchpad.Clear();
+                WCAPI.GetSortedThreats(ProgramReference, GetThreatsScratchpad);
 
-                foreach (var turret in WCTurrets)
+                foreach (var target in GetThreatsScratchpad.Keys)
                 {
-                    var turretTarget = WCAPI.GetWeaponTarget(turret);
-                    if (turretTarget is IMyFunctionalBlock)
-                    {
-                        var targetBlock = (IMyFunctionalBlock)turretTarget;
-                        if (!WCHardlockTargets.ContainsKey(targetBlock.CubeGrid.EntityId))
-                            WCHardlockTargets.Add(targetBlock.CubeGrid.EntityId, targetBlock.CubeGrid);
-
-                        if (turretTarget is IMyWarhead)
-                        {
-                            ((IMyWarhead)turretTarget).Detonate();
-                        }
-                    }
+                    TryAddEnemyShipIntel(intelDict, localTime, canonicalTime, target);
                 }
             }
-        }
+            else
+            {
+                foreach (var turret in Turrets)
+                {
+                    if (!turret.HasTarget) 
+                        continue;
 
+                    var target = turret.GetTargetedEntity();
+
+                    TryAddEnemyShipIntel(intelDict, localTime, canonicalTime, target);
+                }
+            }
+            debugBuilder.Clear();
+        }
+        public void TryAddEnemyShipIntel( Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelDict, TimeSpan localTime, TimeSpan canonicalTime, MyDetectedEntityInfo target )
+        {
+            if (target.IsEmpty())
+                return;
+            if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid)
+                return;
+            if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies)
+                return;
+
+            var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
+            IFleetIntelligence TargetIntel = null;
+            if (!intelDict.TryGetValue(key, out TargetIntel))
+            {
+                TargetIntel = new EnemyShipIntel();
+            }
+            EnemyShipIntel enemyIntel = (EnemyShipIntel)TargetIntel;
+
+            enemyIntel.ID = target.EntityId;
+            if (enemyIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) < canonicalTime)
+            {
+                TryScanTarget(target.Position, localTime, enemyIntel);
+            }
+        }
         public void TryScanTarget(Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy = null)
         {
             var scanned = false;
             var offsetDist = 0d;
             var random = new Random();
-            if (enemy == null) enemy = new EnemyShipIntel();
+            if (enemy == null) 
+                enemy = new EnemyShipIntel();
             else offsetDist = enemy.Radius * ScanScatter;
             Vector3D offset;
             int scanCount = 0;
@@ -326,12 +298,20 @@ namespace IngameScript
             var cameraDist = cameraToTarget.Length();
             cameraToTarget.Normalize();
 
-            if (!camera.CanScan(cameraDist + this.ScanExtent)) return TryScanResults.CannotScan;
+            
+            if (!camera.CanScan(cameraDist + this.ScanExtent)) 
+                return TryScanResults.CannotScan;
+
             var cameraFinalPosition = cameraToTarget * (cameraDist + this.ScanExtent) + camera.WorldMatrix.Translation;
-            if (!camera.CanScan(targetPosition)) return TryScanResults.CannotScan;
+           
+            if (!camera.CanScan(targetPosition)) 
+                return TryScanResults.CannotScan;
 
             var info = camera.Raycast(cameraFinalPosition);
-            if (info.EntityId == 0 || (enemy.ID != 0 && info.EntityId != enemy.ID)) return TryScanResults.Missed;
+           
+            if (info.EntityId == 0 || (enemy.ID != 0 && info.EntityId != enemy.ID)) 
+                return TryScanResults.Missed;
+
             enemy.FromDetectedInfo(info, localTime + intelProvider.CanonicalTimeDiff, true);
             intelProvider.ReportFleetIntelligence(enemy, localTime);
             return TryScanResults.Scanned;
@@ -341,8 +321,13 @@ namespace IngameScript
         {
             if (Designator == null) return;
             var designateInfo = Designator.Raycast(10000);
-            if (designateInfo.Type != MyDetectedEntityType.LargeGrid && designateInfo.Type != MyDetectedEntityType.SmallGrid) return;
-            if (designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies && designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Neutral) return;
+           
+            if (designateInfo.Type != MyDetectedEntityType.LargeGrid && designateInfo.Type != MyDetectedEntityType.SmallGrid) 
+                return;
+
+            if (designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies && designateInfo.Relationship != MyRelationsBetweenPlayerAndBlock.Neutral) 
+                return;
+
             var intelDict = IntelProvider.GetFleetIntelligences(localTime);
             var key = MyTuple.Create(IntelItemType.Enemy, designateInfo.EntityId);
             var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();

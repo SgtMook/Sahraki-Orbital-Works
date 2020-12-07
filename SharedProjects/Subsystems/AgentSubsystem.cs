@@ -203,6 +203,8 @@ namespace IngameScript
                 if ((1 << i & (int)taskGenerator.AcceptedTypes) != 0)
                     TaskGenerators[(TaskType)(1 << i)] = taskGenerator;
             }
+
+            // JIT?
             taskGenerator.GenerateTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>(), TimeSpan.Zero, 0);
         }
 
