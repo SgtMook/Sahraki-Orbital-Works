@@ -1,4 +1,4 @@
-﻿using Sandbox.Game.EntityComponents;
+using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI.Ingame;
 using Sandbox.ModAPI.Interfaces;
 using SpaceEngineers.Game.ModAPI.Ingame;
@@ -32,6 +32,7 @@ namespace IngameScript
         public ScannerNetworkSubsystem ScannerSubsystem;
         public TorpedoSubsystem TorpedoSubsystem;
         public CombatLoaderSubsystem CombatLoaderSubsystem;
+        public HornetAttackTaskGenerator TaskGenerator;
 
         public Program()
         {
@@ -39,12 +40,15 @@ namespace IngameScript
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             AutopilotSubsystem = new AutopilotSubsystem();
+            AutopilotSubsystem.Persist = true;
             IntelSubsystem = new IntelSubsystem();
             CombatSubsystem = new HornetCombatSubsystem(IntelSubsystem);
             LookingGlassNetwork = new LookingGlassNetworkSubsystem(IntelSubsystem, "LG", false, false);
             AgentSubsystem = new AgentSubsystem(IntelSubsystem, AgentClass.None);
             TorpedoSubsystem = new TorpedoSubsystem(IntelSubsystem);
-            AgentSubsystem.AddTaskGenerator(new HornetAttackTaskGenerator(this, CombatSubsystem, AutopilotSubsystem, AgentSubsystem, null, IntelSubsystem));
+            TaskGenerator = new HornetAttackTaskGenerator(this, CombatSubsystem, AutopilotSubsystem, AgentSubsystem, null, IntelSubsystem);
+            AgentSubsystem.AddTaskGenerator(TaskGenerator);
+            TaskGenerator.HornetAttackTask.FocusedTarget = true;
             CombatLoaderSubsystem = new CombatLoaderSubsystem("Fermi Cargo", "Combat Supplies");
 
             ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
@@ -165,31 +169,21 @@ namespace IngameScript
 
             public void Do3(TimeSpan localTime)
             {
-                if (CAPOn)
+                if (CAPMode == 0)
                 {
-                    CAPOn = false;
-                    HostProgram.AgentSubsystem.AddTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Override, 0, TimeSpan.Zero);
-                    HostProgram.AutopilotSubsystem.Clear();
+                    CAPMode = 1;
+                    HostProgram.TaskGenerator.HornetAttackTask.Mode = 1;
+                }
+                else if (CAPMode == 1)
+                {
+                    HostProgram.TaskGenerator.HornetAttackTask.Mode = 0;
+                    CAPMode = 3;
                 }
                 else
                 {
-                    CAPOn = true;
-                    if (closestEnemyToCursorID != -1)
-                    {
-                        HostProgram.AgentSubsystem.AddTask(TaskType.Attack, MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID), CommandType.Override, 0,
-                            localTime + HostProgram.IntelSubsystem.CanonicalTimeDiff);
-                    }
-                    else
-                    {
-                        Waypoint waypoint = new Waypoint();
-                        waypoint.Position = HostProgram.AutopilotSubsystem.Controller.WorldMatrix.Translation + HostProgram.AutopilotSubsystem.Controller.WorldMatrix.Forward * 1000;
-                        waypoint.Name = "Fermi Engaging";
-
-                        HostProgram.IntelSubsystem.ReportFleetIntelligence(waypoint, localTime);
-
-                        HostProgram.AgentSubsystem.AddTask(TaskType.Attack, MyTuple.Create(IntelItemType.Waypoint, waypoint.ID), CommandType.Override, 0,
-                            localTime + HostProgram.IntelSubsystem.CanonicalTimeDiff);
-                    }
+                    CAPMode = 0;
+                    HostProgram.AgentSubsystem.AddTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Override, 0, TimeSpan.Zero);
+                    HostProgram.AutopilotSubsystem.Clear();
                 }
             }
 
@@ -209,11 +203,16 @@ namespace IngameScript
 
             public void UpdateState(TimeSpan localTime)
             {
-                if (HostProgram.AgentSubsystem.TaskQueue.Count < 0 && CAPOn)
+                if (CAPMode != 0)
                 {
-                    CAPOn = false;
-                    HostProgram.AgentSubsystem.AddTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Override, 0, TimeSpan.Zero);
-                    HostProgram.AutopilotSubsystem.Clear();
+                    if (HostProgram.AgentSubsystem.TaskQueue.Count == 0)
+                    {
+                        if (closestEnemyToCursorID != -1)
+                        {
+                            HostProgram.AgentSubsystem.AddTask(TaskType.Attack, MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID), CommandType.Override, 0,
+                                localTime + HostProgram.IntelSubsystem.CanonicalTimeDiff);
+                        }
+                    }
                 }
             }
 
@@ -234,7 +233,7 @@ namespace IngameScript
             Program HostProgram;
 
             bool HUDPromptOK = false;
-            bool CAPOn = false;
+            int CAPMode = 0; // 0 - off, 1 - aim, 2 - kite, 3 - standard
 
             int LastInventoryUpdate = 0;
 
@@ -258,13 +257,14 @@ namespace IngameScript
                     Builder.AppendLine();
                     Builder.AppendLine("1 - FIRE WEAPON");
                     Builder.AppendLine("2 - CAMERA");
-                    Builder.AppendLine("3 - CAP ON/OFF");
+                    Builder.AppendLine("3 - COMBAT AUTOP.");
                     Builder.AppendLine("4 - RAYCAST");
                     Builder.AppendLine("5 - FIRE MISSILE");
                     Builder.AppendLine("6 - CONFIRM KILL");
                     Builder.AppendLine("7 - JUMP");
                     Builder.AppendLine("8 - RELOAD AMMO/");
                     Builder.AppendLine("    TORPEDOES");
+                    Builder.AppendLine();
                     Builder.AppendLine(" ===== BAR 3 ===== ");
                     Builder.AppendLine();
                     Builder.AppendLine("1 - WELDERS ON/OFF");
@@ -402,7 +402,8 @@ namespace IngameScript
 
                 Builder.Clear();
 
-                if (CAPOn) FeedbackText = "CAP ONLINE - 3 OFF";
+                if (CAPMode == 1) FeedbackText = "CAP ON - AIM MODE - 3 FULL";
+                else if(CAPMode == 3) FeedbackText = "CAP ON - FULL MODE - 3 OFF";
                 else FeedbackText = string.Empty;
 
                 foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)

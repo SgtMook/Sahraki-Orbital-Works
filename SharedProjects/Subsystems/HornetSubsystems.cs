@@ -23,6 +23,7 @@ namespace IngameScript
     // Condor compatible
     public class HornetCombatSubsystem : ISubsystem, IOwnIntelMutator
     {
+        WcPbApi WCAPI = new WcPbApi();
         #region ISubsystem
         public UpdateFrequency UpdateFrequency => UpdateFrequency.Update10;
 
@@ -50,6 +51,7 @@ namespace IngameScript
             ProgramReference = programReference;
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
+            if (!WCAPI.Activate(program.Me)) WCAPI = null;
             IntelProvider.AddIntelMutator(this);
             GetParts();
             ParseConfigs();
@@ -214,11 +216,13 @@ namespace IngameScript
                 {
                     gun.Enabled = true;
                     TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
+                    if (WCAPI != null) WCAPI.ToggleWeaponFire(gun, true, true);
                 }
                 foreach (var launcher in Launchers)
                 {
                     launcher.Enabled = true;
                     TerminalPropertiesHelper.SetValue(launcher, "Shoot", true);
+                    if (WCAPI != null) WCAPI.ToggleWeaponFire(launcher, true, true);
                 }
             }
             fireCounter = 3;
@@ -226,8 +230,16 @@ namespace IngameScript
 
         public void HoldFire()
         {
-            foreach (var gun in Guns) TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
-            foreach (var launcher in Launchers) TerminalPropertiesHelper.SetValue(launcher, "Shoot", false);
+            foreach (var gun in Guns)
+            {
+                TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
+                if (WCAPI != null) WCAPI.ToggleWeaponFire(gun, false, true);
+            }
+            foreach (var launcher in Launchers)
+            {
+                TerminalPropertiesHelper.SetValue(launcher, "Shoot", false);
+                if (WCAPI != null) WCAPI.ToggleWeaponFire(launcher, false, true);
+            }
             fireCounter = -1;
         }
 
