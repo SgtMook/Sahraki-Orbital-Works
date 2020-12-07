@@ -1,4 +1,4 @@
-using Sandbox.Game.EntityComponents;
+﻿using Sandbox.Game.EntityComponents;
 using Sandbox.ModAPI.Ingame;
 using Sandbox.ModAPI.Interfaces;
 using SpaceEngineers.Game.ModAPI.Ingame;
@@ -52,7 +52,7 @@ namespace IngameScript
             CombatLoaderSubsystem = new CombatLoaderSubsystem("Fermi Cargo", "Combat Supplies");
 
             ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
-            LookingGlassNetwork.AddPlugin("combat", new LookingGlass_Fermi(this));
+            LookingGlassNetwork.AddPlugin("combat", new LookingGlass_Heisenberg(this));
 
             subsystemManager.AddSubsystem("autopilot", AutopilotSubsystem);
             subsystemManager.AddSubsystem("intel", IntelSubsystem);
@@ -60,8 +60,6 @@ namespace IngameScript
             subsystemManager.AddSubsystem("agent", AgentSubsystem);
             subsystemManager.AddSubsystem("scanner", ScannerSubsystem);
             subsystemManager.AddSubsystem("lookingglass", LookingGlassNetwork);
-            subsystemManager.AddSubsystem("torpedo", TorpedoSubsystem);
-            subsystemManager.AddSubsystem("loader", CombatLoaderSubsystem);
 
             subsystemManager.DeserializeManager(Storage);
         }
@@ -131,13 +129,14 @@ namespace IngameScript
             }
         }
 
-        class LookingGlass_Fermi : ILookingGlassPlugin
+        class LookingGlass_Heisenberg : ILookingGlassPlugin
         {
             public LookingGlassNetworkSubsystem Host { get; set; }
 
             public void Do4(TimeSpan localTime)
             {
-                HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, localTime);
+                var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 10000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
+                HostProgram.ScannerSubsystem.TryScanTarget(pos, localTime);
             }
 
             public void Do7(TimeSpan localTime)
@@ -146,24 +145,10 @@ namespace IngameScript
 
             public void Do6(TimeSpan localTime)
             {
-                if (closestEnemyToCursorID != -1)
-                {
-                    HostProgram.IntelSubsystem.SetPriority(closestEnemyToCursorID, 1);
-                    FeedbackOnTarget = true;
-                }
             }
 
             public void Do5(TimeSpan localTime)
             {
-                if (HostProgram.TorpedoSubsystem.TorpedoTubeGroups.ContainsKey("SM"))
-                {
-                    if (FireTorpedoAtCursorTarget("SM", localTime))
-                    {
-                        FeedbackOnTarget = true;
-                        return;
-                    }
-                }
-                FeedbackText = "NOT LOADED";
             }
 
             public void Do3(TimeSpan localTime)
@@ -172,11 +157,6 @@ namespace IngameScript
                 {
                     CAPMode = 1;
                     HostProgram.TaskGenerator.HornetAttackTask.Mode = 1;
-                }
-                else if (CAPMode == 1)
-                {
-                    HostProgram.TaskGenerator.HornetAttackTask.Mode = 0;
-                    CAPMode = 3;
                 }
                 else
                 {
@@ -215,7 +195,7 @@ namespace IngameScript
                 }
             }
 
-            public LookingGlass_Fermi(Program program)
+            public LookingGlass_Heisenberg(Program program)
             {
                 HostProgram = program;
             }
@@ -370,6 +350,10 @@ namespace IngameScript
                     else if (intel.IntelItemType == IntelItemType.Enemy)
                     {
                         LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.None;
+                        if (HostProgram.ScannerSubsystem.WCHardlockTargets.ContainsKey(intel.ID))
+                        {
+                            options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
+                        }
 
                         if (!EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)intel) || Host.IntelProvider.GetPriority(intel.ID) < 2)
                         {
@@ -380,9 +364,8 @@ namespace IngameScript
                         {
                             if (intel.ID == closestEnemyToCursorID)
                             {
-                                options |= LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
-                                if (FeedbackOnTarget) 
-                                    options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
+                                options |= LookingGlass.IntelSpriteOptions.ShowDist| LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
+                                if (FeedbackOnTarget) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
                                 options |= LookingGlass.IntelSpriteOptions.ShowTruncatedName;
                             }
 

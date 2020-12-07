@@ -1870,12 +1870,15 @@ namespace IngameScript
 
             Builder.Clear();
 
-            foreach (var kvp in TorpedoSubsystem.TorpedoTubeGroups)
+            if (TorpedoSubsystem != null)
             {
-                int ready = kvp.Value.NumReady;
-                int total = kvp.Value.Children.Count();
-                Builder.Append("[").Append('|', ready).Append('-', total - ready).Append(']');
-                Builder.AppendLine();
+                foreach (var kvp in TorpedoSubsystem.TorpedoTubeGroups)
+                {
+                    int ready = kvp.Value.NumReady;
+                    int total = kvp.Value.Children.Count();
+                    Builder.Append("[").Append('|', ready).Append('-', total - ready).Append(']');
+                    Builder.AppendLine();
+                }
             }
 
             foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)

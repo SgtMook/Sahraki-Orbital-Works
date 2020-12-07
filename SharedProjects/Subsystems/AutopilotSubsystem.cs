@@ -49,6 +49,7 @@ namespace IngameScript
         int run = 0;
         int kRunEveryXUpdates = 5;
         float kInverseTimeStep;
+        public bool Persist = false;
 
         #region ISubsystem
         public void Command(TimeSpan timestamp, string command, object argument)
@@ -166,6 +167,7 @@ namespace IngameScript
         }
         public bool AtWaypoint(Waypoint w)
         {
+            if (Persist) return false;
             if (w.Position != Vector3.One && w.Position != Vector3.Zero)
             {
                 var speed = (float)(controller.GetShipVelocities().LinearVelocity - w.Velocity).Length();
@@ -452,12 +454,19 @@ namespace IngameScript
             }
 
 
-            if (Math.Abs(yawAngle) < 0.01f && Math.Abs(pitchAngle) < 0.01f && Math.Abs(spinAngle) < 0.01f)
+            if (!Persist && Math.Abs(yawAngle) < 0.01f && Math.Abs(pitchAngle) < 0.01f && Math.Abs(spinAngle) < 0.01f)
             {
                 targetDirection = Vector3.Zero;
                 targetUp = Vector3.Zero;
-                ClearGyros();
             }
+
+            if (targetDirection == Vector3.Zero && targetUp == Vector3.Zero) ClearGyros();
+        }
+
+        Vector3D ParseGPS(string s)
+        {
+            var split = s.Split(':');
+            return new Vector3(float.Parse(split[2]), float.Parse(split[3]), float.Parse(split[4]));
         }
 
         void ClearGyros()
@@ -469,12 +478,6 @@ namespace IngameScript
                 gyro.Roll = 0;
                 gyro.GyroOverride = false;
             }
-        }
-
-        Vector3D ParseGPS(string s)
-        {
-            var split = s.Split(':');
-            return new Vector3(float.Parse(split[2]), float.Parse(split[3]), float.Parse(split[4]));
         }
 
         void GetRotationAngles(Vector3D v_target, Vector3D v_front, Vector3D v_left, Vector3D v_up, out double yaw, out double pitch)

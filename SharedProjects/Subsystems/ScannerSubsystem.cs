@@ -69,7 +69,6 @@ namespace IngameScript
             } 
         }
 
-
         #endregion
         MyGridProgram Program;
         IIntelProvider IntelProvider;

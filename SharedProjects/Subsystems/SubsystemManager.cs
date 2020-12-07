@@ -98,7 +98,8 @@ namespace IngameScript
         {
             if (OutputMode == OutputMode.Profile) 
                 profiler.StartSectionWatch("Reset");
-            foreach (var kvp in Subsystems) kvp.Value.Setup(Program, kvp.Key);
+            foreach (var kvp in Subsystems) 
+                kvp.Value.Setup(Program, kvp.Key, ProgramReference);
             if (OutputMode == OutputMode.Profile) 
                 profiler.StopSectionWatch("Reset");
         }
