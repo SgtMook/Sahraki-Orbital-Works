@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>12ef10ea-9b88-483f-aa83-70b64811e9af</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>SharedProjects</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\DRMSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\HoneybeeSubsystems.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\HornetSubsystems.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\HummingbirdControlSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\AutopilotSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\AgentSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\HangarSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\CombatLoaderSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\InventoryManagerSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\AutoAimSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\StatusIndicatorSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\MonitorSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\ScannerSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\DockingSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\IntelSubsystems.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\LookingGlassSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\TextCommandSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\TorpedoSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Tasks\HoneybeeTasks.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Tasks\HornetTasks.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\GridTerminalHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\Raven.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\Hornet.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\LicenseHasher.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\AttackHelpers.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\HoverEngineDriver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\PEC.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\AtmoDrive.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\WCAPI.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\TriskelionDrive.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\PID.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\Profiler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\Tasks.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\FleetIntelligence.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\Hummingbird.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\TerminalPropertiesHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\MyStringReader.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\ISubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\SubsystemManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\ThrusterManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\TrigHelpers.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\VectorHelpers.cs" />
+  </ItemGroup>
+</Project>

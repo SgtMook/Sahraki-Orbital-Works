@@ -4,10 +4,10 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{C0BF6A7E-E4A7-4CE5-BCCA-0BF8F5542793}</ProjectGuid>
+    <ProjectGuid>{E18E0EDE-4E3D-49CF-B1AA-2B822278F54D}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>IngameScript</RootNamespace>
-    <AssemblyName>FermiCorvetteModularSubsystemManager</AssemblyName>
+    <AssemblyName>LocustBomberDrone</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -39,6 +39,8 @@
   <Import Project="MDK/MDK.options.props" />
   <Import Project="MDK/MDK.paths.props" Condition="exists('MDK/MDK.paths.props')" />
   <ItemGroup>
+    <Compile Include="LocustTasks.cs" />
+    <Compile Include="LocustSubsystems.cs" />
     <Compile Include="MDK\Bootstrapper.cs" />
     <AdditionalFiles Include="MDK\MDK.options.props">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -51,9 +53,7 @@
     <AdditionalFiles Include="thumb.png" />
     <AdditionalFiles Include="MDK\whitelist.cache" />
   </ItemGroup>
-  <Import Project="..\SharedProjects\Subsystems\Subsystems.projitems" Label="Shared" />
-  <Import Project="..\SharedProjects\Tasks\Tasks.projitems" Label="Shared" />
-  <Import Project="..\SharedProjects\Utility\Utility.projitems" Label="Shared" />
+  <Import Project="..\..\SharedProjects\SharedProjects.projitems" Label="Shared" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="AfterBuild">
     <Copy SourceFiles="MDK\MDK.options.props" DestinationFolder="$(TargetDir)\MDK" />

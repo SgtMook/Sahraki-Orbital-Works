@@ -1,0 +1,124 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29613.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0CD9106A-C337-4093-84BF-DB7DF918B59F}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		..\PascalHeavyMinerModularSubsystemManager\PascalHeavyMinerModularSubsystemManager.csproj = ..\PascalHeavyMinerModularSubsystemManager\PascalHeavyMinerModularSubsystemManager.csproj
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InventoryManager", "..\InventoryManager\InventoryManager.csproj", "{3D4E7DFE-9C39-44DE-BEFA-E197191168AD}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "SharedProjects", "..\SharedProjects\SharedProjects.shproj", "{12EF10EA-9B88-483F-AA83-70B64811E9AF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandShipModularSystemManager", "..\CommandShipModularSystemManager\CommandShipModularSystemManager.csproj", "{E7DE1F96-17D1-4220-B5C2-9581AED1A6F7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DragonflyCommandDrone", "..\SlaveShipModularSystemManager\DragonflyCommandDrone.csproj", "{70C361CF-0E80-4055-806D-248EF0B022DB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SlaveDroneModularSystemManager", "..\SlaveDroneModularSystemManager\SlaveDroneModularSystemManager.csproj", "{2E7321B6-2FD7-4A3C-819E-4AB1FC9BAD86}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HornetCombatDrone", "..\HornetCombatDrone\HornetCombatDrone.csproj", "{8D4DB9BC-0BD6-4B20-BBB1-C17C924D7984}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocustBomberDrone", "LocustBomberDrone\LocustBomberDrone.csproj", "{E18E0EDE-4E3D-49CF-B1AA-2B822278F54D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HoneybeeMinerDrone", "HoneybeeMinerDrone\HoneybeeMinerDrone.csproj", "{21D1E24D-F1B4-4078-97C2-0D554C8C16E9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Failsafe", "..\Failsafe\Failsafe.csproj", "{F8A3F564-6773-4EAB-8ED8-165DA1FDDB37}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DroneFleetUplink", "..\DroneFleetUplink\DroneFleetUplink.csproj", "{1023A8CB-5D16-499E-9D7C-3F547E160D40}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TorpedoDesignHelper", "..\TorpedoDesignHelper\TorpedoDesignHelper.csproj", "{831F9648-398D-4CAC-8937-DC4D4DB51B4E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ECMModule", "..\ECMModule\ECMModule.csproj", "{1952D777-ECB7-4DB8-A07D-9A5D1D3752D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HummingbirdCommandModularSystemManager", "..\HummingbirdCommandModularSubsystemManager\HummingbirdCommandModularSystemManager.csproj", "{F64AC661-A74C-40FC-85DE-6B944ACFE43A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PoIMarker", "..\PoIMarker\PoIMarker.csproj", "{0A425C31-C27C-4CF4-B17F-73006E569844}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FermiCorvetteModularSubsystemManager", "..\FermiCorvetteModularSubsystemManager\FermiCorvetteModularSubsystemManager.csproj", "{C0BF6A7E-E4A7-4CE5-BCCA-0BF8F5542793}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PascalHeavyMinerModularSubsystemManager", "..\PascalHeavyMinerModularSubsystemManager\PascalHeavyMinerModularSubsystemManager.csproj", "{195332F7-C60B-48C1-930F-CCC516698133}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MissileBatteryMSM", "..\MissileBatteryMSM\MissileBatteryMSM.csproj", "{D02F10A6-EEDA-45E2-9E37-40247EC6EBC4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HeisenbergModularSubsystemManager", "..\HeisenbergModularSubsystemManager\HeisenbergModularSubsystemManager.csproj", "{57419806-32CB-4F6E-B3F8-2DAFAE01F75E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RavenDrone", "..\RavenDrone\RavenDrone.csproj", "{C30FEF71-AECF-44B3-A1AB-042F75FEFDB5}"
+EndProject
+Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		..\SharedProjects\SharedProjects.projitems*{0a425c31-c27c-4cf4-b17f-73006e569844}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{1023a8cb-5d16-499e-9d7c-3f547e160d40}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{12ef10ea-9b88-483f-aa83-70b64811e9af}*SharedItemsImports = 13
+		..\SharedProjects\SharedProjects.projitems*{1952d777-ecb7-4db8-a07d-9a5d1d3752d0}*SharedItemsImports = 4
+		..\SharedProjects\Subsystems\Subsystems.projitems*{195332f7-c60b-48c1-930f-ccc516698133}*SharedItemsImports = 4
+		..\SharedProjects\Tasks\Tasks.projitems*{195332f7-c60b-48c1-930f-ccc516698133}*SharedItemsImports = 4
+		..\SharedProjects\Utility\Utility.projitems*{195332f7-c60b-48c1-930f-ccc516698133}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{21d1e24d-f1b4-4078-97c2-0d554c8c16e9}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{2e7321b6-2fd7-4a3c-819e-4ab1fc9bad86}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{57419806-32cb-4f6e-b3f8-2dafae01f75e}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{70c361cf-0e80-4055-806d-248ef0b022db}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{831f9648-398d-4cac-8937-dc4d4db51b4e}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{8d4db9bc-0bd6-4b20-bbb1-c17c924d7984}*SharedItemsImports = 4
+		..\SharedProjects\Subsystems\Subsystems.projitems*{c0bf6a7e-e4a7-4ce5-bcca-0bf8f5542793}*SharedItemsImports = 4
+		..\SharedProjects\Tasks\Tasks.projitems*{c0bf6a7e-e4a7-4ce5-bcca-0bf8f5542793}*SharedItemsImports = 4
+		..\SharedProjects\Utility\Utility.projitems*{c0bf6a7e-e4a7-4ce5-bcca-0bf8f5542793}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{c30fef71-aecf-44b3-a1ab-042f75fefdb5}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{d02f10a6-eeda-45e2-9e37-40247ec6ebc4}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{e18e0ede-4e3d-49cf-b1aa-2b822278f54d}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{e7de1f96-17d1-4220-b5c2-9581aed1a6f7}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
+	EndGlobalSection
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3D4E7DFE-9C39-44DE-BEFA-E197191168AD}.Debug|x64.ActiveCfg = Debug|x64
+		{3D4E7DFE-9C39-44DE-BEFA-E197191168AD}.Debug|x64.Build.0 = Debug|x64
+		{E7DE1F96-17D1-4220-B5C2-9581AED1A6F7}.Debug|x64.ActiveCfg = Debug|x64
+		{E7DE1F96-17D1-4220-B5C2-9581AED1A6F7}.Debug|x64.Build.0 = Debug|x64
+		{70C361CF-0E80-4055-806D-248EF0B022DB}.Debug|x64.ActiveCfg = Debug|x64
+		{70C361CF-0E80-4055-806D-248EF0B022DB}.Debug|x64.Build.0 = Debug|x64
+		{2E7321B6-2FD7-4A3C-819E-4AB1FC9BAD86}.Debug|x64.ActiveCfg = Debug|x64
+		{2E7321B6-2FD7-4A3C-819E-4AB1FC9BAD86}.Debug|x64.Build.0 = Debug|x64
+		{8D4DB9BC-0BD6-4B20-BBB1-C17C924D7984}.Debug|x64.ActiveCfg = Debug|x64
+		{8D4DB9BC-0BD6-4B20-BBB1-C17C924D7984}.Debug|x64.Build.0 = Debug|x64
+		{E18E0EDE-4E3D-49CF-B1AA-2B822278F54D}.Debug|x64.ActiveCfg = Debug|x64
+		{E18E0EDE-4E3D-49CF-B1AA-2B822278F54D}.Debug|x64.Build.0 = Debug|x64
+		{21D1E24D-F1B4-4078-97C2-0D554C8C16E9}.Debug|x64.ActiveCfg = Debug|x64
+		{21D1E24D-F1B4-4078-97C2-0D554C8C16E9}.Debug|x64.Build.0 = Debug|x64
+		{F8A3F564-6773-4EAB-8ED8-165DA1FDDB37}.Debug|x64.ActiveCfg = Debug|x64
+		{F8A3F564-6773-4EAB-8ED8-165DA1FDDB37}.Debug|x64.Build.0 = Debug|x64
+		{1023A8CB-5D16-499E-9D7C-3F547E160D40}.Debug|x64.ActiveCfg = Debug|x64
+		{1023A8CB-5D16-499E-9D7C-3F547E160D40}.Debug|x64.Build.0 = Debug|x64
+		{831F9648-398D-4CAC-8937-DC4D4DB51B4E}.Debug|x64.ActiveCfg = Debug|x64
+		{831F9648-398D-4CAC-8937-DC4D4DB51B4E}.Debug|x64.Build.0 = Debug|x64
+		{1952D777-ECB7-4DB8-A07D-9A5D1D3752D0}.Debug|x64.ActiveCfg = Debug|x64
+		{1952D777-ECB7-4DB8-A07D-9A5D1D3752D0}.Debug|x64.Build.0 = Debug|x64
+		{F64AC661-A74C-40FC-85DE-6B944ACFE43A}.Debug|x64.ActiveCfg = Debug|x64
+		{F64AC661-A74C-40FC-85DE-6B944ACFE43A}.Debug|x64.Build.0 = Debug|x64
+		{0A425C31-C27C-4CF4-B17F-73006E569844}.Debug|x64.ActiveCfg = Debug|x64
+		{0A425C31-C27C-4CF4-B17F-73006E569844}.Debug|x64.Build.0 = Debug|x64
+		{C0BF6A7E-E4A7-4CE5-BCCA-0BF8F5542793}.Debug|x64.ActiveCfg = Debug|x64
+		{C0BF6A7E-E4A7-4CE5-BCCA-0BF8F5542793}.Debug|x64.Build.0 = Debug|x64
+		{195332F7-C60B-48C1-930F-CCC516698133}.Debug|x64.ActiveCfg = Debug|x64
+		{195332F7-C60B-48C1-930F-CCC516698133}.Debug|x64.Build.0 = Debug|x64
+		{D02F10A6-EEDA-45E2-9E37-40247EC6EBC4}.Debug|x64.ActiveCfg = Debug|x64
+		{D02F10A6-EEDA-45E2-9E37-40247EC6EBC4}.Debug|x64.Build.0 = Debug|x64
+		{57419806-32CB-4F6E-B3F8-2DAFAE01F75E}.Debug|x64.ActiveCfg = Debug|x64
+		{57419806-32CB-4F6E-B3F8-2DAFAE01F75E}.Debug|x64.Build.0 = Debug|x64
+		{C30FEF71-AECF-44B3-A1AB-042F75FEFDB5}.Debug|x64.ActiveCfg = Debug|x64
+		{C30FEF71-AECF-44B3-A1AB-042F75FEFDB5}.Debug|x64.Build.0 = Debug|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E7DE1F96-17D1-4220-B5C2-9581AED1A6F7} = {0CD9106A-C337-4093-84BF-DB7DF918B59F}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C26038BA-FFC5-4D14-A3C3-96981693312D}
+	EndGlobalSection
+EndGlobal

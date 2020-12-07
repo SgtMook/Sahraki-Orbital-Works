@@ -10,3 +10,6 @@
 # Ignore bin dirs
 [Bb]in/
 [Oo]bj/
+[Pp]ackages/
+
+MDK.paths.props

@@ -1,0 +1,4 @@
+﻿[*.cs]
+
+# ProhibitedMemberRule: Prohibited Type Or Member
+dotnet_diagnostic.ProhibitedMemberRule.severity = none

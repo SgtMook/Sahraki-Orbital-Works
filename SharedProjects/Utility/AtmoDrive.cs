@@ -21,7 +21,7 @@ namespace IngameScript
 {
     public class AtmoDrive
     {
-        const float LateralThrustReserve = 0.25f;
+        const float LateralThrustReserve = 0.5f;
 
         // Arguments
         public Vector3D AimTarget = Vector3D.Zero;
