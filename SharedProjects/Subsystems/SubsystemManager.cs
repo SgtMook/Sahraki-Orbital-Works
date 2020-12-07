@@ -61,7 +61,8 @@ namespace IngameScript
             if (reference == null) ProgramReference = program.Me;
             Program = program;
             ParseConfigs();
-            if (OutputMode == OutputMode.Profile) profiler = new Profiler(program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
+            if (OutputMode == OutputMode.Profile) 
+                profiler = new Profiler(program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
 
             if (useDRM)
             {
@@ -81,8 +82,10 @@ namespace IngameScript
                 return;
 
             OutputMode mode;
-            if (Enum.TryParse(Parser.Get("Manager", "OutputMode").ToString(), out mode)) OutputMode = mode;
-            if (Parser.ContainsKey("Manager", "StartActive")) Active = Parser.Get("Manager", "StartActive").ToBoolean();
+            if (Enum.TryParse(Parser.Get("Manager", "OutputMode").ToString(), out mode)) 
+                OutputMode = mode;
+            if (Parser.ContainsKey("Manager", "StartActive")) 
+                Active = Parser.Get("Manager", "StartActive").ToBoolean();
         }
 
         public void AddSubsystem(string name, ISubsystem subsystem)
@@ -93,9 +96,12 @@ namespace IngameScript
 
         public void Reset()
         {
-            if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Reset");
-            foreach (var kvp in Subsystems) kvp.Value.Setup(Program, kvp.Key, ProgramReference);
-            if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch("Reset");
+            if (OutputMode == OutputMode.Profile) 
+                profiler.StartSectionWatch("Reset");
+            foreach (var kvp in Subsystems) 
+                kvp.Value.Setup(Program, kvp.Key, ProgramReference);
+            if (OutputMode == OutputMode.Profile) 
+                profiler.StopSectionWatch("Reset");
         }
 
         public void Activate()
@@ -214,7 +220,8 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            if (DRM != null && !DRM.LicenseOK) return string.Empty;
+            if (DRM != null && !DRM.LicenseOK) 
+                return string.Empty;
 
             StatusBuilder.Clear();
 
@@ -253,7 +260,8 @@ namespace IngameScript
         {
             if (subsystem == "manager")
             {
-                if (command == "reset") Reset();
+                if (command == "reset") 
+                    Reset();
                 if (command == "activate")
                 {
                     myName = (string)argument;

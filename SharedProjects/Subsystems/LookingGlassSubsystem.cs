@@ -569,7 +569,12 @@ namespace IngameScript
         {
             IMyCameraBlock usingCamera = SecondaryCameras[Lidar_CameraIndex];
 
-            LastDetectedInfo = usingCamera.Raycast(10000);
+            double distance = 10000;
+            if (usingCamera.RaycastDistanceLimit >= 0)
+            {
+                distance = Math.Min(distance, usingCamera.RaycastDistanceLimit);
+            }            
+            LastDetectedInfo = usingCamera.Raycast(distance);
 
             Lidar_CameraIndex += 1;
             if (Lidar_CameraIndex == SecondaryCameras.Count) Lidar_CameraIndex = 0;

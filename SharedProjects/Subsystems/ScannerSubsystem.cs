@@ -17,6 +17,8 @@ using VRage.Game;
 using VRage;
 using VRageMath;
 using VRage.GameServices;
+using System.Diagnostics;
+using VRage.Game.VisualScripting;
 
 namespace IngameScript
 {
@@ -36,7 +38,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return debugBuilder.ToString();
+            return debugBuilder.ToString();            
         }
 
         public string SerializeSubsystem()
@@ -53,6 +55,7 @@ namespace IngameScript
             if (!WCAPI.Activate(program.Me)) 
                 WCAPI = null;
             GetParts();
+            ParseConfigs();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -88,6 +91,7 @@ namespace IngameScript
 
         WcPbApi WCAPI = new WcPbApi();
 
+        double RaycastDistanceMax = 10000;
         int ScanExtent;
         float ScanScatter;
 
@@ -112,6 +116,17 @@ namespace IngameScript
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetCameras);
         }
 
+        void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+                return;
+
+            var val = Parser.Get("Scanner", "RaycastDistMax").ToDouble();
+            if (val != 0) RaycastDistanceMax = val;
+        }
+
         bool GetTurrets(IMyTerminalBlock block)
         {
             if (!ProgramReference.IsSameConstructAs(block)) 
@@ -130,8 +145,10 @@ namespace IngameScript
 
         bool GetCameras(IMyTerminalBlock block)
         {
-            if (!(block is IMyCameraBlock)) return false;
-            if (!(block.CustomName.StartsWith(TagPrefix))) return false;
+            if (!(block is IMyCameraBlock)) 
+                return false;
+            if (!(block.CustomName.StartsWith(TagPrefix))) 
+                return false;
 
             var camera = (IMyCameraBlock)block;
 
@@ -229,16 +246,34 @@ namespace IngameScript
                 TryScanTarget(target.Position, localTime, enemyIntel);
             }
         }
+        public void LookingGlassRaycast(IMyCameraBlock camera, TimeSpan localTime)
+        {
+            if (camera == null)
+                return;
+
+            double dist = RaycastDistanceMax;
+            if (camera.RaycastDistanceLimit >= 0)
+                dist = Math.Min(camera.RaycastDistanceLimit, dist);
+
+            // ScanExtent and 10.f are to avoid accidentally overflowing distance limitations later in processing and floating point error respectively.
+            dist -= ScanExtent + 10.0;
+
+//            debugBuilder.AppendLine("LGR D=" + dist.ToString() + " L=" + camera.RaycastDistanceLimit.ToString());
+            
+            var pos = camera.WorldMatrix.Forward * dist + camera.WorldMatrix.Translation;
+            TryScanTarget(pos, localTime);
+        }
         public void TryScanTarget(Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy = null)
         {
             var scanned = false;
-            var offsetDist = 0d;
+            double offsetDist = 0.0d;
             var random = new Random();
             if (enemy == null) 
                 enemy = new EnemyShipIntel();
-            else offsetDist = enemy.Radius * ScanScatter;
+            else 
+                offsetDist = enemy.Radius * ScanScatter;
+
             Vector3D offset;
-            int scanCount = 0;
 
             for (int i = 0; i < ScannerGroups.Count; i++)
             {
@@ -254,24 +289,37 @@ namespace IngameScript
                 }
             }
 
-            if (scanned) return;
+            if (scanned)
+                return;
 
+            int failures = 0;
             foreach (var camera in Cameras)
             {
-                if (!camera.IsWorking) continue;
+                if (!camera.IsWorking) 
+                    continue;
+
                 offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
                 var result = CameraTryScan(IntelProvider, camera, targetPosition + offset, localTime, enemy);
-                scanCount++;
-                if (result == TryScanResults.Missed)
+
+                bool terminate = true;
+                switch ( result )
                 {
-                    break; // Try again with camera arrays
+                    case TryScanResults.CannotScan:
+                        failures++;
+                        terminate = false;
+                        break;
+                    case TryScanResults.Missed:
+//                        debugBuilder.AppendLine("CTS R=" + result.ToString());
+                        break;
+                    case TryScanResults.Scanned:
+                        scanned = true;
+//                        debugBuilder.AppendLine("CTS R=" + result.ToString());
+                        break;
                 }
-                else if (result == TryScanResults.Scanned)
-                {
-                    scanned = true;
+                if (terminate)
                     break;
-                }
             }
+//            debugBuilder.AppendLine("CTS F=" + failures.ToString() + " T=" + Cameras.Count);
         }
 
         public void AddScannerGroup(ScannerGroup group)
@@ -296,19 +344,16 @@ namespace IngameScript
         {
             var cameraToTarget = targetPosition - camera.WorldMatrix.Translation;
             var cameraDist = cameraToTarget.Length();
-            cameraToTarget.Normalize();
 
-            
             if (!camera.CanScan(cameraDist + this.ScanExtent)) 
                 return TryScanResults.CannotScan;
-
-            var cameraFinalPosition = cameraToTarget * (cameraDist + this.ScanExtent) + camera.WorldMatrix.Translation;
            
             if (!camera.CanScan(targetPosition)) 
                 return TryScanResults.CannotScan;
 
+            cameraToTarget.Normalize();
+            var cameraFinalPosition = cameraToTarget * (cameraDist + this.ScanExtent) + camera.WorldMatrix.Translation;
             var info = camera.Raycast(cameraFinalPosition);
-           
             if (info.EntityId == 0 || (enemy.ID != 0 && info.EntityId != enemy.ID)) 
                 return TryScanResults.Missed;
 
@@ -320,7 +365,13 @@ namespace IngameScript
         void Designate(TimeSpan localTime)
         {
             if (Designator == null) return;
-            var designateInfo = Designator.Raycast(10000);
+            double distance = RaycastDistanceMax;
+            if (Designator.RaycastDistanceLimit >= 0)
+            {
+                distance = Math.Min(distance, Designator.RaycastDistanceLimit);
+            }
+
+            var designateInfo = Designator.Raycast(distance);
            
             if (designateInfo.Type != MyDetectedEntityType.LargeGrid && designateInfo.Type != MyDetectedEntityType.SmallGrid) 
                 return;

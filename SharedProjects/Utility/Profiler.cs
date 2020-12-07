@@ -65,7 +65,8 @@ namespace IngameScript
             AverageRuntime += (runtime - AverageRuntime) * NewValueFactor;
 
             HistoryRuntime.Enqueue(runtime);
-            if (HistoryRuntime.Count > HistoryMaxCount) HistoryRuntime.Dequeue();
+            if (HistoryRuntime.Count > HistoryMaxCount) 
+                HistoryRuntime.Dequeue();
             PeakRuntime = HistoryRuntime.Max();
         }
 
@@ -90,11 +91,8 @@ namespace IngameScript
         public void StartSectionWatch(string section)
         {
             SectionValues sectionValues;
-            if (AverageBreakdown.ContainsKey(section))
-            {
-                sectionValues = AverageBreakdown[section];
-            }
-            else
+ 
+            if (!AverageBreakdown.TryGetValue(section, out sectionValues))
             {
                 sectionValues = new SectionValues();
                 AverageBreakdown[section] = sectionValues;
@@ -105,10 +103,11 @@ namespace IngameScript
 
         public void StopSectionWatch(string section)
         {
+            long current = DateTime.Now.Ticks;
+
             SectionValues sectionValues;
             if (AverageBreakdown.TryGetValue(section, out sectionValues))
             {
-                long current = DateTime.Now.Ticks;
                 double runtime = (current - sectionValues.StartTicks) * 0.0001;
 
                 sectionValues.AccumulatedCount++;
