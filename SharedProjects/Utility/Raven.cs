@@ -29,7 +29,7 @@ namespace IngameScript
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
 
         MyGridProgram Program;
-        AtmoDrive Drive;
+        public AtmoDrive Drive;
 
         public Raven(IMyRemoteControl reference, MyGridProgram program)
         {
@@ -41,15 +41,20 @@ namespace IngameScript
         {
             Drive = new AtmoDrive(Controller);
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectBlock);
-            Drive.Initialize();
+            Drive.Setup(Program, "drive", Controller);
         }
 
         private bool CollectBlock(IMyTerminalBlock block)
         {
-            Drive.AddComponenet(block);
+            Drive.AddComponent(block);
             if (block is IMyLargeTurretBase) Turrets.Add((IMyLargeTurretBase)block);
             return false;
         }
+
+        Vector3D linearVelocity = Vector3D.Zero;
+        Vector3D LastLinearVelocity = Vector3D.Zero;
+        Vector3D LastAcceleration = Vector3D.Zero;
+        MatrixD LastReference = MatrixD.Zero;
 
         public void Update()
         {
@@ -63,12 +68,35 @@ namespace IngameScript
                     if (turret.HasTarget)
                     {
                         var target = turret.GetTargetedEntity();
-                        Drive.AimTarget = target.Position;
+                        var grav = Controller.GetNaturalGravity();
+                        grav.Normalize();
+
+                        var targetVel = target.Velocity;
+
+                        linearVelocity = Controller.GetShipVelocities().LinearVelocity;
+
+                        var Acceleration = linearVelocity - LastLinearVelocity;
+                        if (LastAcceleration == Vector3D.Zero) LastAcceleration = Acceleration;
+                        if (LastReference == MatrixD.Zero) LastReference = Controller.WorldMatrix;
+
+                        var CurrentAccelerationPreviousFrame = Vector3D.TransformNormal(Acceleration, MatrixD.Transpose(LastReference));
+
+                        var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, Controller.WorldMatrix);
+                        var velocityAdjust = linearVelocity + (accelerationAdjust) * 0.05;
+
+                        Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(targetVel - velocityAdjust, target.Position + targetVel * 0.05f - (Controller.WorldMatrix.Translation + velocityAdjust * 0.22), 400);
+
+                        Drive.Destination = target.Position - grav * 100 + Controller.WorldMatrix.Left * 500;
+                        Drive.AimTarget = relativeAttackPoint + Controller.GetPosition();
+
+                        LastAcceleration = linearVelocity - LastLinearVelocity;
+                        LastReference = Controller.WorldMatrix;
+                        LastLinearVelocity = linearVelocity;
                         break;
                     }
                 }
-                Drive.Update();
             }
+            Drive.Update(TimeSpan.Zero, UpdateFrequency.Update1);
         }
 
         public string GetStatus()

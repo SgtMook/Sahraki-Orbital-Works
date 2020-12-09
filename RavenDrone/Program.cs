@@ -47,6 +47,11 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
+            if (!string.IsNullOrEmpty(argument))
+            {
+                MyRaven.Drive.SetDest(argument);
+            }
+
             MyRaven.Update();
             Echo(MyRaven.GetStatus());
         }
