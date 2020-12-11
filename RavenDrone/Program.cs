@@ -32,7 +32,6 @@ namespace IngameScript
             GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectBlocks);
 
             MyRaven = new Raven(RemoteControl, this);
-            MyRaven.Initialize();
         }
 
         private bool CollectBlocks(IMyTerminalBlock block)
@@ -51,9 +50,19 @@ namespace IngameScript
             {
                 MyRaven.Drive.SetDest(argument);
             }
-
-            MyRaven.Update();
-            Echo(MyRaven.GetStatus());
+            try
+            {
+                MyRaven.Update(updateSource);
+                Echo(MyRaven.GetStatus());
+            }
+            catch (Exception e)
+            {
+                Me.GetSurface(0).WriteText(e.StackTrace);
+                Me.GetSurface(0).WriteText("\n");
+                Me.GetSurface(0).WriteText(e.Message, true);
+                Me.GetSurface(0).WriteText("\n");
+                Me.GetSurface(0).WriteText(MyRaven.GetStatus(), true);
+            }
         }
     }
 }

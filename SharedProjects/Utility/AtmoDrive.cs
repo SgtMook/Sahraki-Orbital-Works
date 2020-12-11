@@ -23,7 +23,7 @@ namespace IngameScript
         Dictionary<Base6Directions.Direction, List<IMyThrust>> Thrusters = new Dictionary<Base6Directions.Direction, List<IMyThrust>>();
         Dictionary<Base6Directions.Direction, SmartThrustManager> ThrusterManagers = new Dictionary<Base6Directions.Direction, SmartThrustManager>();
 
-        public void AddComponent(IMyTerminalBlock block)
+        public bool AddComponent(IMyTerminalBlock block)
         {
             // TODO: Add block to whatever stores
             if (block is IMyGyro) Gyros.Add((IMyGyro)block);
@@ -34,6 +34,8 @@ namespace IngameScript
                 if (!Thrusters.ContainsKey(relativeDirection)) Thrusters[relativeDirection] = new List<IMyThrust>();
                 Thrusters[relativeDirection].Add(thruster);
             }
+
+            return false;
         }
 
         public Vector3D ParseGPS(string s)
@@ -71,7 +73,22 @@ namespace IngameScript
 
         public IMyShipController Controller {get; set;}
 
-        public IMyTerminalBlock Reference { get; set; }
+        IMyTerminalBlock reference;
+
+        public IMyTerminalBlock Reference
+        {
+            get
+            {
+                return reference;
+            }
+            set
+            {
+                if (value != null)
+                    reference = value;
+                else
+                    reference = Controller;
+            }
+        }
 
         public float CruiseSpeed { get; set; }
 
@@ -83,6 +100,7 @@ namespace IngameScript
 
         public void Setup(MyGridProgram program, string name, IMyTerminalBlock reference = null)
         {
+            program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, AddComponent);
             // Set MaxDownThrust and MaxLateralThrust accordingly
             foreach (var kvp in Thrusters)
             {
@@ -352,6 +370,9 @@ namespace IngameScript
 
         public bool AtWaypoint(Waypoint w)
         {
+            StatusBuilder.AppendLine((Controller == null).ToString());
+            StatusBuilder.AppendLine((w == null).ToString());
+            StatusBuilder.AppendLine((Reference == null).ToString());
             if (w.Position != Vector3.One && w.Position != Vector3.Zero)
             {
                 var speed = (float)(Controller.GetShipVelocities().LinearVelocity - w.Velocity).Length();
