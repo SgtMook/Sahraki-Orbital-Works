@@ -213,7 +213,7 @@ namespace IngameScript
         }
 
         readonly IAutopilot Autopilot;
-        readonly MyGridProgram Program;
+//        readonly MyGridProgram Program; // warning CS0169: The field 'UndockFirstTaskGenerator.Program' is never used
         readonly IDockingSubsystem DockingSubsystem;
 
         CompoundTask CompoundTask = new CompoundTask();
