@@ -19,6 +19,93 @@ using VRageMath;
 
 namespace IngameScript
 {
+    public class SmartThrustManager
+    {
+        public float MaxThrust { get { return CumulativeThrust[OrderedThrusters.Count]; }}
+
+        // For example, if we have an atmo thruster with 20 thrust and a hydrogen thruster with 30 thrust:
+        // OrderedThrusters should be [AtmoThruster, HydrogenThruster]
+        // CumulativeThrust should be [0, 20, 50]
+        List<IMyThrust> OrderedThrusters = new List<IMyThrust>();
+        List<float> CumulativeThrust = new List<float>();
+
+        int currentLastThruster = 0;
+        float currentThrust = 0;
+
+        public SmartThrustManager(List<IMyThrust> Thrusters)
+        {
+            // Insert thrusters in the order atmo > ion > hydrogen
+            // We want to use atmo thrusters before hydrogen.
+            float cumThrust = 0;
+            CumulativeThrust.Add(0);
+            foreach (var Thruster in Thrusters)
+            {
+                Thruster.ThrustOverride = 0;
+                if (Thruster.BlockDefinition.SubtypeId.Contains("Atmospheric"))
+                {
+                    OrderedThrusters.Add(Thruster);
+                    cumThrust += Thruster.MaxEffectiveThrust;
+                    CumulativeThrust.Add(cumThrust);
+                }
+            }
+
+            foreach (var Thruster in Thrusters)
+            {
+                if (!Thruster.BlockDefinition.SubtypeId.Contains("Atmospheric") && !Thruster.BlockDefinition.SubtypeId.Contains("Hydrogen"))
+                {
+                    OrderedThrusters.Add(Thruster);
+                    cumThrust += Thruster.MaxEffectiveThrust;
+                    CumulativeThrust.Add(cumThrust);
+                }
+            }
+
+            foreach (var Thruster in Thrusters)
+            {
+                if (Thruster.BlockDefinition.SubtypeId.Contains("Hydrogen"))
+                {
+                    OrderedThrusters.Add(Thruster);
+                    cumThrust += Thruster.MaxEffectiveThrust;
+                    CumulativeThrust.Add(cumThrust);
+                }
+            }
+        }
+
+        public void SetThrust(float TargetThrust)
+        {
+            if (TargetThrust < 0) TargetThrust = 0;
+            if (currentThrust == TargetThrust) return;
+            int newLastThruster = 0;
+            if (TargetThrust > CumulativeThrust[OrderedThrusters.Count])
+                TargetThrust = CumulativeThrust[OrderedThrusters.Count];
+            for (int i = 0; i < OrderedThrusters.Count; i++)
+            {
+                if (TargetThrust > CumulativeThrust[i + 1] && i >= currentLastThruster)
+                {
+                    OrderedThrusters[i].ThrustOverridePercentage = 1;
+                }
+                else if (TargetThrust < CumulativeThrust[i] && i <= currentLastThruster)
+                {
+                    OrderedThrusters[i].ThrustOverride = 0;
+                }
+                else
+                {
+                    OrderedThrusters[i].ThrustOverride = TargetThrust - CumulativeThrust[i];
+                    newLastThruster = i;
+                }
+            }
+
+            currentLastThruster = newLastThruster;
+            currentThrust = TargetThrust;
+        }
+
+        public void RecalculateThrust()
+        {
+            for (int i = 0; i < OrderedThrusters.Count; i++)
+            {
+                CumulativeThrust[i] = CumulativeThrust[i - 1] + OrderedThrusters[i].MaxEffectiveThrust;
+            }
+        }
+    }
 
     public class ThrusterManager
     {

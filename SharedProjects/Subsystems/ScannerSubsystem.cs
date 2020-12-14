@@ -206,7 +206,7 @@ namespace IngameScript
 
                 foreach (var target in GetThreatsScratchpad.Keys)
                 {
-                    TryAddEnemyShipIntel(intelDict, localTime, canonicalTime, target);
+                    TryAddEnemyShipIntel(intelDict, localTime, canonicalTime, target, true);
                 }
             }
             else
@@ -223,7 +223,7 @@ namespace IngameScript
             }
             debugBuilder.Clear();
         }
-        public void TryAddEnemyShipIntel( Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelDict, TimeSpan localTime, TimeSpan canonicalTime, MyDetectedEntityInfo target )
+        public void TryAddEnemyShipIntel(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelDict, TimeSpan localTime, TimeSpan canonicalTime, MyDetectedEntityInfo target, bool validated = false)
         {
             if (target.IsEmpty())
                 return;
@@ -241,9 +241,16 @@ namespace IngameScript
             EnemyShipIntel enemyIntel = (EnemyShipIntel)TargetIntel;
 
             enemyIntel.ID = target.EntityId;
+
             if (enemyIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) < canonicalTime)
             {
-                TryScanTarget(target.Position, localTime, enemyIntel);
+                if (validated)
+                {
+                    enemyIntel.FromDetectedInfo(target, canonicalTime, true);
+                    IntelProvider.ReportFleetIntelligence(enemyIntel, localTime);
+                }
+                else
+                    TryScanTarget(target.Position, localTime, enemyIntel);
             }
         }
         public void LookingGlassRaycast(IMyCameraBlock camera, TimeSpan localTime)

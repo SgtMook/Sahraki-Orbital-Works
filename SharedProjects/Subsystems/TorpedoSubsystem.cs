@@ -170,7 +170,15 @@ namespace IngameScript
                         {
                             TorpedoScratchpad.Add(torp);
                             torp.Detonate();
-                        } 
+                        }
+                        else if (torp.Fuse != null)
+                        {
+                            if (torp.Fuse.CubeGrid == null || !torp.Fuse.CubeGrid.CubeExists(torp.Fuse.Position))
+                            {
+                                TorpedoScratchpad.Add(torp);
+                                torp.Detonate();
+                            }
+                        }
                         else if (torp.Cameras.Count > 0)
                         {
                             for (int i = 0; i < torp.Cameras.Count; i++)
@@ -326,6 +334,8 @@ namespace IngameScript
 
         public HashSet<Torpedo> SubTorpedos = new HashSet<Torpedo>();
 
+        public IMyTerminalBlock Fuse;
+
         GyroControl gyroControl;
 
         PDController yawController = new PDController(DEF_PD_P_GAIN, DEF_PD_D_GAIN, 6);
@@ -336,7 +346,7 @@ namespace IngameScript
         public bool Reserve = false;
         public TimeSpan ReserveTime;
         public bool Disabled = false;
-        public EnemyShipIntel Target = null;
+        public IFleetIntelligence Target = null;
 
         double lastSpeed;
         Vector3D lastTargetVelocity;
@@ -355,16 +365,18 @@ namespace IngameScript
 
         public bool AddPart(IMyTerminalBlock block)
         {
-            if (block is IMyShipController) { Controller = (IMyShipController)block; return true; }
-            if (block is IMyGyro) { Gyros.Add((IMyGyro)block); return true; }
-            if (block is IMyCameraBlock) { var camera = (IMyCameraBlock)block; Cameras.Add(camera); camera.EnableRaycast = true; float.TryParse(camera.CustomData, out CameraExtends[Cameras.Count]); return true; }
-            if (block is IMySensorBlock) { Sensor = (IMySensorBlock)block; return true; }
-            if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); ((IMyThrust)block).Enabled = false ; return true; }
-            if (block is IMyWarhead) { Warheads.Add((IMyWarhead)block); return true; }
-            if (block is IMyShipMergeBlock) { Splitters.Add((IMyShipMergeBlock)block); return true; }
-            if (block is IMyBatteryBlock) { Batteries.Add((IMyBatteryBlock)block); ((IMyBatteryBlock)block).Enabled = false; return true; }
-            if (block is IMyGasTank) { Tanks.Add((IMyGasTank)block); return true; }
-            return false;
+            bool part = false;
+            if (block.CustomName.Contains("[F]")) { Fuse = block; part = true; }
+            if (block is IMyShipController) { Controller = (IMyShipController)block; part = true; }
+            if (block is IMyGyro) { Gyros.Add((IMyGyro)block); part = true; }
+            if (block is IMyCameraBlock) { var camera = (IMyCameraBlock)block; Cameras.Add(camera); camera.EnableRaycast = true; float.TryParse(camera.CustomData, out CameraExtends[Cameras.Count]); part = true; }
+            if (block is IMySensorBlock) { Sensor = (IMySensorBlock)block; part = true; }
+            if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); ((IMyThrust)block).Enabled = false ; part = true; }
+            if (block is IMyWarhead) { Warheads.Add((IMyWarhead)block); part = true; }
+            if (block is IMyShipMergeBlock) { Splitters.Add((IMyShipMergeBlock)block); part = true; }
+            if (block is IMyBatteryBlock) { Batteries.Add((IMyBatteryBlock)block); ((IMyBatteryBlock)block).Enabled = false; part = true; }
+            if (block is IMyGasTank) { Tanks.Add((IMyGasTank)block); part = true; }
+            return part;
         }
 
         public void Init(TimeSpan CanonicalTime)
@@ -553,7 +565,7 @@ namespace IngameScript
             }
 
             var linearVelocity = Controller.GetShipVelocities().LinearVelocity;
-            Vector3D velocityVector = Target.CurrentVelocity - linearVelocity;
+            Vector3D velocityVector = Target.GetVelocity() - linearVelocity;
             var speed = Controller.GetShipSpeed();
 
             if (linearVelocity.Dot(ref rangeVector) > 0)
@@ -562,7 +574,7 @@ namespace IngameScript
                 Vector3D compensateVector = velocityVector - (velocityVector.Dot(ref rangeVector) * rangeDivSqVector);
 
                 Vector3D targetANVector;
-                var targetAccel = (lastTargetVelocity - Target.CurrentVelocity) * 0.16666666667;
+                var targetAccel = (lastTargetVelocity - Target.GetVelocity()) * 0.16666666667;
 
                 var grav = Controller.GetNaturalGravity();
                 targetANVector = targetAccel - grav - (targetAccel.Dot(ref rangeVector) * rangeDivSqVector);
@@ -581,7 +593,7 @@ namespace IngameScript
                 AccelerationVector = (rangeVector * 0.1) + velocityVector;
             }
 
-            lastTargetVelocity = Target.CurrentVelocity;
+            lastTargetVelocity = Target.GetVelocity();
             lastSpeed = speed;
 
             return Vector3D.TransformNormal(AccelerationVector, MatrixD.Transpose(Controller.WorldMatrix));
