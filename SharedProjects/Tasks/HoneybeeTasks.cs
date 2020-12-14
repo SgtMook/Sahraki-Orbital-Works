@@ -311,7 +311,7 @@ namespace IngameScript
         IAgentSubsystem AgentSubsystem;
         IMonitorSubsystem MonitorSubsystem;
         IDockingSubsystem DockingSubsystem;
-        MyTuple<IntelItemType, long> IntelKey;
+        //        MyTuple<IntelItemType, long> IntelKey; // warning CS0169: The field 'HoneybeeMiningTask.IntelKey' is never used
         AsteroidIntel Host;
         Vector3D EntryPoint;
         Vector3D ExitPoint;

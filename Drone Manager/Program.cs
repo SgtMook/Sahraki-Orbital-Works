@@ -200,7 +200,7 @@ namespace IngameScript
         List<int> surfaceIndices = new List<int>();
 
         // Setup and utility
-        bool isSetup = false;
+        //        bool isSetup = false; //warning CS0414: The field 'Program.isSetup' is assigned but its value is never used
         StringBuilder setupBuilder = new StringBuilder();
         StringBuilder echoBuilder = new StringBuilder();
         MyCommandLine commandLine = new MyCommandLine();

@@ -9,6 +9,7 @@
     <Import_RootNamespace>IngameScript</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AtmoDrive.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)AttackHelpers.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FleetIntelligence.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)GridTerminalHelper.cs" />
@@ -20,6 +21,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)PEC.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PID.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Profiler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Raven.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Tasks.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TerminalPropertiesHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ThrusterManager.cs" />

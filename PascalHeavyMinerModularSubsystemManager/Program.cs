@@ -156,7 +156,7 @@ namespace IngameScript
             long closestEnemyToCursorID = -1;
 
             string FeedbackText = string.Empty;
-            bool FeedbackOnTarget = false;
+            //            bool FeedbackOnTarget = false; // warning CS0414: The field 'Program.LookingGlass_Pascal.FeedbackOnTarget' is assigned but its value is never used
 
             Program HostProgram;
 
@@ -214,7 +214,7 @@ namespace IngameScript
                 }
 
                 FeedbackText = string.Empty;
-                FeedbackOnTarget = false;
+                //FeedbackOnTarget = false; // warning CS0414: The field 'Program.LookingGlass_Pascal.FeedbackOnTarget' is assigned but its value is never used
             }
         }
     }
