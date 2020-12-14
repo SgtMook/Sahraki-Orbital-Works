@@ -25,6 +25,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Subsystems\DockingSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Subsystems\IntelSubsystems.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Subsystems\LookingGlassSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Subsystems\TacMapSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Subsystems\TextCommandSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Subsystems\TorpedoSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Tasks\HoneybeeTasks.cs" />

@@ -89,5 +89,21 @@ namespace IngameScript
                 thisGyro.GyroOverride = true;
             }
         }
+
+        public static float DistanceToPlane(Plane plane, Vector3 point)
+        {
+            return plane.Normal.Dot(point) + plane.D;
+        }
+
+        public static bool PlaneIntersection(Plane plane, Vector3 rayPos, Vector3 rayNorm, out Vector3 result)
+        {
+            result = Vector3.Zero;
+            var a = plane.Normal.Dot(rayNorm);
+            if (a == 0)
+                return false; // parallel
+
+            result = rayPos - rayNorm * (DistanceToPlane(plane, rayPos) / a);
+            return true;
+        }
     }
 }

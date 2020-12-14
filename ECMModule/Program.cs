@@ -19,43 +19,47 @@ using VRageMath;
 
 namespace IngameScript
 {
+
     partial class Program : MyGridProgram
     {
-        IMyBroadcastListener Listener;
         public Program()
         {
-            Listener = IGC.RegisterBroadcastListener("ECMPROJECT");
-            Listener.SetMessageCallback("ECMPROJECT");
-            Runtime.UpdateFrequency = UpdateFrequency.Update10;
+            subsystemManager = new SubsystemManager(this, null, false);
+            Runtime.UpdateFrequency = UpdateFrequency.Update1;
+
+            // Add subsystems
+            // AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
+            TacMapSubsystem tacMapSubsystem = new TacMapSubsystem();
+
+            // subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
+            subsystemManager.AddSubsystem("tacmap", tacMapSubsystem);
+
+            subsystemManager.DeserializeManager(Storage);
         }
+
+        MyCommandLine commandLine = new MyCommandLine();
+
+        SubsystemManager subsystemManager;
 
         public void Save()
         {
+            string v = subsystemManager.SerializeManager();
+            Storage = v;
         }
 
         public void Main(string argument, UpdateType updateSource)
         {
-            int count = 0;
-            while (Listener.HasPendingMessage)
+            subsystemManager.UpdateTime();
+            if (commandLine.TryParse(argument))
             {
-                object data = Listener.AcceptMessage().Data;
-                if (data is MyTuple<Vector3D, Vector3D>)
-                {
-                    count++;
-                    MyTuple<Vector3D, Vector3D> targetTracksData = (MyTuple<Vector3D, Vector3D>)data;
-                    IGC.SendBroadcastMessage("IGCMSG_TR_TK", MyTuple.Create((long)0, (long)count, targetTracksData.Item1, targetTracksData.Item2, (double)500));
-                }
+                subsystemManager.Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
             }
-
-
-            Random rand = new Random();
-            //IGC.SendBroadcastMessage("IGCMSG_TR_TK", MyTuple.Create((long)0, (long)1, Me.WorldMatrix.Translation + new Vector3D(400, 0, 0), Vector3D.Zero, (double)500));
-            //IGC.SendBroadcastMessage("IGCMSG_TR_TK", MyTuple.Create((long)0, (long)2, Me.WorldMatrix.Translation + new Vector3D(-400, 0, 0), Vector3D.Zero, (double)500));
-            //IGC.SendBroadcastMessage("IGCMSG_TR_TK", MyTuple.Create((long)0, (long)3, Me.WorldMatrix.Translation + new Vector3D(0, 400, 0), Vector3D.Zero, (double)500));
-            //IGC.SendBroadcastMessage("IGCMSG_TR_TK", MyTuple.Create((long)0, (long)4, Me.WorldMatrix.Translation + new Vector3D(0, -400, 0), Vector3D.Zero, (double)500));
-            //IGC.SendBroadcastMessage("IGCMSG_TR_TK", MyTuple.Create((long)0, (long)5, Me.WorldMatrix.Translation + new Vector3D(0, 0, 400), Vector3D.Zero, (double)500));
-            //IGC.SendBroadcastMessage("IGCMSG_TR_TK", MyTuple.Create((long)0, (long)6, Me.WorldMatrix.Translation + new Vector3D(0, 0, -400), Vector3D.Zero, (double)500));
-            IGC.SendBroadcastMessage("IGCMSG_TR_TK", MyTuple.Create((long)0, (long)Me.CubeGrid.EntityId, Me.WorldMatrix.Translation, Vector3D.Zero, (double)1));
+            else
+            {
+                subsystemManager.Update(updateSource);
+                var s = subsystemManager.GetStatus();
+                if (!string.IsNullOrEmpty(s)) Echo(s);
+            }
         }
     }
 }
