@@ -4,6 +4,7 @@
 *.png
 *.suo
 *.user
+*.zip
 
 .vs/
 
