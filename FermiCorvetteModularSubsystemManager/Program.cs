@@ -297,26 +297,33 @@ namespace IngameScript
                         numTorpsReserve = Math.Min(numTorpsReserve, HostProgram.CombatLoaderSubsystem.TotalInventory[kvp.Key]/kvp.Value);
                     }
 
-                    int numTorpsLoaded = HostProgram.TorpedoSubsystem.TorpedoTubeGroups["SM"].NumReady;
-
-                    Builder.AppendLine();
-                    Builder.Append("[");
-                    for (int i = 1; i < 5; i++)
+                    if (HostProgram.TorpedoSubsystem.TorpedoTubeGroups.ContainsKey("SM"))
                     {
-                        Builder.Append(i <= numTorpsLoaded ? "^" : " ").Append(i < 4 ? '|' : ']');
-                    }
-                    Builder.Append($"  {numTorpsLoaded}/4  ");
-                    Builder.AppendLine();
-                    Builder.AppendLine();
-                    for (int i = 0; i < 24; i++)
-                    {
-                        if (i % 4 == 0) Builder.Append(' ');
-                        if (i == 12) Builder.AppendLine(" ");
-                        Builder.Append(i < numTorpsReserve ? '^' : ' ');
-                    }
+                        int numTorpsLoaded = HostProgram.TorpedoSubsystem.TorpedoTubeGroups["SM"].NumReady;
 
-                    Builder.Append(numTorpsReserve > 24 ? "+ " : "  ");
-                    Builder.AppendLine();
+                        Builder.AppendLine();
+                        Builder.Append("[");
+                        for (int i = 1; i < 5; i++)
+                        {
+                            Builder.Append(i <= numTorpsLoaded ? "^" : " ").Append(i < 4 ? '|' : ']');
+                        }
+                        Builder.Append($"  {numTorpsLoaded}/4  ");
+                        Builder.AppendLine();
+                        Builder.AppendLine();
+                        for (int i = 0; i < 24; i++)
+                        {
+                            if (i % 4 == 0) Builder.Append(' ');
+                            if (i == 12) Builder.AppendLine(" ");
+                            Builder.Append(i < numTorpsReserve ? '^' : ' ');
+                        }
+
+                        Builder.Append(numTorpsReserve > 24 ? "+ " : "  ");
+                        Builder.AppendLine();
+                    }
+                    else
+                    {
+                        Builder.AppendLine("NO TORPEDOES");
+                    }
 
                     Builder.AppendLine("  ==== GATS ====  ");
 
@@ -335,6 +342,7 @@ namespace IngameScript
                     Builder.AppendLine();
 
                     Builder.AppendLine(HostProgram.CombatLoaderSubsystem.LoadingInventory ? "  LOADING...    " : "");
+
 
                     foreach (var screen in Host.ActiveLookingGlass.LeftHUDs)
                     {
