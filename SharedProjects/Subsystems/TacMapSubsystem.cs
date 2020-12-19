@@ -66,6 +66,8 @@ namespace IngameScript
         {
             runs++;
 
+            OnRelease = OnRelease || LastFrameMouseDown & !Turret.IsShooting;
+
             var a = Turret.Azimuth;
             var b = Turret.Elevation;
             var TurretAimRay = Math.Sin(a) * Math.Cos(b) * Turret.WorldMatrix.Left + Math.Cos(a) * Math.Cos(b) * Turret.WorldMatrix.Forward + Math.Sin(b) * Turret.WorldMatrix.Up;
@@ -84,8 +86,8 @@ namespace IngameScript
             // |  |    |
 
             // Cursor position, originating in the middle of the LCD wall, with unit in meters
-            var CursorPos = Vector3D.TransformNormal(CursorDirection, MatrixD.Transpose(Panels[Vector2I.Zero].WorldMatrix)) * CursorDist; 
-            var CursorPos2D = new Vector2((float)CursorPos.X, (float)CursorPos.Y);
+            CursorPos = Vector3D.TransformNormal(CursorDirection, MatrixD.Transpose(Panels[Vector2I.Zero].WorldMatrix)) * CursorDist; 
+            CursorPos2D = new Vector2((float)CursorPos.X, (float)CursorPos.Y);
             
             if (runs % 10 == 0)
             {
@@ -94,9 +96,9 @@ namespace IngameScript
                 CosViewDegree = Math.Cos(ViewAngleDegrees * Math.PI / 180);
 
                 SpriteScratchpad.Clear();
-
+                int i;
                 AddSprite("CircleHollow", new Vector2(0, 0), new Vector2(5, 5 * (float)CosViewDegree));
-                for (int i = 10000; i <= MapSize; i += 10000)
+                for (i = 10000; i <= MapSize; i += 10000)
                 {
                     var CircleSize = MapOnScreenSizeMeters * PixelsPerMeter * i / MapSize;
                     AddSprite("CircleHollow", new Vector2(0, 0), new Vector2(CircleSize, CircleSize * (float)CosViewDegree), new Color(1f, 0.4f, 0f, 0.005f));
@@ -136,43 +138,119 @@ namespace IngameScript
 
                 var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
                 DebugBuilder.AppendLine(intelItems.Count.ToString());
+
+                SelectionCandidates.Clear();
+
+                ClosestItemKey = MyTuple.Create(IntelItemType.NONE, (long)0);
+                ClosestItemDist = 0.3f;
+
+                LocalCoordsScratchpad.Clear();
+                ScreenCoordsScratchpad.Clear();
+
+                if (ActionMode == ActionPing)
+                {
+                    AddTextSprite("><", CursorPos2D, 1, "Debug");
+                    if (OnRelease)
+                    {
+                        if (PingFlatPos == Vector2.PositiveInfinity)
+                        {
+                            PingFlatPos = CursorPos2D;
+                        }
+                        else
+                        {
+                            var waypoint = new Waypoint();
+                            var globalPos = FlatPosToGlobalPos(PingFlatPos, CursorPos2D);
+                            waypoint.Position = globalPos;
+                            waypoint.Name = "Ping";
+                            IntelProvider.ReportFleetIntelligence(waypoint, timestamp);
+                            PingFlatPos = Vector2.PositiveInfinity;
+                            ActionMode = ActionNone;
+
+                        }
+                    }
+                }
+
                 foreach (var kvp in intelItems)
                 {
                     Vector3D localCoords;
                     Vector2 flatPosition, altitudePosition;
                     GetMapCoordsFromIntel(kvp.Value, timestamp, out localCoords, out flatPosition, out altitudePosition);
 
+                    ScreenCoordsScratchpad.Add(flatPosition);
+                    ScreenCoordsScratchpad.Add(altitudePosition);
+                    LocalCoordsScratchpad.Add(localCoords);
 
+                    DebugBuilder.AppendLine(localCoords.ToString());
 
-                    AddFleetIntelToMap(kvp.Value, timestamp, localCoords, flatPosition, altitudePosition);
+                    var distToItem = (altitudePosition - CursorPos2D).Length();
+                    if (distToItem < ClosestItemDist)
+                    {
+                        ClosestItemDist = distToItem;
+                        ClosestItemKey = kvp.Key;
+                    }
                 }
 
-                // var cursor = new MySprite(SpriteType.TEXTURE, "White screen", size: new Vector2(60f, 60f), color: Turret.IsShooting ? Color.Green : Color.Red);
-                // cursor.Position = CursorPos2D;
-                // SpriteScratchpad.Add(cursor);
+                // Action specific behavior
+                if (ActionMode == ActionNone)
+                {
+                    SelectionCandidates.Add(ClosestItemKey);
+                    if (OnRelease && ClosestItemKey.Item1 != IntelItemType.NONE && ClosestItemKey.Item1 != IntelItemType.Waypoint)
+                    {
+                        if (SelectedItems.Contains(ClosestItemKey))
+                        {
+                            SelectedItems.Remove(ClosestItemKey);
+                        }
+                        else
+                        {
+                            if (SelectedItems.Count > 0 && SelectedItems[0].Item1 != ClosestItemKey.Item1)
+                            {
+                                SelectedItems.Clear();
+                            }
+                            SelectedItems.Add(ClosestItemKey);
+                        }
+                    }
+                }
 
-                // AddSprite("White screen", new Vector2(1, 1), new Vector2(60, 60));
-                // AddSprite("Circle", new Vector2(1, 0), new Vector2(60, 60));
-                // AddSprite("CircleHollow", new Vector2(1, -1), new Vector2(60, 30));
+                DrawContextMenu();
 
-                var text = Turret.IsShooting ? "[><]" : "><";
-                AddTextSprite(text, CursorPos2D, 2, "Debug");
+                i = 0;
+                foreach (var kvp in intelItems)
+                {
+                    AddFleetIntelToMap(kvp.Value, timestamp, LocalCoordsScratchpad[i], ScreenCoordsScratchpad[2*i], ScreenCoordsScratchpad[2*i + 1]);
+                    i++;
+                }
+
+                // var text = Turret.IsShooting ? "[><]" : "><";
+                // AddTextSprite(text, CursorPos2D, 2, "Debug");
 
                 foreach (var kvp in Panels)
                 {
                     DrawSpritesForPanel(kvp.Key);
                 }
+
+                OnRelease = false;
             }
+
+            LastFrameMouseDown = Turret.IsShooting;
         }
 
-        Vector2 AddFleetIntelToMap(IFleetIntelligence intel, TimeSpan localTime, Vector3D localCoords, Vector2 flatPosition, Vector2 altitudePosition)
+        void AddFleetIntelToMap(IFleetIntelligence intel, TimeSpan localTime, Vector3D localCoords, Vector2 flatPosition, Vector2 altitudePosition)
         {
+            if (localCoords.Length() > MapSize) 
+                return;
+
+            var intelKey = MyTuple.Create(intel.IntelItemType, intel.ID);
             var color = Color.White;
             if (intel.IntelItemType == IntelItemType.Friendly)
             {
                 if ((((FriendlyShipIntel)intel).AgentStatus & AgentStatus.DockedAtHome) != 0)
-                    return Vector2.PositiveInfinity;
+                    return;
                 color = Color.Blue;
+
+                if (SelectionCandidates.Contains(intelKey))
+                    color = Color.LightSkyBlue;
+                else if (SelectedItems.Contains(intelKey))
+                    color = Color.Teal;
             }
             else if (intel.IntelItemType == IntelItemType.Enemy)
             {
@@ -191,16 +269,19 @@ namespace IngameScript
             }
             else
             {
-                return Vector2.PositiveInfinity;
+                return;
             }
 
             var middlePosition = (altitudePosition + flatPosition) * 0.5f;
-            var lineLength = MapScale * (float)localCoords.Y * (float)SinViewDegree;
+            var lineLength = MapScale * Math.Abs((float)localCoords.Y) * (float)SinViewDegree;
+
+            AddSprite("CircleHollow", altitudePosition, new Vector2(20, 20), color);
 
             if (intel.ID != Controller.CubeGrid.EntityId)
             {
+                DebugBuilder.AppendLine(middlePosition.ToString());
+                DebugBuilder.AppendLine(flatPosition.ToString());
                 AddSprite("CircleHollow", flatPosition, new Vector2(30, 30 * (float)CosViewDegree), color);
-                AddSprite("CircleHollow", altitudePosition, new Vector2(20, 20), color);
                 AddSprite("SquareSimple", middlePosition, new Vector2(2, lineLength * PixelsPerMeter), color);
             }
 
@@ -214,7 +295,7 @@ namespace IngameScript
                 }
             }
 
-            return altitudePosition;
+            return;
         }
 
         void GetMapCoordsFromIntel(IFleetIntelligence intel, TimeSpan localTime, out Vector3D localCoords, out Vector2 flatPosition, out Vector2 altitudePosition)
@@ -236,27 +317,46 @@ namespace IngameScript
             return localCoords;
         }
 
-        private Vector2 LocalCoordsToMapPosition(Vector3D localCoords, bool flat = false)
+        Vector2 LocalCoordsToMapPosition(Vector3D localCoords, bool flat = false)
         {
             return new Vector2(MapScale * (float)localCoords.X, -MapScale * (float)localCoords.Z * (float)CosViewDegree + (flat ? 0 : (MapScale * (float)localCoords.Y * (float)SinViewDegree)));
         }
 
-        void AddSprite(string spriteType, Vector2 wallPosition, Vector2 size, Color? color = null)
+        Vector3D FlatPosToGlobalPos(Vector2 flatCoords, Vector2 cursorCoords)
+        {
+            var result = new Vector3D();
+            result += flatCoords.X * MapMatrix.Right;
+            result += (flatCoords.Y / CosViewDegree) * MapMatrix.Forward;
+            result += ((cursorCoords.Y - flatCoords.Y) / SinViewDegree) * MapMatrix.Up;
+            result /= MapScale;
+            result += Controller.GetPosition();
+            return result;
+        }
+
+        MySprite AddSprite(string spriteType, Vector2 wallPosition, Vector2 size, Color? color = null)
         {
             var sprite = MySprite.CreateSprite(spriteType, wallPosition, size);
             sprite.Color = color == null ? Color.White : color;
             SpriteScratchpad.Add(sprite);
+            return sprite;
         }
 
-        void AddTextSprite(string text, Vector2 position, int fontSize = 1, string font = "Debug")
+        MySprite AddTextSprite(string text, Vector2 position, int fontSize = 1, string font = "Debug", Color? color = null)
         {
-            TextMeasureBuilder.Clear();
-            TextMeasureBuilder.Append(text);
-            var sprite = MySprite.CreateText(text, font, Color.White, fontSize);
-            sprite.Size = Panels[Vector2I.Zero].MeasureStringInPixels(TextMeasureBuilder, sprite.FontId, sprite.RotationOrScale);
+            var sprite = MySprite.CreateText(text, font, color == null ? Color.White : color.Value, fontSize);
+            sprite.Size = MeasureSize(text, fontSize, font);
             position.Y += sprite.Size.Value.Y * 0.5f / PixelsPerMeter;
             sprite.Position = position;
             SpriteScratchpad.Add(sprite);
+            return sprite;
+        }
+
+        Vector2 MeasureSize(string text, int fontSize, string font, string addition = "")
+        {
+            TextMeasureBuilder.Clear();
+            TextMeasureBuilder.Append(text);
+            TextMeasureBuilder.Append(addition);
+            return Panels[Vector2I.Zero].MeasureStringInPixels(TextMeasureBuilder, font, fontSize);
         }
 
         Vector2 WallPositionToScreenPosition(Vector2I screenIndex, Vector2 wallPositionMeters)
@@ -293,19 +393,79 @@ namespace IngameScript
             }
         }
 
+        void DrawContextMenu()
+        {
+            int index = 0;
+
+            MenuItems.Clear();
+            if (SelectedItems.Count == 0)
+            {
+                DrawMenuItem(index, ActionPing);
+            }
+        }
+
+        void DrawMenuItem(int index, string text)
+        {
+            var size = MeasureSize(text, 3, "Monospace") / PixelsPerMeter;
+            float posX = -ScreenSizeMeters * 0.5f + ActionBarMargin + size.X * 0.5f;
+            float posY = ScreenSizeMeters * 0.5f - ActionBarMargin * 0.5f - (ActionBarMargin + size.Y) * (0.5f + index);
+
+            var rect = new RectangleF(posX - size.X * 0.5f, posY - size.Y * 0.5f, size.X, size.Y);
+
+            var color = Color.White;
+            if (rect.Contains(CursorPos2D))
+            {
+                color = Color.Teal;
+                if (OnRelease && MenuItemBindings.ContainsKey(text))
+                {
+                    MenuItemBindings[text]();
+                }
+            }
+
+            AddTextSprite(text, new Vector2(posX, posY), 3, "Monospace", color);
+        }
+
+        void MenuCallbackPing()
+        {
+            ActionMode = ActionPing;
+        }
+
         MyGridProgram Program;
         StringBuilder DebugBuilder = new StringBuilder();
         StringBuilder TextMeasureBuilder = new StringBuilder();
         IMyTerminalBlock ProgramReference;
 
+        List<MyTuple<IntelItemType, long>> SelectedItems = new List<MyTuple<IntelItemType, long>>();
+        List<MyTuple<IntelItemType, long>> SelectionCandidates = new List<MyTuple<IntelItemType, long>>();
+        Dictionary<RectangleF, Action> MenuItems = new Dictionary<RectangleF, Action>();
+        Dictionary<string, Action> MenuItemBindings = new Dictionary<string, Action>();
+
+        bool DragBox = false;
+
+        Vector3D CursorPos;
+        Vector2 CursorPos2D;
+
         int MapSize = 30000; // In meters
         int PixelsPerMeter = 205; // 512 / 2.5
         int ViewAngleDegrees = 60;
         float MapOnScreenSizeMeters = 6.5f;
+        float ScreenSizeMeters = 7.5f;
         int ScannerRange = 1000;
         float MapScale = 0;
 
+        float ActionBarHeight = 1.25f;
+        float ActionBarMargin = 0.1f;
+
+        bool LastFrameMouseDown = false;
+        bool OnRelease = false;
+
         int runs = 0;
+
+        string ActionMode = "NONE"; // This should be an enum, but minifier doesn't like enums
+
+        const string ActionNone = "NONE";
+        const string ActionPing = "PING";
+        Vector2 PingFlatPos = Vector2.PositiveInfinity;
 
         // Required Subsystems
         IIntelProvider IntelProvider;
@@ -313,13 +473,19 @@ namespace IngameScript
         public TacMapSubsystem(IIntelProvider intelProvider)
         {
             IntelProvider = intelProvider;
+
+            MenuItemBindings.Add(ActionPing, MenuCallbackPing);
         }
 
         List<MySprite> SpriteScratchpad = new List<MySprite>();
+        List<Vector2> ScreenCoordsScratchpad = new List<Vector2>();
+        List<Vector3D> LocalCoordsScratchpad = new List<Vector3D>();
         MatrixD MapMatrix = new MatrixD();
         bool AlignWithNorth = false;
         double SinViewDegree;
         double CosViewDegree;
+        float ClosestItemDist;
+        MyTuple<IntelItemType, long> ClosestItemKey;
 
         // Components
         IMyLargeTurretBase Turret;

@@ -29,9 +29,11 @@ namespace IngameScript
 
             // Add subsystems
             // AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
-            TacMapSubsystem tacMapSubsystem = new TacMapSubsystem();
+            IntelSubsystem intelSubsystem = new IntelSubsystem();
+            TacMapSubsystem tacMapSubsystem = new TacMapSubsystem(intelSubsystem);
 
             // subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
+            subsystemManager.AddSubsystem("intel", intelSubsystem);
             subsystemManager.AddSubsystem("tacmap", tacMapSubsystem);
 
             subsystemManager.DeserializeManager(Storage);
@@ -56,7 +58,18 @@ namespace IngameScript
             }
             else
             {
-                subsystemManager.Update(updateSource);
+                try
+                {
+                    subsystemManager.Update(updateSource);
+                }
+                catch (Exception e)
+                {
+                    Me.GetSurface(0).WriteText(e.Message);
+                    Me.GetSurface(0).WriteText("\n", true);
+                    Me.GetSurface(0).WriteText(e.StackTrace);
+                    Me.GetSurface(0).WriteText("\n", true);
+                    Me.GetSurface(0).WriteText(e.ToString());
+                }
                 var s = subsystemManager.GetStatus();
                 if (!string.IsNullOrEmpty(s)) Echo(s);
             }
