@@ -42,7 +42,8 @@ namespace IngameScript
     {
         None = 0,
         Idle = 1 << 0, // This agent is ready to receive and execute a command
-        DockedAtHome = 1 << 1, // This agent is docked
+        DockedAtHome = 1 << 1, // This agent is docked and at home
+        Docked = 1 << 2, // This agent is docked
         Engaged = 1 << 10, // This agent is engaged in combat
         Recalling = 1 << 11, // This agent is returning to base
     }

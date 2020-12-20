@@ -188,7 +188,8 @@ namespace IngameScript
             if (Connector.Status == MyShipConnectorStatus.Connected)
             {
                 myIntel.Radius = 0;
-                if(Connector.OtherConnector.EntityId == HomeID) myIntel.AgentStatus |= AgentStatus.DockedAtHome;
+                myIntel.AgentStatus |= AgentStatus.Docked;
+                if (Connector.OtherConnector.EntityId == HomeID) myIntel.AgentStatus |= AgentStatus.DockedAtHome;
             }
             myIntel.HangarTags = HangarTags;
         }

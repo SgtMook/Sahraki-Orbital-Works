@@ -147,26 +147,37 @@ namespace IngameScript
                 LocalCoordsScratchpad.Clear();
                 ScreenCoordsScratchpad.Clear();
 
-                if (ActionMode == ActionPing)
+                if (ActionMode == ActionSelectPosition)
                 {
                     AddTextSprite("><", CursorPos2D, 1, "Debug");
                     if (OnRelease)
                     {
-                        if (PingFlatPos == Vector2.PositiveInfinity)
+                        if (SelectFlatPos == Vector2.PositiveInfinity)
                         {
-                            PingFlatPos = CursorPos2D;
+                            SelectFlatPos = CursorPos2D;
                         }
                         else
                         {
-                            var waypoint = new Waypoint();
-                            var globalPos = FlatPosToGlobalPos(PingFlatPos, CursorPos2D);
-                            waypoint.Position = globalPos;
-                            waypoint.Name = "Ping";
-                            IntelProvider.ReportFleetIntelligence(waypoint, timestamp);
-                            PingFlatPos = Vector2.PositiveInfinity;
-                            ActionMode = ActionNone;
+                            SelectedPosition = FlatPosToGlobalPos(SelectFlatPos, CursorPos2D);
 
+                            SelectPositionCallback(timestamp);
+
+                            SelectFlatPos = Vector2.PositiveInfinity;
+                            ActionMode = ActionNone;
                         }
+                        OnRelease = false;
+                    }
+
+                    if (SelectFlatPos != Vector2.PositiveInfinity)
+                    {
+                        var selectAltitudePos = SelectFlatPos;
+                        selectAltitudePos.Y = CursorPos2D.Y;
+                        var midPosition = (selectAltitudePos + SelectFlatPos) * 0.5f;
+                        var lineLength = Math.Abs(selectAltitudePos.Y - SelectFlatPos.Y);
+                        AddSprite("CircleHollow", selectAltitudePos, new Vector2(20, 20));
+
+                        AddSprite("CircleHollow", SelectFlatPos, new Vector2(30, 30 * (float)CosViewDegree));
+                        AddSprite("SquareSimple", midPosition, new Vector2(2, lineLength * PixelsPerMeter));
                     }
                 }
 
@@ -174,6 +185,7 @@ namespace IngameScript
                 {
                     Vector3D localCoords;
                     Vector2 flatPosition, altitudePosition;
+
                     GetMapCoordsFromIntel(kvp.Value, timestamp, out localCoords, out flatPosition, out altitudePosition);
 
                     ScreenCoordsScratchpad.Add(flatPosition);
@@ -190,19 +202,20 @@ namespace IngameScript
                     }
                 }
 
-                // Action specific behavior
+                DrawContextMenu();
+
                 if (ActionMode == ActionNone)
                 {
                     SelectionCandidates.Add(ClosestItemKey);
-                    if (OnRelease && ClosestItemKey.Item1 != IntelItemType.NONE && ClosestItemKey.Item1 != IntelItemType.Waypoint)
+                    if (OnRelease)
                     {
-                        if (SelectedItems.Contains(ClosestItemKey))
+                        if (ClosestItemKey.Item1 == IntelItemType.NONE)
                         {
-                            SelectedItems.Remove(ClosestItemKey);
+                            SelectedItems.Clear();
                         }
-                        else
+                        else if (ClosestItemKey.Item1 != IntelItemType.Waypoint)
                         {
-                            if (SelectedItems.Count > 0 && SelectedItems[0].Item1 != ClosestItemKey.Item1)
+                            if (SelectedItems.Count > 0 && SelectedItems[0].Item2 != ClosestItemKey.Item2)
                             {
                                 SelectedItems.Clear();
                             }
@@ -210,8 +223,6 @@ namespace IngameScript
                         }
                     }
                 }
-
-                DrawContextMenu();
 
                 i = 0;
                 foreach (var kvp in intelItems)
@@ -265,7 +276,7 @@ namespace IngameScript
             }
             else if (intel.IntelItemType == IntelItemType.Waypoint)
             {
-
+                color = Color.Green;
             }
             else
             {
@@ -279,8 +290,6 @@ namespace IngameScript
 
             if (intel.ID != Controller.CubeGrid.EntityId)
             {
-                DebugBuilder.AppendLine(middlePosition.ToString());
-                DebugBuilder.AppendLine(flatPosition.ToString());
                 AddSprite("CircleHollow", flatPosition, new Vector2(30, 30 * (float)CosViewDegree), color);
                 AddSprite("SquareSimple", middlePosition, new Vector2(2, lineLength * PixelsPerMeter), color);
             }
@@ -398,9 +407,14 @@ namespace IngameScript
             int index = 0;
 
             MenuItems.Clear();
-            if (SelectedItems.Count == 0)
+            DrawMenuItem(index, ActionPing);
+            index += 1;
+            if (SelectedItems.Count > 0)
             {
-                DrawMenuItem(index, ActionPing);
+                if (SelectedItems[0].Item1 == IntelItemType.Friendly)
+                {
+                    DrawMenuItem(index, ActionMove);
+                }
             }
         }
 
@@ -419,6 +433,7 @@ namespace IngameScript
                 if (OnRelease && MenuItemBindings.ContainsKey(text))
                 {
                     MenuItemBindings[text]();
+                    OnRelease = false;
                 }
             }
 
@@ -427,7 +442,38 @@ namespace IngameScript
 
         void MenuCallbackPing()
         {
-            ActionMode = ActionPing;
+            ActionMode = ActionSelectPosition;
+            SelectPositionCallback = SelectPositionCallbackPing;
+        }
+
+        void SelectPositionCallbackPing(TimeSpan timestamp)
+        {
+            var waypoint = new Waypoint();
+            waypoint.Position = SelectedPosition;
+            waypoint.Name = "Ping";
+
+            IntelProvider.ReportFleetIntelligence(waypoint, timestamp);
+        }
+
+        void MenuCallbackMove()
+        {
+            ActionMode = ActionSelectPosition;
+            SelectPositionCallback = SelectPositionCallbackMove;
+        }
+
+        private void SelectPositionCallbackMove(TimeSpan timestamp)
+        {
+            IFleetIntelligence selected;
+            var intels = IntelProvider.GetFleetIntelligences(timestamp);
+
+            if (intels.TryGetValue(SelectedItems[0], out selected))
+            {
+                var waypoint = new Waypoint();
+                waypoint.Position = SelectedPosition;
+                IntelProvider.ReportFleetIntelligence(waypoint, timestamp);
+
+                IntelProvider.ReportCommand((FriendlyShipIntel)selected, TaskType.Move, MyTuple.Create(IntelItemType.Waypoint, waypoint.ID), timestamp);
+            }
         }
 
         MyGridProgram Program;
@@ -439,8 +485,6 @@ namespace IngameScript
         List<MyTuple<IntelItemType, long>> SelectionCandidates = new List<MyTuple<IntelItemType, long>>();
         Dictionary<RectangleF, Action> MenuItems = new Dictionary<RectangleF, Action>();
         Dictionary<string, Action> MenuItemBindings = new Dictionary<string, Action>();
-
-        bool DragBox = false;
 
         Vector3D CursorPos;
         Vector2 CursorPos2D;
@@ -465,7 +509,12 @@ namespace IngameScript
 
         const string ActionNone = "NONE";
         const string ActionPing = "PING";
-        Vector2 PingFlatPos = Vector2.PositiveInfinity;
+        const string ActionMove = "MOVE";
+        const string ActionSelectPosition = "SP";
+        Vector2 SelectFlatPos = Vector2.PositiveInfinity;
+        Vector3D SelectedPosition = Vector3D.Zero;
+
+        Action<TimeSpan> SelectPositionCallback;
 
         // Required Subsystems
         IIntelProvider IntelProvider;
@@ -475,6 +524,7 @@ namespace IngameScript
             IntelProvider = intelProvider;
 
             MenuItemBindings.Add(ActionPing, MenuCallbackPing);
+            MenuItemBindings.Add(ActionMove, MenuCallbackMove);
         }
 
         List<MySprite> SpriteScratchpad = new List<MySprite>();
