@@ -36,6 +36,8 @@ namespace IngameScript
 
         private bool CollectBlocks(IMyTerminalBlock block)
         {
+            if (Me.CubeGrid.EntityId != block.CubeGrid.EntityId)
+                return false;
             if (block is IMyRemoteControl) RemoteControl = (IMyRemoteControl)block;
             return false;
         }
@@ -46,6 +48,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
+            Echo(MyRaven.GetStatus());
             if (!string.IsNullOrEmpty(argument))
             {
                 MyRaven.Drive.SetDest(argument);
@@ -53,14 +56,13 @@ namespace IngameScript
             try
             {
                 MyRaven.Update(updateSource);
-                Echo(MyRaven.GetStatus());
             }
             catch (Exception e)
             {
                 Me.GetSurface(0).WriteText(e.StackTrace);
-                Me.GetSurface(0).WriteText("\n");
+                Me.GetSurface(0).WriteText("\n", true);
                 Me.GetSurface(0).WriteText(e.Message, true);
-                Me.GetSurface(0).WriteText("\n");
+                Me.GetSurface(0).WriteText("\n", true);
                 Me.GetSurface(0).WriteText(MyRaven.GetStatus(), true);
             }
         }

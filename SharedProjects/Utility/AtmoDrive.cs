@@ -13,8 +13,10 @@ namespace IngameScript
         float MaxAngleTolerance = 1.1f;
 
         // Arguments
-        public Vector3D AimTarget = Vector3D.Zero;
+        public Vector3D ForwardDir = Vector3D.Zero;
+        public Vector3D UpDir = Vector3D.Zero;
         public Vector3D Destination = Vector3D.Zero;
+        public Vector3D TargetDrift = Vector3D.Zero;
 
         public StringBuilder StatusBuilder = new StringBuilder();
 
@@ -25,6 +27,8 @@ namespace IngameScript
 
         public bool AddComponent(IMyTerminalBlock block)
         {
+            if (block.CubeGrid.EntityId != Controller.CubeGrid.EntityId)
+                return false;
             // TODO: Add block to whatever stores
             if (block is IMyGyro) Gyros.Add((IMyGyro)block);
             if (block is IMyThrust)
@@ -61,9 +65,9 @@ namespace IngameScript
         PID PitchPID;
         PID SpinPID;
 
-        float TP = 100;
+        float TP = 20;
         float TI = 0.00f;
-        float TD = 50;
+        float TD = 8;
 
         PID XPID;
         PID YPID;
@@ -104,9 +108,9 @@ namespace IngameScript
             // Set MaxDownThrust and MaxLateralThrust accordingly
             foreach (var kvp in Thrusters)
             {
-                if (kvp.Key == Base6Directions.Direction.Down) foreach (var thruster in kvp.Value) MaxLiftThrust += thruster.MaxThrust;
-                else if (kvp.Key == Base6Directions.Direction.Forward) foreach (var thruster in kvp.Value) MaxLateralThrust += thruster.MaxThrust;
-                else if (kvp.Key == Base6Directions.Direction.Up) foreach (var thruster in kvp.Value) MaxDownThrust += thruster.MaxThrust;
+                if (kvp.Key == Base6Directions.Direction.Down) foreach (var thruster in kvp.Value) MaxLiftThrust += thruster.MaxEffectiveThrust;
+                else if (kvp.Key == Base6Directions.Direction.Forward) foreach (var thruster in kvp.Value) MaxLateralThrust += thruster.MaxEffectiveThrust;
+                else if (kvp.Key == Base6Directions.Direction.Up) foreach (var thruster in kvp.Value) MaxDownThrust += thruster.MaxEffectiveThrust;
 
                 ThrusterManagers[kvp.Key] = new SmartThrustManager(kvp.Value);
             }
@@ -115,6 +119,21 @@ namespace IngameScript
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             runs++;
+
+            if (runs % 30 == 0)
+            {
+                MaxLiftThrust = 0;
+                MaxLateralThrust = 0;
+                MaxDownThrust = 0;
+                foreach (var kvp in Thrusters)
+                {
+                    if (kvp.Key == Base6Directions.Direction.Down) foreach (var thruster in kvp.Value) MaxLiftThrust += thruster.MaxEffectiveThrust;
+                    else if (kvp.Key == Base6Directions.Direction.Forward) foreach (var thruster in kvp.Value) MaxLateralThrust += thruster.MaxEffectiveThrust;
+                    else if (kvp.Key == Base6Directions.Direction.Up) foreach (var thruster in kvp.Value) MaxDownThrust += thruster.MaxEffectiveThrust;
+
+                    ThrusterManagers[kvp.Key].RecalculateThrust();
+                }
+            }
 
             if (runs % 5 == 0)
             {
@@ -139,28 +158,39 @@ namespace IngameScript
 
                     // Rotational Control
                     var targetDir = Vector3D.Zero;
-                    if (AimTarget != Vector3D.Zero)
+                    if (ForwardDir != Vector3D.Zero)
                     {
-                        targetDir = AimTarget - Controller.WorldMatrix.Translation;
+                        targetDir = ForwardDir;
                     }
                     else
                     {
                         targetDir = Controller.WorldMatrix.Forward - VectorHelpers.VectorProjection(Controller.WorldMatrix.Forward, gravDir);
                     }
-                    var angleFromVertical = VectorHelpers.VectorAngleBetween(targetDir, gravDir) - Math.PI * 0.5;
-                    var maxAngleFromVertical = GetMaxAngleConstraint();
-                    angleFromVertical = Math.Max(Math.Min(angleFromVertical, maxAngleFromVertical), -maxAngleFromVertical);
-                    var flatAimDir = targetDir - VectorHelpers.VectorProjection(targetDir, gravDir);
-                    flatAimDir.Normalize();
 
-                    var downDir = TrigHelpers.FastCos(angleFromVertical) * gravDir + TrigHelpers.FastSin(angleFromVertical) * flatAimDir;
+                    if (UpDir == Vector3D.Zero)
+                    {
+                        var angleFromVertical = VectorHelpers.VectorAngleBetween(targetDir, gravDir) - Math.PI * 0.5;
+                        var maxAngleFromVertical = GetMaxAngleConstraint();
+                        angleFromVertical = Math.Max(Math.Min(angleFromVertical, maxAngleFromVertical), -maxAngleFromVertical);
+                        var flatAimDir = targetDir - VectorHelpers.VectorProjection(targetDir, gravDir);
+                        flatAimDir.Normalize();
 
-                    orientationMatrix.Forward = Controller.WorldMatrix.Down;
-                    orientationMatrix.Left = Controller.WorldMatrix.Left;
-                    orientationMatrix.Up = Controller.WorldMatrix.Forward;
+                        var downDir = TrigHelpers.FastCos(angleFromVertical) * gravDir + TrigHelpers.FastSin(angleFromVertical) * flatAimDir;
 
-                    spinAngle = -VectorHelpers.VectorAngleBetween(flatAimDir, flatCurrentDir) * Math.Sign(Controller.WorldMatrix.Left.Dot(flatAimDir));
-                    TrigHelpers.GetRotationAngles(downDir, orientationMatrix.Forward, orientationMatrix.Left, orientationMatrix.Up, out yawAngle, out pitchAngle);
+                        orientationMatrix.Forward = Controller.WorldMatrix.Down;
+                        orientationMatrix.Left = Controller.WorldMatrix.Left;
+                        orientationMatrix.Up = Controller.WorldMatrix.Forward;
+
+                        spinAngle = -VectorHelpers.VectorAngleBetween(flatAimDir, flatCurrentDir) * Math.Sign(Controller.WorldMatrix.Left.Dot(flatAimDir));
+                        TrigHelpers.GetRotationAngles(downDir, orientationMatrix.Forward, orientationMatrix.Left, orientationMatrix.Up, out yawAngle, out pitchAngle);
+                    }
+                    else
+                    {
+                        orientationMatrix = reference.WorldMatrix;
+                        TrigHelpers.GetRotationAngles(ForwardDir, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
+                        var projectedTargetUp = UpDir - reference.WorldMatrix.Forward.Dot(UpDir) * reference.WorldMatrix.Forward;
+                        spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(UpDir));
+                    }
                 }
                 else
                 {
@@ -171,7 +201,7 @@ namespace IngameScript
 
                 // Translational Control
 
-                if (Destination == Vector3D.Zero)
+                if (Destination == Vector3D.Zero && TargetDrift == Vector3D.Zero)
                 {
                     if (Controller.DampenersOverride == false)
                     {
@@ -193,7 +223,7 @@ namespace IngameScript
                     // Compute current motion to find desired acceleration
                     var currentVel = Controller.GetShipVelocities().LinearVelocity;
 
-                    if (destinationDist < 0.25 && currentVel.Length() < 0.25)
+                    if (destinationDist < 0.25 && currentVel.Length() < 0.25 && TargetDrift == Vector3D.Zero)
                     {
                         foreach (var kvp in ThrusterManagers)
                             kvp.Value.SetThrust(0);
@@ -202,8 +232,13 @@ namespace IngameScript
                     }
                     else
                     {
-                        var maxSpeed = GetMaxSpeedFromBrakingDistance(destinationDist, GetMaxAccelFromAngleDeviation((float)GetMaxAngleConstraint() * MaxAngleTolerance));
-                        var desiredVel = destinationDir * maxSpeed * 0.9;
+                        Vector3D desiredVel = Vector3D.Zero;
+                        if (Destination != Vector3D.Zero)
+                        {
+                            var maxSpeed = GetMaxSpeedFromBrakingDistance(destinationDist, GetMaxAccelFromAngleDeviation((float)GetMaxAngleConstraint() * MaxAngleTolerance));
+                            desiredVel = destinationDir * maxSpeed * 0.9;
+                        }
+                        desiredVel += TargetDrift;
                         var adjustVector = currentVel - VectorHelpers.VectorProjection(currentVel, desiredVel);
                         var desiredAccel = desiredVel - currentVel - adjustVector * 2;
 
@@ -213,8 +248,11 @@ namespace IngameScript
 
                         double MinScale = 10;
 
-                        if (gridDesiredAccel.LengthSquared() < 0.5)
+                        if (gridDesiredAccel.LengthSquared() < 3)
                             gridDesiredAccel *= 0.1 * gridDesiredAccel.LengthSquared();
+
+                        if (gridDesiredAccel.Length() < 1)
+                            gridDesiredAccel.Normalize();
 
                         gridDesiredAccel.X = XPID.Control(gridDesiredAccel.X);
                         gridDesiredAccel.Y = YPID.Control(gridDesiredAccel.Y);
@@ -231,11 +269,6 @@ namespace IngameScript
 
                         gridDesiredAccel *= MinScale;
                         gridDesiredAccel -= gridGravDir * gravStr;
-
-                        StatusBuilder.AppendLine(gridDesiredAccel.ToString());
-                        StatusBuilder.AppendLine(MinScale.ToString());
-                        StatusBuilder.AppendLine(destinationDist.ToString());
-                        StatusBuilder.AppendLine(maxSpeed.ToString());
 
                         foreach (var kvp in ThrusterManagers)
                             kvp.Value.SetThrust(-1 * Base6Directions.GetVector(kvp.Key).Dot(gridDesiredAccel + gridGravDir) * shipMass);
@@ -299,15 +332,16 @@ namespace IngameScript
 
             ParseConfigs();
 
-            XPID = new PID(TP, TI, TD, 0, TimeStep);
-            YPID = new PID(TP, TI, TD, 0, TimeStep);
-            ZPID = new PID(TP, TI, TD, 0, TimeStep);
+            XPID = new PID(TP, TI, TD, 0.05, TimeStep);
+            YPID = new PID(TP, TI, TD, 0.05, TimeStep);
+            ZPID = new PID(TP, TI, TD, 0.05, TimeStep);
         }
 
         // Gets the maximum angle deviation from vertical the drone is allowed to operate in
         double GetMaxAngleConstraint()
         {
-            return MaxAngleDegrees * Math.PI/180;
+            var gravAngle = VectorHelpers.VectorAngleBetween(gravDir, Controller.WorldMatrix.Down);
+            return Math.Max(gravAngle, MaxAngleDegrees * Math.PI/180);
         }
 
         double GetMaxAngleDeviationFromAcceleration(float accel)
@@ -338,7 +372,7 @@ namespace IngameScript
 
         double GetMaxSpeedFromBrakingDistance(double distance, double maxAccel)
         {
-            return Math.Min(Math.Sqrt(2 * distance * maxAccel), distance * distance + 0.5);
+            return Math.Min(Math.Sqrt(2 * distance * maxAccel), distance * distance + 0.3);
         }
 
         public void Move(Vector3D targetPosition)
@@ -350,17 +384,19 @@ namespace IngameScript
         public void Turn(Vector3D targetDirection)
         {
             if (targetDirection != Vector3.One)
-                AimTarget = targetDirection + Reference.Position;
+                ForwardDir = targetDirection;
         }
 
         public void Spin(Vector3D targetUp)
         {
-            // TODO: Implement?
+            if (targetUp != Vector3.One)
+                UpDir = targetUp;
         }
 
         public void Drift(Vector3D targetDrift)
         {
-            // TODO: Implement?
+            if (targetDrift != Vector3.One)
+                TargetDrift = targetDrift;
         }
 
         public void SetMaxSpeed(float maxSpeed)
@@ -370,9 +406,6 @@ namespace IngameScript
 
         public bool AtWaypoint(Waypoint w)
         {
-            StatusBuilder.AppendLine((Controller == null).ToString());
-            StatusBuilder.AppendLine((w == null).ToString());
-            StatusBuilder.AppendLine((Reference == null).ToString());
             if (w.Position != Vector3.One && w.Position != Vector3.Zero)
             {
                 var speed = (float)(Controller.GetShipVelocities().LinearVelocity - w.Velocity).Length();
@@ -383,7 +416,12 @@ namespace IngameScript
             }
             if (w.Direction != Vector3.One && w.Direction != Vector3.Zero)
             {
-                if (VectorHelpers.VectorAngleBetween(Reference.WorldMatrix.Forward, AimTarget - Reference.GetPosition()) > 0.03f)
+                if (VectorHelpers.VectorAngleBetween(Reference.WorldMatrix.Forward, ForwardDir) > 0.03f)
+                    return false;
+            }
+            if (w.DirectionUp != Vector3.One && w.DirectionUp != Vector3.Zero)
+            {
+                if (VectorHelpers.VectorAngleBetween(Reference.WorldMatrix.Up, UpDir) > 0.03f)
                     return false;
             }
 
@@ -393,8 +431,11 @@ namespace IngameScript
         public void Clear()
         {
             Reference = Controller;
-            AimTarget = Vector3D.Zero;
+            ForwardDir = Vector3D.Zero;
             Destination = Vector3D.Zero;
+            TargetDrift = Vector3D.Zero;
+            UpDir = Vector3D.Zero;
+            Controller.DampenersOverride = true;
         }
 
         public float GetBrakingDistance()
@@ -407,7 +448,7 @@ namespace IngameScript
 
         public float GetMaxSpeedFromBrakingDistance(float distance)
         {
-            return (float)GetMaxSpeedFromBrakingDistance(distance, GetMaxAccelFromAngleDeviation((float)GetMaxAngleConstraint() * MaxAngleTolerance));
+            return (float)GetMaxSpeedFromBrakingDistance(distance, GetMaxAccelFromAngleDeviation((float)GetMaxAngleConstraint() * MaxAngleTolerance) * 0.9);
         }
     }
 }

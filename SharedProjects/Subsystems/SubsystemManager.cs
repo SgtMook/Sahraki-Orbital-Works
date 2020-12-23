@@ -224,7 +224,7 @@ namespace IngameScript
                 return string.Empty;
 
             StatusBuilder.Clear();
-
+            StatusBuilder.AppendLine($"OUTPUT MODE: {(int)OutputMode}");
             if (OutputMode == OutputMode.Profile)
             {
                 profiler.StartSectionWatch("Profiler");

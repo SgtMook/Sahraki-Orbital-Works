@@ -102,7 +102,7 @@ namespace IngameScript
         {
             for (int i = 0; i < OrderedThrusters.Count; i++)
             {
-                CumulativeThrust[i] = CumulativeThrust[i - 1] + OrderedThrusters[i].MaxEffectiveThrust;
+                CumulativeThrust[i + 1] = CumulativeThrust[i] + OrderedThrusters[i].MaxEffectiveThrust;
             }
         }
     }

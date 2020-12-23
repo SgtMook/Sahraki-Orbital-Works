@@ -76,8 +76,14 @@ namespace IngameScript
         public string GetStatus()
         {
             DebugBuilder.Clear();
+            DebugBuilder.AppendLine($"TASKS {TaskQueue.Count}");
+
+            foreach (var task in TaskQueue)
+            {
+                DebugBuilder.AppendLine(task.Name);
+            }
             // profiler.PrintSectionBreakdown(DebugBuilder);
-            return Status;
+            return DebugBuilder.ToString();
         }
 
         public string SerializeSubsystem()
