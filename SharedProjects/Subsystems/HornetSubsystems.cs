@@ -37,7 +37,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return string.Empty;
+            return Guns.Count.ToString();
         }
 
         public string SerializeSubsystem()
@@ -79,21 +79,6 @@ namespace IngameScript
                 }
 
                 TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-            
-                if (TargetIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.1) < canonicalTime)
-                {
-                    foreach (var camera in Scanners)
-                    {
-                        if (camera.CanScan(target.Position))
-                        {
-                            var validatedTarget = camera.Raycast(target.Position);
-                            if (validatedTarget.EntityId != target.EntityId) break;
-                            TargetIntel.FromDetectedInfo(validatedTarget, timestamp + IntelProvider.CanonicalTimeDiff, true);
-                            IntelProvider.ReportFleetIntelligence(TargetIntel, timestamp);
-                            break;
-                        }
-                    }
-                }
             }
 
             if (fireCounter > 0) fireCounter--;
@@ -104,11 +89,8 @@ namespace IngameScript
         #endregion
         MyGridProgram Program;
 
-        List<IMySmallGatlingGun> Guns = new List<IMySmallGatlingGun>();
-        List<IMySmallMissileLauncher> Launchers = new List<IMySmallMissileLauncher>();
+        List<IMyUserControllableGun> Guns = new List<IMyUserControllableGun>();
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
-        List<IMyCameraBlock> Scanners = new List<IMyCameraBlock>();
-        IMyRadioAntenna Antenna;
 
         StringBuilder updateBuilder = new StringBuilder();
 
@@ -139,24 +121,15 @@ namespace IngameScript
         {
             Guns.Clear();
             Turrets.Clear();
-            Scanners.Clear();
-            Launchers.Clear();
-            Antenna = null;
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (block is IMySmallGatlingGun && block.IsSameConstructAs(ProgramReference))
-                Guns.Add((IMySmallGatlingGun)block);
+            if (block is IMyUserControllableGun && block.IsSameConstructAs(ProgramReference))
+                Guns.Add((IMyUserControllableGun)block);
 
             if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
-
-            if (block is IMyRadioAntenna)
-                Antenna = (IMyRadioAntenna)block;
-
-            if (block is IMySmallMissileLauncher)
-                Launchers.Add((IMySmallMissileLauncher)block);
 
             if (block is IMyLargeTurretBase)
             {
@@ -164,13 +137,6 @@ namespace IngameScript
                 Turrets.Add(turret);
                 turret.EnableIdleRotation = false;
                 turret.SyncEnableIdleRotation();
-            }
-
-            if (block is IMyCameraBlock)
-            {
-                IMyCameraBlock camera = (IMyCameraBlock)block;
-                Scanners.Add(camera);
-                camera.EnableRaycast = true;
             }
 
             return false;
@@ -218,12 +184,6 @@ namespace IngameScript
                     TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
                     if (WCAPI != null) WCAPI.ToggleWeaponFire(gun, true, true);
                 }
-                foreach (var launcher in Launchers)
-                {
-                    launcher.Enabled = true;
-                    TerminalPropertiesHelper.SetValue(launcher, "Shoot", true);
-                    if (WCAPI != null) WCAPI.ToggleWeaponFire(launcher, true, true);
-                }
             }
             fireCounter = 3;
         }
@@ -234,11 +194,6 @@ namespace IngameScript
             {
                 TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
                 if (WCAPI != null) WCAPI.ToggleWeaponFire(gun, false, true);
-            }
-            foreach (var launcher in Launchers)
-            {
-                TerminalPropertiesHelper.SetValue(launcher, "Shoot", false);
-                if (WCAPI != null) WCAPI.ToggleWeaponFire(launcher, false, true);
             }
             fireCounter = -1;
         }

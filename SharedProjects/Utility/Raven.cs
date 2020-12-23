@@ -43,23 +43,26 @@ namespace IngameScript
             IntelSubsystem intelSubsystem = new IntelSubsystem();
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             StatusIndicatorSubsystem indicatorSubsystem = new StatusIndicatorSubsystem(dockingSubsystem, intelSubsystem);
+            MonitorSubsystem monitorSubsystem = new MonitorSubsystem(intelSubsystem);
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Fighter);
             UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(program, Drive, dockingSubsystem);
             ScannerNetworkSubsystem scannerSubsystem = new ScannerNetworkSubsystem(intelSubsystem);
+            HornetCombatSubsystem combatSubsystem = new HornetCombatSubsystem(intelSubsystem);
 
             SubsystemManager.AddSubsystem("autopilot", Drive);
             SubsystemManager.AddSubsystem("docking", dockingSubsystem);
             SubsystemManager.AddSubsystem("intel", intelSubsystem);
-            // SubsystemManager.AddSubsystem("monitor", monitorSubsystem);
-            // SubsystemManager.AddSubsystem("indicator", indicatorSubsystem);
+            SubsystemManager.AddSubsystem("monitor", monitorSubsystem);
+            SubsystemManager.AddSubsystem("combat", combatSubsystem);
+            SubsystemManager.AddSubsystem("indicator", indicatorSubsystem);
 
             undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(program, Drive));
             undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(program, Drive, dockingSubsystem));
-            //undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(program, combatSubsystem, autopilotSubsystem, agentSubsystem, monitorSubsystem, intelSubsystem));
+            undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(program, combatSubsystem, Drive, agentSubsystem, monitorSubsystem, intelSubsystem));
 
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
-            //agentSubsystem.AddTaskGenerator(new WaypointTaskGenerator(program, Drive));
-            //agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(program, dockingSubsystem));
+            agentSubsystem.AddTaskGenerator(new WaypointTaskGenerator(program, Drive));
+            agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(program, dockingSubsystem));
 
             SubsystemManager.AddSubsystem("agent", agentSubsystem);
             SubsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem));

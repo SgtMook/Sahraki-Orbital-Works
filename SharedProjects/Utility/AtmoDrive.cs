@@ -9,7 +9,7 @@ namespace IngameScript
 {
     public class AtmoDrive : ISubsystem, IAutopilot
     {
-        float MaxAngleDegrees = 30;
+        float MaxAngleDegrees = 60;
         float MaxAngleTolerance = 1.1f;
 
         // Arguments
@@ -68,6 +68,10 @@ namespace IngameScript
         float TP = 20;
         float TI = 0.00f;
         float TD = 8;
+
+        float RP = 5;
+        float RI = 0.01f;
+        float RD = 2;
 
         PID XPID;
         PID YPID;
@@ -244,7 +248,6 @@ namespace IngameScript
 
                         // Transform desired acceleration into remote control frame
                         var gridDesiredAccel = Vector3D.TransformNormal(desiredAccel, MatrixD.Transpose(Controller.WorldMatrix));
-                        StatusBuilder.AppendLine(gridDesiredAccel.ToString());
 
                         double MinScale = 10;
 
@@ -314,6 +317,15 @@ namespace IngameScript
             flo = Parser.Get("Autopilot", "TD").ToDecimal();
             if (flo != 0) TD = (float)flo;
 
+            flo = Parser.Get("Autopilot", "RP").ToDecimal();
+            if (flo != 0) RP = (float)flo;
+
+            flo = Parser.Get("Autopilot", "RI").ToDecimal();
+            if (flo != 0) RI = (float)flo;
+
+            flo = Parser.Get("Autopilot", "RD").ToDecimal();
+            if (flo != 0) RD = (float)flo;
+
             flo = Parser.Get("Autopilot", "MaxCruiseSpeed").ToDecimal();
             if (flo != 0) CruiseSpeed = (float)flo;
 
@@ -326,9 +338,9 @@ namespace IngameScript
             Controller = remoteControl;
             Reference = Controller;
 
-            YawPID = new PID(5, 0.001, 2, 0.5, TimeStep);
-            PitchPID = new PID(5, 0.001, 2, 0.5, TimeStep);
-            SpinPID = new PID(5, 0.001, 2, 0.5, TimeStep);
+            YawPID = new PID(RP, RI, RD, 0.2, TimeStep);
+            PitchPID = new PID(RP, RI, RD, 0.2, TimeStep);
+            SpinPID = new PID(RP, RI, RD, 0.2, TimeStep);
 
             ParseConfigs();
 
