@@ -532,11 +532,24 @@ namespace IngameScript
 
         Vector3D RefreshNavigation(TimeSpan CanonicalTime)
         {
-            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.27) - Controller.WorldMatrix.Translation;
+            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.5) - Controller.WorldMatrix.Translation;
 
             if (rangeVector.LengthSquared() < 120 * 120) proxArmed = true;
 
             rangeVector += TrickshotOffset;
+
+            var grav = Controller.GetNaturalGravity();
+
+            if (grav != Vector3D.Zero)
+            {
+                var gravDir = grav;
+                gravDir.Normalize();
+
+                if (rangeVector.LengthSquared() > 800*800)
+                {
+                    rangeVector -= gravDir * 700;
+                }
+            }
 
             if (TrickshotOffset == Vector3D.Zero && UseTrickshot)
             {
@@ -576,7 +589,6 @@ namespace IngameScript
                 Vector3D targetANVector;
                 var targetAccel = (lastTargetVelocity - Target.GetVelocity()) * 0.16666666667;
 
-                var grav = Controller.GetNaturalGravity();
                 targetANVector = targetAccel - grav - (targetAccel.Dot(ref rangeVector) * rangeDivSqVector);
 
                 if (speed > lastSpeed + 1)

@@ -38,7 +38,8 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return debugBuilder.ToString();            
+            if (WCAPI != null) debugBuilder.AppendLine("WC ON");
+            return debugBuilder.ToString();
         }
 
         public string SerializeSubsystem()
@@ -67,6 +68,12 @@ namespace IngameScript
                 if (Designator != null) 
                     UpdateDesignator(timestamp);
             } 
+            if (WCAPI == null && runs % 120 == 0)
+            {
+                WCAPI = new WcPbApi();
+                if (!WCAPI.Activate(Program.Me))
+                    WCAPI = null;
+            }
         }
 
         #endregion

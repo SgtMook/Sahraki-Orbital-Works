@@ -84,6 +84,8 @@ namespace IngameScript
             // ECMInterfaceSubsystem ECM = new ECMInterfaceSubsystem(intelSubsystem);
             // subsystemManager.AddSubsystem("ECM", ECM);
 
+            subsystemManager.AddSubsystem("loader", new CombatLoaderSubsystem(CombatLoaderCargo, CombatCargoStore));
+
             subsystemManager.DeserializeManager(Storage);
         }
 
@@ -94,6 +96,8 @@ namespace IngameScript
         bool Inventory = true;
         bool Torpedos = false;
         string DefaultLookingGlassPlugin = "command";
+        string CombatLoaderCargo;
+        string CombatCargoStore;
         // [Setup]
         // IsMaster = true
         // LookingGlass = true
@@ -115,6 +119,8 @@ namespace IngameScript
             FixedLookingGlass = Parser.Get("Setup", "FixedLookingGlass").ToBoolean();
             ThrusterLookingGlass = Parser.Get("Setup", "ThrusterLookingGlass").ToBoolean();
             DefaultLookingGlassPlugin = Parser.Get("Setup", "DefaultLookingGlassPlugin").ToString("command");
+            CombatLoaderCargo = Parser.Get("Setup", "CombatLoaderCargo").ToString("Cargo");
+            CombatCargoStore = Parser.Get("Setup", "CombatCargoStore").ToString("Store");
             Scanner = Parser.Get("Setup", "Scanner").ToBoolean();
             Inventory = Parser.Get("Setup", "Inventory").ToBoolean();
             Torpedos = Parser.Get("Setup", "Torpedos").ToBoolean();

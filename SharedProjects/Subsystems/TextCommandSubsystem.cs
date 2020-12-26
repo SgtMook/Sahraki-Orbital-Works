@@ -26,7 +26,7 @@ namespace IngameScript
 
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "attack") Attack(timestamp);
+            if (command == "scramble") Attack(timestamp);
             if (command == "recall") RecallCrafts(timestamp);
             if (command == "autohome") AutoHomeCrafts(timestamp);
         }
@@ -70,7 +70,6 @@ namespace IngameScript
 
         List<FriendlyShipIntel> FriendlyShipScratchpad = new List<FriendlyShipIntel>();
         List<DockIntel> DockIntelScratchpad = new List<DockIntel>();
-        List<EnemyShipIntel> EnemyShipScratchpad = new List<EnemyShipIntel>();
 
         StringBuilder debugBuilder = new StringBuilder();
 
@@ -141,7 +140,6 @@ namespace IngameScript
         void Attack(TimeSpan localTime)
         {
             FriendlyShipScratchpad.Clear();
-            EnemyShipScratchpad.Clear();
 
             var intelItems = IntelProvider.GetFleetIntelligences(localTime);
             foreach (var kvp in intelItems)
@@ -149,25 +147,39 @@ namespace IngameScript
                 if (kvp.Key.Item1 == IntelItemType.Friendly)
                 {
                     var friendly = (FriendlyShipIntel)kvp.Value;
-                    if (friendly.AgentClass == AgentClass.Fighter)
+                    if (friendly.AgentClass == AgentClass.Fighter && (friendly.AgentStatus & AgentStatus.Docked) != 0 && (friendly.GetPositionFromCanonicalTime(localTime + IntelProvider.CanonicalTimeDiff) - Controller.GetPosition()).Length() < 400)
                     {
                         FriendlyShipScratchpad.Add(friendly);
                     }
                 }
-                else if (kvp.Key.Item1 == IntelItemType.Enemy)
-                {
-                    var enemy = (EnemyShipIntel)kvp.Value;
-                    if (EnemyShipIntel.PrioritizeTarget(enemy) && IntelProvider.GetPriority(enemy.ID) > 1)
-                        EnemyShipScratchpad.Add(enemy);
-                }
             }
 
-            if (EnemyShipScratchpad.Count == 0) return;
             if (FriendlyShipScratchpad.Count == 0) return;
 
             for (int i = 0; i < FriendlyShipScratchpad.Count; i++)
             {
-                IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Attack, MyTuple.Create(IntelItemType.Enemy, EnemyShipScratchpad[i % EnemyShipScratchpad.Count].ID), localTime);
+                var targetWaypoint = new Waypoint();
+
+                var gravDir = Controller.GetNaturalGravity();
+                targetWaypoint.Position = Controller.GetPosition();
+                var angle = 2 * i * Math.PI / FriendlyShipScratchpad.Count;
+
+                if (gravDir != Vector3D.Zero)
+                {
+                    gravDir.Normalize();
+                    var flatForward = Controller.WorldMatrix.Forward - VectorHelpers.VectorProjection(Controller.WorldMatrix.Forward, gravDir);
+                    flatForward.Normalize();
+                    var flatLeftDir = Vector3D.Cross(flatForward, gravDir);
+                    targetWaypoint.Position += (flatForward * TrigHelpers.FastCos(angle) + flatLeftDir * TrigHelpers.FastSin(angle)) * 500;
+                    targetWaypoint.Position -= gravDir * 200;
+                }
+                else
+                {
+                    targetWaypoint.Position += (Controller.WorldMatrix.Forward * TrigHelpers.FastCos(angle) + Controller.WorldMatrix.Forward * TrigHelpers.FastSin(angle)) * 500;
+                }
+
+                targetWaypoint.Position += Controller.GetShipVelocities().LinearVelocity * 3;
+                IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Attack, MyTuple.Create(IntelItemType.Waypoint, targetWaypoint.ID), localTime);
             }
         }
 

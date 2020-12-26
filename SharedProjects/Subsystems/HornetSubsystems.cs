@@ -59,6 +59,15 @@ namespace IngameScript
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
+            runs++;
+            if (WCAPI == null && runs % 12 == 0)
+            {
+                WCAPI = new WcPbApi();
+                if (!WCAPI.Activate(Program.Me))
+                    WCAPI = null;
+            }
+
+
             TargetIntel = null;
             var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
             foreach (var turret in Turrets)
@@ -111,6 +120,8 @@ namespace IngameScript
         public float EngageTheta = 0.1f;
 
         public float FireTolerance = 0.2f;
+
+        int runs = 0;
 
         public HornetCombatSubsystem(IIntelProvider provider)
         {

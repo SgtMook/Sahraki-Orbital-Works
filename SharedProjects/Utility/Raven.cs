@@ -61,11 +61,10 @@ namespace IngameScript
             undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(program, combatSubsystem, Drive, agentSubsystem, monitorSubsystem, intelSubsystem));
 
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
-            agentSubsystem.AddTaskGenerator(new WaypointTaskGenerator(program, Drive));
             agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(program, dockingSubsystem));
 
             SubsystemManager.AddSubsystem("agent", agentSubsystem);
-            SubsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem));
+            SubsystemManager.AddSubsystem("scanner", scannerSubsystem);
         }
 
         public void Update(UpdateType updateSource)

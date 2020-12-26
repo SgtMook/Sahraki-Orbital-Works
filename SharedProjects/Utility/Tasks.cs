@@ -799,6 +799,12 @@ namespace IngameScript
                     WaitForClearance.Status = TaskStatus.Complete;
             }
 
+            if (TaskQueue.Count == 4 && (ApproachEntrance.Autopilot.Reference.GetPosition() - approachPoint).LengthSquared() < 1)
+                TaskQueue.Dequeue();
+
+            if (TaskQueue.Count == 3 && (ApproachDock.Autopilot.Reference.GetPosition() - entryPoint).LengthSquared() < 0.5)
+                TaskQueue.Dequeue();
+
             if (TaskQueue.Count < 3)
             {
                 if (DockTask.DockingSubsystem.Connector.Status == MyShipConnectorStatus.Connectable)

@@ -1686,7 +1686,7 @@ namespace IngameScript
             var key = MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID);
             var target = (EnemyShipIntel)intelItems.GetValueOrDefault(key, null);
 
-            return TorpedoSubsystem.Fire(localTime, TorpedoSubsystem.TorpedoTubeGroups[group], target) != null;
+            return TorpedoSubsystem.Fire(localTime, TorpedoSubsystem.TorpedoTubeGroups[group], target, false) != null;
         }
 
         void DrawInfoUI(TimeSpan timestamp)
