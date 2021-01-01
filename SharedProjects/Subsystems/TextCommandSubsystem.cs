@@ -179,6 +179,7 @@ namespace IngameScript
                 }
 
                 targetWaypoint.Position += Controller.GetShipVelocities().LinearVelocity * 3;
+                IntelProvider.ReportFleetIntelligence(targetWaypoint, localTime);
                 IntelProvider.ReportCommand(FriendlyShipScratchpad[i], TaskType.Attack, MyTuple.Create(IntelItemType.Waypoint, targetWaypoint.ID), localTime);
             }
         }

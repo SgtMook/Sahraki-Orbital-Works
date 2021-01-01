@@ -56,6 +56,7 @@ namespace IngameScript
         public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "reload") Reload();
+            if (command == "unload") Unload();
         }
         
         public void DeserializeSubsystem(string serialized)
@@ -127,6 +128,7 @@ namespace IngameScript
         int runs = 0;
 
         public bool LoadingInventory = false;
+        bool UnloadingInventory = false;
 
         StringBuilder debugBuilder = new StringBuilder();
 
@@ -217,6 +219,7 @@ namespace IngameScript
                     LastCheckIndex = 0;
                     if (LoadingInventory)
                     {
+                        UnloadingInventory = false;
                         LoadingInventory = false;
                         StoreInventoryOwners.Clear();
                     }
@@ -244,7 +247,7 @@ namespace IngameScript
             LastCheckIndex += kMaxChecksPerRun;
         }
 
-        void SortInventory(IMyTerminalBlock inventoryOwner)
+        void SortInventory(IMyTerminalBlock inventoryOwner, bool unload = false)
         {
             if (inventoryOwner == null) return;
 
@@ -265,7 +268,7 @@ namespace IngameScript
             foreach (var inventoryItem in inventoryItemsScratchpad)
             {
                 int desiredAmount = 0;
-                if (InventoryRequests[inventoryOwner].ContainsKey(inventoryItem.Type))
+                if (!unload && InventoryRequests[inventoryOwner].ContainsKey(inventoryItem.Type))
                     desiredAmount = InventoryRequests[inventoryOwner][inventoryItem.Type];
 
                 var amountDiff = inventoryItem.Amount - desiredAmount;
@@ -283,31 +286,34 @@ namespace IngameScript
                 inventoryRequestAmountsCache[inventoryItem.Type] = -amountDiff;
             }
 
-            // Transfer in
-            foreach (var kvp in InventoryRequests[inventoryOwner])
+            if (!unload)
             {
-                MyFixedPoint requestAmount = kvp.Value;
-                if (inventoryRequestAmountsCache.ContainsKey(kvp.Key))
-                    requestAmount = inventoryRequestAmountsCache[kvp.Key];
-
-                if (requestAmount > 0)
+                // Transfer in
+                foreach (var kvp in InventoryRequests[inventoryOwner])
                 {
-                    foreach (var store in StoreInventoryOwners)
+                    MyFixedPoint requestAmount = kvp.Value;
+                    if (inventoryRequestAmountsCache.ContainsKey(kvp.Key))
+                        requestAmount = inventoryRequestAmountsCache[kvp.Key];
+
+                    if (requestAmount > 0)
                     {
-                        inventoryItemsScratchpad.Clear();
-                        var storeInventory = store.GetInventory(0);
-                        storeInventory.GetItems(inventoryItemsScratchpad);
-
-                        foreach (var item in inventoryItemsScratchpad)
+                        foreach (var store in StoreInventoryOwners)
                         {
-                            if (item.Type == kvp.Key)
-                            {
-                                requestAmount = InventoryHelpers.TransferAsMuchAsPossible(storeInventory, inventory, item, requestAmount);
-                                break;
-                            }
-                        }
+                            inventoryItemsScratchpad.Clear();
+                            var storeInventory = store.GetInventory(0);
+                            storeInventory.GetItems(inventoryItemsScratchpad);
 
-                        if (requestAmount <= 0) break;
+                            foreach (var item in inventoryItemsScratchpad)
+                            {
+                                if (item.Type == kvp.Key)
+                                {
+                                    requestAmount = InventoryHelpers.TransferAsMuchAsPossible(storeInventory, inventory, item, requestAmount);
+                                    break;
+                                }
+                            }
+
+                            if (requestAmount <= 0) break;
+                        }
                     }
                 }
             }
@@ -325,6 +331,12 @@ namespace IngameScript
                 else
                     stackCombineScratchpad.Add(inventoryItem.Type);
             }
+        }
+
+        void Unload()
+        {
+            UnloadingInventory = true;
+            Reload();
         }
 
         void Reload()

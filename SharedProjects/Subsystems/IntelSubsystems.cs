@@ -442,6 +442,7 @@ namespace IngameScript
         {
             debugBuilder.Clear();
             debugBuilder.AppendLine(canonicalTimeDiff.ToString());
+            debugBuilder.AppendLine(IntelItems.Count().ToString());
             if (timestamp == TimeSpan.Zero) return;
 
             MyIGCMessage? msg = null;

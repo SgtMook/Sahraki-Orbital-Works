@@ -24,21 +24,14 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
-        public IntelSubsystem IntelSubsystem;
-        public ScannerNetworkSubsystem ScannerSubsystem;
-        public TorpedoSubsystem TorpedoSubsystem;
-
         public Program()
         {
             subsystemManager = new SubsystemManager(this);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
-            IntelSubsystem = new IntelSubsystem();
-            TorpedoSubsystem = new TorpedoSubsystem(IntelSubsystem);
-            ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
-            subsystemManager.AddSubsystem("intel", IntelSubsystem);
-            subsystemManager.AddSubsystem("scanner", ScannerSubsystem);
-            subsystemManager.AddSubsystem("torpedo", TorpedoSubsystem);
+            // Add subsystems
+            CombatLoaderSubsystem loaderSystem = new CombatLoaderSubsystem("Welder Cargo", "Base Cargo");
+            subsystemManager.AddSubsystem("loader", loaderSystem);
 
             subsystemManager.DeserializeManager(Storage);
         }
@@ -63,8 +56,7 @@ namespace IngameScript
             else
             {
                 subsystemManager.Update(updateSource);
-                var status = subsystemManager.GetStatus();
-                if (status != string.Empty) Echo(status);
+                Echo(subsystemManager.GetStatus());
             }
         }
     }

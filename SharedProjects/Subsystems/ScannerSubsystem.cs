@@ -38,7 +38,6 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            if (WCAPI != null) debugBuilder.AppendLine("WC ON");
             return debugBuilder.ToString();
         }
 

@@ -46,8 +46,6 @@ namespace IngameScript
 
         public void DeserializeSubsystem(string serialized)
         {
-            if (Connector.Status == MyShipConnectorStatus.Connected) HomeID = Connector.OtherConnector.EntityId;
-            else HomeID = long.Parse(serialized);
         }
 
         public string GetStatus()
@@ -60,7 +58,7 @@ namespace IngameScript
 
         public string SerializeSubsystem()
         {
-            return HomeID.ToString();
+            return "";
         }
 
         IMyTerminalBlock ProgramReference;
@@ -70,6 +68,7 @@ namespace IngameScript
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
+            if (Connector.Status == MyShipConnectorStatus.Connected) HomeID = Connector.OtherConnector.EntityId;
             IntelProvider.AddIntelMutator(this);
             ParseConfigs();
         }

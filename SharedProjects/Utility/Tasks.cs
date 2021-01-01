@@ -795,6 +795,7 @@ namespace IngameScript
             if (TaskQueue.Count < 6)
             {
                 Program.IGC.SendBroadcastMessage(dock.HangarChannelTag, MyTuple.Create(Program.Me.CubeGrid.EntityId, dock.ID, (int)HangarRequest.RequestDock));
+                Program.IGC.SendBroadcastMessage(dock.HangarChannelTag, MyTuple.Create(Program.Me.CubeGrid.EntityId, dock.ID, (int)HangarRequest.Reserve));
                 if (dock.OwnerID == Program.Me.CubeGrid.EntityId && (dock.Status & HangarStatus.Docking) != 0)
                     WaitForClearance.Status = TaskStatus.Complete;
             }

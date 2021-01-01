@@ -19,26 +19,31 @@ using VRageMath;
 
 namespace IngameScript
 {
+    // Periodic error compensator
     public struct PEC
     {
-        public double[] records;
+        public Vector3D[] records;
         int PeriodSegments;
         int Period;
         float Power;
-        public PEC(int periodSegments, float power = 0.4f)
+        public PEC(int periodSegments, float power = 1f)
         {
             PeriodSegments = periodSegments;
-            records = new double[periodSegments];
+            records = new Vector3D[periodSegments];
             Period = 0;
             Power = power;
         }
 
-        public double Adjust(double error)
+        public Vector3D Adjust(Vector3D error)
         {
-            error += records[(Period + 1) % PeriodSegments] * Power;
-            records[Period] = error;
+            records[Period] = records[Period] * 0.8 + error;
             Period = (Period + 1) % PeriodSegments;
-            return error;
+            return error + records[Period % PeriodSegments] * Power;
+        }
+
+        public void Clear()
+        {
+            records = new Vector3D[records.Count()];
         }
     }
 }

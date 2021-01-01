@@ -176,9 +176,9 @@ namespace IngameScript
                     loadBuilder.Clear();
                 }
             }
-            catch (Exception e)
+            catch (Exception exc)
             {
-                DebugBuilder.AppendLine(e.StackTrace);
+                DebugBuilder.AppendLine(exc.StackTrace);
             }
         }
 

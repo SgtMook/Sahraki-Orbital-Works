@@ -45,13 +45,16 @@ namespace IngameScript
         public void Save()
         {
         }
-
+        MyCommandLine commandLine = new MyCommandLine();
         public void Main(string argument, UpdateType updateSource)
         {
             Echo(MyRaven.GetStatus());
             if (!string.IsNullOrEmpty(argument))
             {
-                MyRaven.Drive.SetDest(argument);
+                if (commandLine.TryParse(argument))
+                {
+                    MyRaven.SubsystemManager.Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
+                }
             }
             try
             {

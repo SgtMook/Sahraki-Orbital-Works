@@ -24,7 +24,7 @@ namespace IngameScript
     {
         public Program()
         {
-            subsystemManager = new SubsystemManager(this);
+            subsystemManager = new SubsystemManager(this, null, false);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             // Add subsystems

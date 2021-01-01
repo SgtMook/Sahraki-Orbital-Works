@@ -52,6 +52,12 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            debugBuilder.Clear();
+            debugBuilder.AppendLine(AutoFire.ToString());
+            debugBuilder.AppendLine(TorpedoTubeGroups.Values.ToArray()[0].AutoFire.ToString());
+            debugBuilder.AppendLine(GuidanceStartSeconds.ToString());
+            debugBuilder.AppendLine(PlungeDist.ToString());
+            debugBuilder.AppendLine(AutoFireRange.ToString());
             return debugBuilder.ToString();
         }
 
@@ -67,6 +73,12 @@ namespace IngameScript
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
             GetParts();
+
+            ParseConfigs();
+
+            foreach (var group in TorpedoTubeGroups.Values)
+                group.AutoFire = AutoFire;
+
             Fire(null, TimeSpan.Zero);
         }
 
@@ -87,27 +99,40 @@ namespace IngameScript
             {
                 var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
                 runs++;
-                if (runs % 120 == 0 && TorpedoTubeGroups.ContainsKey("SM") && TorpedoTubeGroups["SM"].AutoFire && TorpedoTubeGroups["SM"].NumReady > 0)
+                if (runs % 120 == 0)
                 {
-                    var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
-                    MissileDumpScratchpad.Clear();
-
-                    foreach (var kvp in intelItems)
+                    TorpedoTubeGroupScratchpad.Clear();
+                    foreach (var kvp in TorpedoTubeGroups)
                     {
-                        if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
-
-                        var target = (EnemyShipIntel)kvp.Value;
-                        var isValidDumpTarget = target.Radius > 10 && (target.GetPositionFromCanonicalTime(canonicalTime) - ProgramReference.GetPosition()).Length() < 6000;
-                        
-                        if (isValidDumpTarget)
-                        {
-                            MissileDumpScratchpad.Add(target);
-                            continue;
-                        }
+                        if (kvp.Value.AutoFire && kvp.Value.NumReady > 0)
+                            TorpedoTubeGroupScratchpad.Add(kvp.Value);
                     }
 
-                    if (MissileDumpScratchpad.Count > 0)
-                        Fire(timestamp, TorpedoTubeGroups["SM"], MissileDumpScratchpad[rand.Next(MissileDumpScratchpad.Count)], false);
+                    if (TorpedoTubeGroupScratchpad.Count > 0)
+                    {
+                        var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+                        MissileDumpScratchpad.Clear();
+
+                        foreach (var kvp in intelItems)
+                        {
+                            if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
+
+                            var target = (EnemyShipIntel)kvp.Value;
+                            var isValidDumpTarget = target.Radius > 30 && (target.GetPositionFromCanonicalTime(canonicalTime) - ProgramReference.GetPosition()).Length() < 15000 && target.CubeSize == MyCubeSize.Large;
+
+                            if (isValidDumpTarget)
+                            {
+                                MissileDumpScratchpad.Add(target);
+                                continue;
+                            }
+                        }
+
+                        if (MissileDumpScratchpad.Count > 0)
+                        {
+                            foreach (var group in TorpedoTubeGroupScratchpad)
+                                Fire(timestamp, group, MissileDumpScratchpad[rand.Next(MissileDumpScratchpad.Count)], false);
+                        }
+                    }
                 }
                 if (runs % 8 == 0)
                 {
@@ -127,7 +152,7 @@ namespace IngameScript
                             }
                             else
                             {
-                                torp.Update((EnemyShipIntel)intelItems[intelKey], canonicalTime);
+                                torp.Update((EnemyShipIntel)intelItems[intelKey], canonicalTime, GuidanceStartSeconds);
                             }
                         }
 
@@ -144,14 +169,18 @@ namespace IngameScript
 
                                 if (IntelProvider.GetPriority(enemyIntel.ID) < 2) continue;
 
+                                if (enemyIntel.Radius < 30 || enemyIntel.CubeSize != MyCubeSize.Large) continue;
+
                                 double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - torp.Controller.WorldMatrix.Translation).Length();
+                                if (IntelProvider.GetPriority(enemyIntel.ID) == 3) dist -= 1000;
+                                if (IntelProvider.GetPriority(enemyIntel.ID) == 4) dist -= 1000;
                                 if (dist < closestIntelDist)
                                 {
                                     closestIntelDist = dist;
                                     combatIntel = enemyIntel;
                                 }
                             }
-                            torp.Update(combatIntel, canonicalTime);
+                            torp.Update(combatIntel, canonicalTime, GuidanceStartSeconds);
                         }
                         if (torp.Disabled) TorpedoScratchpad.Add(torp);
                     }
@@ -223,6 +252,7 @@ namespace IngameScript
         public List<IMyTerminalBlock> PartsScratchpad = new List<IMyTerminalBlock>();
         List<MyDetectedEntityInfo> DetectedInfoScratchpad = new List<MyDetectedEntityInfo>();
         List<EnemyShipIntel> MissileDumpScratchpad = new List<EnemyShipIntel>();
+        List<TorpedoTubeGroup> TorpedoTubeGroupScratchpad = new List<TorpedoTubeGroup>();
 
         HashSet<long> AutofireTargetLog = new HashSet<long>();
         Queue<Torpedo> ReserveTorpedoes = new Queue<Torpedo>();
@@ -236,6 +266,35 @@ namespace IngameScript
         public MyIni IniParser = new MyIni();
 
         long runs;
+
+        bool AutoFire = false;
+        float GuidanceStartSeconds = 2;
+        public int PlungeDist = 1000;
+        int AutoFireRange = 15000;
+
+        // [Torpedo]
+        // AutoFire = False
+        // GuidanceStartSeconds = 2
+        // PlungeDist = 1000
+        // AutoFireRange = 15000
+        void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+                return;
+
+            AutoFire = Parser.Get("Torpedo", "AutoFire").ToBoolean();
+
+            var flo = Parser.Get("Torpedo", "GuidanceStartSeconds").ToDecimal();
+            if (flo != 0) GuidanceStartSeconds = (float)flo;
+
+            var num = Parser.Get("Torpedo", "PlungeDist").ToInt16();
+            if (num != 0) PlungeDist = num;
+
+            num = Parser.Get("Torpedo", "AutoFireRange").ToInt16();
+            if (num != 0) AutoFireRange = num;
+        }
 
         void GetParts()
         {
@@ -362,6 +421,7 @@ namespace IngameScript
         public bool UseTrickshot = false;
         Vector3D TrickshotOffset = Vector3D.Zero;
         public bool proxArmed = false;
+        public TorpedoSubsystem HostSubsystem = null;
 
         public bool AddPart(IMyTerminalBlock block)
         {
@@ -417,7 +477,7 @@ namespace IngameScript
             SubTorpedos.Clear();
         }
 
-        public void Update(EnemyShipIntel Target, TimeSpan CanonicalTime)
+        public void Update(EnemyShipIntel Target, TimeSpan CanonicalTime, float SeparationTime = 2)
         {
             if (!initialized) return;
             if (!OK())
@@ -430,10 +490,10 @@ namespace IngameScript
                 Disabled = true;
             }
             if (Disabled) return;
-            if (CanonicalTime - launchTime < TimeSpan.FromSeconds(2)) return;
+            if (CanonicalTime - launchTime < TimeSpan.FromSeconds(SeparationTime)) return;
             if (Target == null) return;
 
-            if (CanonicalTime - launchTime > TimeSpan.FromSeconds(3) && SubTorpedos.Count > 0) Split();
+            if (CanonicalTime - launchTime > TimeSpan.FromSeconds(SeparationTime + 1) && SubTorpedos.Count > 0) Split();
 
             this.Target = Target;
 
@@ -532,7 +592,7 @@ namespace IngameScript
 
         Vector3D RefreshNavigation(TimeSpan CanonicalTime)
         {
-            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0.5) - Controller.WorldMatrix.Translation;
+            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0) - Controller.WorldMatrix.Translation;
 
             if (rangeVector.LengthSquared() < 120 * 120) proxArmed = true;
 
@@ -545,9 +605,9 @@ namespace IngameScript
                 var gravDir = grav;
                 gravDir.Normalize();
 
-                if (rangeVector.LengthSquared() > 800*800)
+                if (rangeVector.LengthSquared() > HostSubsystem.PlungeDist * HostSubsystem.PlungeDist)
                 {
-                    rangeVector -= gravDir * 700;
+                    rangeVector -= gravDir * HostSubsystem.PlungeDist - 100;
                 }
             }
 
@@ -587,7 +647,7 @@ namespace IngameScript
                 Vector3D compensateVector = velocityVector - (velocityVector.Dot(ref rangeVector) * rangeDivSqVector);
 
                 Vector3D targetANVector;
-                var targetAccel = (lastTargetVelocity - Target.GetVelocity()) * 0.16666666667;
+                var targetAccel = (lastTargetVelocity - Target.GetVelocity()) * 0.16667;
 
                 targetANVector = targetAccel - grav - (targetAccel.Dot(ref rangeVector) * rangeDivSqVector);
 
@@ -1008,12 +1068,14 @@ namespace IngameScript
             torp.UseTrickshot = trickshot;
             foreach (var sub in torp.SubTorpedos)
             {
+                sub.HostSubsystem = Host;
                 sub.UseTrickshot = trickshot;
                 sub.canInitialize = false;
             }
             torp.Init(canonicalTime);
             LoadedTorpedo = null;
             torp.Target = target;
+            torp.HostSubsystem = Host;
             return torp;
         }
     }

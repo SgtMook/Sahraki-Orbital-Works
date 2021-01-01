@@ -88,7 +88,7 @@ namespace IngameScript
         StringBuilder statusBuilder = new StringBuilder();
 
         int run = 0;
-        int ticksPerCheck = 100;
+        int ticksPerCheck = 10;
 
         int elipses = 0;
 
