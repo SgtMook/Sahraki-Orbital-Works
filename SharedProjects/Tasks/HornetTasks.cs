@@ -138,7 +138,10 @@ namespace IngameScript
                 orbitIntel = shootIntel;
 
             var gravdir = Autopilot.Controller.GetNaturalGravity();
-            gravdir.Normalize();
+            if (gravdir != Vector3D.Zero)
+            {
+                gravdir.Normalize();
+            }
 
             if (orbitIntel == null)
             {
@@ -198,19 +201,6 @@ namespace IngameScript
                 if (LastEnemyPosition == Vector3D.Zero)
                     LastEnemyPosition = shootIntel.GetPositionFromCanonicalTime(canonicalTime);
 
-                //var lastTargetDirection = LastEnemyPosition - LastReference.Translation;
-                //var currentTargetDirection = shootIntel.GetPositionFromCanonicalTime(canonicalTime) - controller.WorldMatrix.Translation;
-                //lastTargetDirection.Normalize();
-                //currentTargetDirection.Normalize();
-                //
-                //Vector3D losDelta = Vector3D.Zero;
-                //double losRate = 0f;
-                //
-                //if (lastTargetDirection != currentTargetDirection)
-                //{
-                //    losDelta = currentTargetDirection - lastTargetDirection;
-                //    losRate = losDelta.Length();
-                //}
                 var enemyAcceleration = shootIntel.GetVelocity() - LastEnemyVelocity;
 
                 var enemyVelocityAdjust = shootIntel.GetVelocity() * 2 - LastEnemyVelocity;
@@ -218,7 +208,7 @@ namespace IngameScript
                 var CurrentAccelerationPreviousFrame = Vector3D.TransformNormal(Acceleration, MatrixD.Transpose(LastReference));
 
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
-                var velocityAdjust = linearVelocity + ((gravdir == Vector3D.Zero) ? (periodicDirection * accelerationAdjust.Length() * 0.4) : (accelerationAdjust * 0.4));
+                var velocityAdjust = linearVelocity + accelerationAdjust * 0.4;
 
                 Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(enemyVelocityAdjust - velocityAdjust, shootIntel.GetPositionFromCanonicalTime(canonicalTime) + enemyVelocityAdjust * 0.25 - controller.WorldMatrix.Translation - velocityAdjust * 0.25, CombatSystem.ProjectileSpeed);
 
@@ -277,13 +267,13 @@ namespace IngameScript
                 LastEnemyPosition = shootIntel.GetPositionFromCanonicalTime(canonicalTime);
                 LastRelativeAttackPoint = relativeAttackPoint;
 
-                var n = VectorHelpers.VectorProjection(enemyAcceleration, gravdir).Length() / enemyAcceleration.Length();
-
-                if (targetLastPoweredRun == 0 || n < 0.6)
-                    targetLastPoweredRun = runs;
-
-                if (runs - targetLastPoweredRun > 20)
-                    IntelProvider.SetPriority(shootIntel.ID, 1);
+                //var n = VectorHelpers.VectorProjection(enemyAcceleration, gravdir).Length() / enemyAcceleration.Length();
+                //
+                //if (targetLastPoweredRun == 0 || n < 0.6)
+                //    targetLastPoweredRun = runs;
+                //
+                //if (runs - targetLastPoweredRun > 20)
+                //    IntelProvider.SetPriority(shootIntel.ID, 1);
             }
 
             if (!Attack)

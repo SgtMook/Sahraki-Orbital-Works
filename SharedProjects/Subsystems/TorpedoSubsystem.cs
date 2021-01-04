@@ -52,12 +52,6 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            debugBuilder.Clear();
-            debugBuilder.AppendLine(AutoFire.ToString());
-            debugBuilder.AppendLine(TorpedoTubeGroups.Values.ToArray()[0].AutoFire.ToString());
-            debugBuilder.AppendLine(GuidanceStartSeconds.ToString());
-            debugBuilder.AppendLine(PlungeDist.ToString());
-            debugBuilder.AppendLine(AutoFireRange.ToString());
             return debugBuilder.ToString();
         }
 
@@ -86,7 +80,6 @@ namespace IngameScript
         {
             if ((updateFlags & UpdateFrequency.Update100) != 0)
             {
-                // Update Tubes
                 for (int i = 0; i < TorpedoTubes.Count(); i++)
                 {
                     if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
@@ -136,6 +129,10 @@ namespace IngameScript
                 }
                 if (runs % 8 == 0)
                 {
+                    // Update Indicators
+                    foreach (TorpedoTubeGroup group in TorpedoTubeGroups.Values)
+                        if (group.AutofireIndicator != null) group.AutofireIndicator.Color = group.AutoFire ? Color.LightPink : Color.LightGreen;
+
                     // Update Torpedos
                     TorpedoScratchpad.Clear();
 
@@ -316,6 +313,8 @@ namespace IngameScript
                     TorpedoTubeGroups[TorpedoTubes[i].GroupName].AddTube(TorpedoTubes[i]);
                 }
             }
+
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectLights);
         }
 
         bool CollectParts(IMyTerminalBlock block)
@@ -333,6 +332,25 @@ namespace IngameScript
             if (!int.TryParse(numString, out index)) return false;
             if (TorpedoTubes[index] == null) TorpedoTubes[index] = new TorpedoTube(index, Program, this);
             TorpedoTubes[index].AddPart(block);
+
+            return false;
+        }
+
+        bool CollectLights(IMyTerminalBlock block)
+        {
+            if (!ProgramReference.IsSameConstructAs(block)) return false; // Allow subgrid
+
+            if (!block.CustomName.StartsWith("[TRP")) return false;
+
+            if (!(block is IMyInteriorLight)) return false;
+
+            var groupName = block.CubeGrid.GridSizeEnum == MyCubeSize.Small ? "SM" : "LG";
+            TorpedoTubeGroup group;
+            if (TorpedoTubeGroups.TryGetValue(groupName, out group))
+            {
+                var light = (IMyInteriorLight)block;
+                group.AutofireIndicator = light;
+            }
 
             return false;
         }
@@ -413,6 +431,7 @@ namespace IngameScript
         public Vector3D AccelerationVector;
 
         bool initialized = false;
+        bool plunging = true;
         public bool canInitialize = true;
         int runs = 0;
 
@@ -435,7 +454,7 @@ namespace IngameScript
             if (block is IMyWarhead) { Warheads.Add((IMyWarhead)block); part = true; }
             if (block is IMyShipMergeBlock) { Splitters.Add((IMyShipMergeBlock)block); part = true; }
             if (block is IMyBatteryBlock) { Batteries.Add((IMyBatteryBlock)block); ((IMyBatteryBlock)block).Enabled = false; part = true; }
-            if (block is IMyGasTank) { Tanks.Add((IMyGasTank)block); part = true; }
+            if (block is IMyGasTank) { Tanks.Add((IMyGasTank)block); ((IMyGasTank)block).Enabled = true; part = true; }
             return part;
         }
 
@@ -599,15 +618,29 @@ namespace IngameScript
             rangeVector += TrickshotOffset;
 
             var grav = Controller.GetNaturalGravity();
-
-            if (grav != Vector3D.Zero)
+            if (plunging)
             {
+
+                if (grav == Vector3D.Zero)
+                {
+                    plunging = false;
+                }
+
                 var gravDir = grav;
                 gravDir.Normalize();
 
-                if (rangeVector.LengthSquared() > HostSubsystem.PlungeDist * HostSubsystem.PlungeDist)
+                var targetHeightDiff = rangeVector.Dot(-gravDir); // Positive if target is higher than missile
+
+                if (rangeVector.LengthSquared() < HostSubsystem.PlungeDist * HostSubsystem.PlungeDist && targetHeightDiff > 0)
                 {
-                    rangeVector -= gravDir * HostSubsystem.PlungeDist - 100;
+                    plunging = false;
+                }
+
+                if (plunging)
+                {
+                    rangeVector -= gravDir * HostSubsystem.PlungeDist;
+                    if (rangeVector.LengthSquared() < 200 * 200)
+                        plunging = false;
                 }
             }
 
@@ -914,6 +947,8 @@ namespace IngameScript
                 return count;
             }
         }
+
+        public IMyInteriorLight AutofireIndicator;
     }
 
     public class TorpedoTube : ITorpedoControllable

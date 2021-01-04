@@ -159,7 +159,6 @@ namespace IngameScript
                 {
                     gravStr = gravDir.Length();
                     gravDir.Normalize();
-
                     // Rotational Control
                     var targetDir = Vector3D.Zero;
                     if (ForwardDir != Vector3D.Zero)
@@ -196,9 +195,16 @@ namespace IngameScript
                         spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(UpDir));
                     }
                 }
-                else
+                else if(ForwardDir != Vector3D.Zero)
                 {
-                    // TODO: Add extragrav rotational control here
+                    orientationMatrix = reference.WorldMatrix;
+                    TrigHelpers.GetRotationAngles(ForwardDir, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
+
+                    if (UpDir != Vector3D.Zero)
+                    {
+                        var projectedTargetUp = UpDir - reference.WorldMatrix.Forward.Dot(UpDir) * reference.WorldMatrix.Forward;
+                        spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(UpDir));
+                    }
                 }
 
                 TrigHelpers.ApplyGyroOverride(PitchPID.Control(pitchAngle), YawPID.Control(yawAngle), SpinPID.Control(spinAngle), Gyros, orientationMatrix);

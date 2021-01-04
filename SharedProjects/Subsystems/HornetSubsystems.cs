@@ -37,7 +37,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return Guns.Count.ToString();
+            return AlertDist.ToString();
         }
 
         public string SerializeSubsystem()

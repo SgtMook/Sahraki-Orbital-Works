@@ -55,6 +55,11 @@ namespace IngameScript
 
         DRMSubsystem DRM = null;
 
+        IMyBroadcastListener GeneralListener;
+        const string GeneralChannel = "[FLT-GNR]";
+
+        MyCommandLine commandLine = new MyCommandLine();
+
         public SubsystemManager(MyGridProgram program, IMyTerminalBlock reference = null, bool useDRM = true)
         {
             ProgramReference = reference;
@@ -63,6 +68,8 @@ namespace IngameScript
             ParseConfigs();
             if (OutputMode == OutputMode.Profile) 
                 profiler = new Profiler(program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
+
+            GeneralListener = program.IGC.RegisterBroadcastListener(GeneralChannel);
 
             if (useDRM)
             {
@@ -91,7 +98,7 @@ namespace IngameScript
         public void AddSubsystem(string name, ISubsystem subsystem)
         {
             Subsystems[name] = subsystem;
-            subsystem.Setup(Program, name);
+            subsystem.Setup(Program, name, ProgramReference);
         }
 
         public void Reset()
@@ -186,6 +193,17 @@ namespace IngameScript
         {
             if (Active && (DRM == null || DRM.LicenseOK))
             {
+                while (GeneralListener.HasPendingMessage)
+                {
+                    var msg = GeneralListener.AcceptMessage();
+                    var data = msg.Data.ToString();
+                    if (commandLine.TryParse(data))
+                    {
+                        Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
+                    }
+                }
+
+
                 if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Setup frequencies");
                 if (OutputMode == OutputMode.Profile) profiler.UpdateRuntime();
                 UpdateCounter++;
@@ -256,7 +274,7 @@ namespace IngameScript
             return StatusBuilder.ToString();
         }
 
-        public void Command(string subsystem, string command, object argument)
+        public void Command(string subsystem, string command, string argument)
         {
             if (subsystem == "manager")
             {
@@ -264,8 +282,12 @@ namespace IngameScript
                     Reset();
                 if (command == "activate")
                 {
-                    myName = (string)argument;
+                    myName = argument;
                     Activating = true;
+                }
+                if (command == "broadcast")
+                {
+                    Program.IGC.SendBroadcastMessage(GeneralChannel, argument);
                 }
             }
             else if (Subsystems.ContainsKey(subsystem))

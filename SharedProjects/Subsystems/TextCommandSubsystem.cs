@@ -147,7 +147,7 @@ namespace IngameScript
                 if (kvp.Key.Item1 == IntelItemType.Friendly)
                 {
                     var friendly = (FriendlyShipIntel)kvp.Value;
-                    if (friendly.AgentClass == AgentClass.Fighter && (friendly.AgentStatus & AgentStatus.Docked) != 0 && (friendly.GetPositionFromCanonicalTime(localTime + IntelProvider.CanonicalTimeDiff) - Controller.GetPosition()).Length() < 400)
+                    if (friendly.AgentClass == AgentClass.Fighter && (friendly.AgentStatus & AgentStatus.Docked) != 0 && (friendly.GetPositionFromCanonicalTime(localTime + IntelProvider.CanonicalTimeDiff) - Controller.GetPosition()).Length() < 100)
                     {
                         FriendlyShipScratchpad.Add(friendly);
                     }
@@ -175,7 +175,7 @@ namespace IngameScript
                 }
                 else
                 {
-                    targetWaypoint.Position += (Controller.WorldMatrix.Forward * TrigHelpers.FastCos(angle) + Controller.WorldMatrix.Forward * TrigHelpers.FastSin(angle)) * 500;
+                    targetWaypoint.Position += (Controller.WorldMatrix.Forward * TrigHelpers.FastCos(angle) + Controller.WorldMatrix.Left * TrigHelpers.FastSin(angle)) * 500;
                 }
 
                 targetWaypoint.Position += Controller.GetShipVelocities().LinearVelocity * 3;

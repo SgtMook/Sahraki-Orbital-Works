@@ -247,7 +247,7 @@ namespace IngameScript
             LastCheckIndex += kMaxChecksPerRun;
         }
 
-        void SortInventory(IMyTerminalBlock inventoryOwner, bool unload = false)
+        void SortInventory(IMyTerminalBlock inventoryOwner)
         {
             if (inventoryOwner == null) return;
 
@@ -268,7 +268,7 @@ namespace IngameScript
             foreach (var inventoryItem in inventoryItemsScratchpad)
             {
                 int desiredAmount = 0;
-                if (!unload && InventoryRequests[inventoryOwner].ContainsKey(inventoryItem.Type))
+                if (!UnloadingInventory && InventoryRequests[inventoryOwner].ContainsKey(inventoryItem.Type))
                     desiredAmount = InventoryRequests[inventoryOwner][inventoryItem.Type];
 
                 var amountDiff = inventoryItem.Amount - desiredAmount;
@@ -286,7 +286,7 @@ namespace IngameScript
                 inventoryRequestAmountsCache[inventoryItem.Type] = -amountDiff;
             }
 
-            if (!unload)
+            if (!UnloadingInventory)
             {
                 // Transfer in
                 foreach (var kvp in InventoryRequests[inventoryOwner])

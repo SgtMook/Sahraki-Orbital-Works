@@ -603,7 +603,8 @@ namespace IngameScript
         #endregion
 
         #region Display
-        public const float kCameraToScreen = 1.06f;
+        public const float kCameraToScreenSm = 1.06f;
+        public const float kCameraToScreenLg = 1.6f;
         public const int kScreenSize = 512;
 
         public readonly Vector2 kMonospaceConstant = new Vector2(18.68108f, 28.8f);
@@ -679,7 +680,7 @@ namespace IngameScript
             bool cross = (properties & IntelSpriteOptions.EmphasizeWithCross) != 0;
 
             var indicator = MySprite.CreateText(indicatorText, "Monospace", color, scale, TextAlignment.CENTER);
-            var v = ((screenPosition * kCameraToScreen) + new Vector2(0.5f, 0.5f)) * kScreenSize;
+            var v = ((screenPosition * (PrimaryCamera.CubeGrid.GridSizeEnum == MyCubeSize.Small ? kCameraToScreenSm : kCameraToScreenLg)) + new Vector2(0.5f, 0.5f)) * kScreenSize;
 
             if (cross)
             {
