@@ -40,8 +40,9 @@ namespace IngameScript
 
             SubsystemManager = new SubsystemManager(Program, reference, false);
             Drive = new AtmoDrive(Controller);
+            CombatLoaderSubsystem loaderSubsystem = new CombatLoaderSubsystem("Drone Cargo", "Drone Store");
             IntelSubsystem intelSubsystem = new IntelSubsystem();
-            DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
+            DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem, loaderSubsystem);
             StatusIndicatorSubsystem indicatorSubsystem = new StatusIndicatorSubsystem(dockingSubsystem, intelSubsystem);
             MonitorSubsystem monitorSubsystem = new MonitorSubsystem(intelSubsystem);
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Fighter);
@@ -55,6 +56,7 @@ namespace IngameScript
             SubsystemManager.AddSubsystem("monitor", monitorSubsystem);
             SubsystemManager.AddSubsystem("combat", combatSubsystem);
             SubsystemManager.AddSubsystem("indicator", indicatorSubsystem);
+            SubsystemManager.AddSubsystem("loader", loaderSubsystem);
 
             undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(program, Drive));
             undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(program, Drive, dockingSubsystem));

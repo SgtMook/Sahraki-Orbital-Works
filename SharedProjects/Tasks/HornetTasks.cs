@@ -220,16 +220,6 @@ namespace IngameScript
                 LastAcceleration = linearVelocity - LastLinearVelocity;
                 LeadTask.Destination.Direction = relativeAttackPoint;
 
-                //if (LeadTask.Destination.Direction == Vector3D.Zero)
-                //{
-                //    LeadTask.Destination.Direction = relativeAttackPoint;
-                //}
-                //else
-                //{
-                //    var error = PEC.Adjust(relativeAttackPoint - LastRelativeAttackPoint);
-                //    LeadTask.Destination.Direction = relativeAttackPoint + error;
-                //    LeadTask.Destination.Direction.Normalize();
-                //}
                 if ((controller.WorldMatrix.Translation - targetPosition).Length() < CombatSystem.FireDist && 
                     VectorHelpers.VectorAngleBetween(LeadTask.Destination.Direction, controller.WorldMatrix.Forward) < CombatSystem.FireTolerance) 
                     CombatSystem.Fire();

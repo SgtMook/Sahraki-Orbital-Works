@@ -29,6 +29,7 @@ namespace IngameScript
             if (command == "scramble") Attack(timestamp);
             if (command == "recall") RecallCrafts(timestamp);
             if (command == "autohome") AutoHomeCrafts(timestamp);
+            if (command == "togglescramble") { AutoScramble = !AutoScramble; };
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -37,6 +38,9 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            debugBuilder.Clear();
+            debugBuilder.AppendLine(AutoScramble.ToString());
+            debugBuilder.AppendLine(Controller.CustomName);
             return debugBuilder.ToString();
         }
 
@@ -51,6 +55,7 @@ namespace IngameScript
             ProgramReference = programReference;
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
+            ParseConfigs();
             GetParts();
         }
 
@@ -74,6 +79,9 @@ namespace IngameScript
         StringBuilder debugBuilder = new StringBuilder();
 
         bool alarm;
+        bool AutoScramble;
+
+        int alertDist = 5000;
 
         bool Alarm
         {
@@ -92,6 +100,20 @@ namespace IngameScript
 
         List<IMyLightingBlock> AlarmLights = new List<IMyLightingBlock>();
         IMyShipController Controller;
+
+        // [Command]
+        // AutoScramble = False
+        // AlertDist = 5000
+        void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+                return;
+
+            AutoScramble = Parser.Get("Command", "AutoScramble").ToBoolean(false);
+            alertDist = Parser.Get("Command", "AlertDist").ToInt32(alertDist);
+        }
 
         void GetParts()
         {
@@ -112,7 +134,7 @@ namespace IngameScript
                 AlarmLights.Add(light);
             }
 
-            if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
+            if (block is IMyShipController && ((IMyShipController)block).CanControlShip && (Controller == null || block.CustomName.Contains("[I]")))
             {
                 Controller = (IMyShipController)block;
             }
@@ -127,7 +149,7 @@ namespace IngameScript
 
             foreach (var kvp in intelItems)
             {
-                if (kvp.Key.Item1 == IntelItemType.Enemy && IntelProvider.GetPriority(kvp.Key.Item2) > 1)
+                if (kvp.Key.Item1 == IntelItemType.Enemy && IntelProvider.GetPriority(kvp.Key.Item2) > 1 && (kvp.Value.GetPositionFromCanonicalTime(localTime + IntelProvider.CanonicalTimeDiff) - Controller.GetPosition()).Length() < alertDist)
                 {
                     hasEnemy = true;
                     break;
@@ -135,6 +157,11 @@ namespace IngameScript
             }
 
             Alarm = hasEnemy;
+
+            if (hasEnemy && AutoScramble)
+            {
+                Attack(localTime);
+            }
         }
 
         void Attack(TimeSpan localTime)

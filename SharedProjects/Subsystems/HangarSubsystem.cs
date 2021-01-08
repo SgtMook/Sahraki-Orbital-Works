@@ -483,11 +483,14 @@ namespace IngameScript
                 return false;
             }
 
-            if (!block.CustomName.StartsWith(TagPrefix)) return false;
-            var indexTagEnd = block.CustomName.IndexOf(']');
+            var tagindex = block.CustomName.IndexOf(TagPrefix);
+
+            if (tagindex == -1) return false;
+
+            var indexTagEnd = block.CustomName.IndexOf(']', tagindex);
             if (indexTagEnd == -1) return false;
 
-            var numString = block.CustomName.Substring(TagPrefix.Length, indexTagEnd - TagPrefix.Length);
+            var numString = block.CustomName.Substring(tagindex + TagPrefix.Length, indexTagEnd - tagindex - TagPrefix.Length);
 
             if (numString == string.Empty)
             {

@@ -67,6 +67,8 @@ namespace IngameScript
         {
             debugBuilder.Clear();
 
+            debugBuilder.AppendLine(CargoGroupName);
+            debugBuilder.AppendLine(StoreGroupName);
             debugBuilder.AppendLine(TotalInventory.Count.ToString());
             debugBuilder.AppendLine(InventoryOwners.Count.ToString());
             debugBuilder.AppendLine(LastCheckIndex.ToString());
@@ -90,6 +92,7 @@ namespace IngameScript
             ProgramReference = programReference;
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
+            ParseConfigs();
             GetParts();
             SortInventory(null);
         }
@@ -105,6 +108,7 @@ namespace IngameScript
         }
         #endregion
         const string kInventoryRequestSection = "InventoryRequest";
+        const string kLoaderSection = "Loader";
         MyGridProgram Program;
 
         List<IMyTerminalBlock> StoreInventoryOwners = new List<IMyTerminalBlock>();
@@ -161,6 +165,20 @@ namespace IngameScript
             }
 
             return false;
+        }
+
+        // [Loader]
+        // CargoGroupName = Cargo
+        // StoreGroupName = Store
+        void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+                return;
+
+            CargoGroupName = Parser.Get(kLoaderSection, "CargoGroupName").ToString(CargoGroupName);
+            StoreGroupName = Parser.Get(kLoaderSection, "StoreGroupName").ToString(StoreGroupName);
         }
 
         void GetBlockRequestSettings(IMyTerminalBlock block)
@@ -333,13 +351,13 @@ namespace IngameScript
             }
         }
 
-        void Unload()
+        public void Unload()
         {
             UnloadingInventory = true;
             Reload();
         }
 
-        void Reload()
+        public void Reload()
         {
             UpdateNum++;
             StoreInventoryOwners.Clear();

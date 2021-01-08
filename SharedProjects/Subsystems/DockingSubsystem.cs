@@ -99,6 +99,8 @@ namespace IngameScript
 
         public HangarTags HangarTags = HangarTags.None;
 
+        IMyShipMergeBlock Merge;
+
         public void Dock(bool fake = false)
         {
             if (fake) return;
@@ -106,6 +108,8 @@ namespace IngameScript
             foreach (var block in TurnOnOffList) block.Enabled = false;
             foreach (var bat in Batteries) bat.ChargeMode = ChargeMode.Recharge;
             foreach (var tank in Tanks) tank.Stockpile = true;
+            Merge.Enabled = false;
+            if (LoaderSubsystem != null) LoaderSubsystem.Reload();
         }
         public void Undock(bool fake = false)
         {
@@ -124,9 +128,12 @@ namespace IngameScript
 
         IIntelProvider IntelProvider;
 
-        public DockingSubsystem(IIntelProvider intelProvider)
+        CombatLoaderSubsystem LoaderSubsystem;
+
+        public DockingSubsystem(IIntelProvider intelProvider, CombatLoaderSubsystem loader = null)
         {
             IntelProvider = intelProvider;
+            LoaderSubsystem = loader;
         }
 
         void GetParts()
@@ -143,6 +150,7 @@ namespace IngameScript
         {
             if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
             if (block is IMyShipConnector && (Connector == null || block.CustomName.Contains("[D]"))) Connector = (IMyShipConnector)block;
+            if (block is IMyShipMergeBlock && (Merge == null || block.CustomName.Contains("[D]"))) Merge = (IMyShipMergeBlock)block;
             if (block is IMyInteriorLight && (DirectionIndicator == null || block.CustomName.Contains("[D]"))) DirectionIndicator = (IMyInteriorLight)block;
 
             if (block is IMyThrust) TurnOnOffList.Add((IMyFunctionalBlock)block);

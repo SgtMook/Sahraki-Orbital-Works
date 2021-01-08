@@ -9,7 +9,7 @@ namespace IngameScript
 {
     public class AtmoDrive : ISubsystem, IAutopilot
     {
-        float MaxAngleDegrees = 60;
+        public float MaxAngleDegrees = 60;
         float MaxAngleTolerance = 1.1f;
 
         // Arguments
@@ -82,6 +82,7 @@ namespace IngameScript
         public IMyShipController Controller {get; set;}
 
         IMyTerminalBlock reference;
+        IMyTerminalBlock ProgramReference;
 
         public IMyTerminalBlock Reference
         {
@@ -206,20 +207,22 @@ namespace IngameScript
                         spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(UpDir));
                     }
                 }
-
-                TrigHelpers.ApplyGyroOverride(PitchPID.Control(pitchAngle), YawPID.Control(yawAngle), SpinPID.Control(spinAngle), Gyros, orientationMatrix);
+                else
+                {
+                    foreach (var gyro in Gyros)
+                        if (gyro.GyroOverride) gyro.GyroOverride = false;
+                }
+                if (yawAngle != 0 || pitchAngle != 0 || spinAngle != 0)
+                    TrigHelpers.ApplyGyroOverride(PitchPID.Control(pitchAngle), YawPID.Control(yawAngle), SpinPID.Control(spinAngle), Gyros, orientationMatrix);
 
                 // Translational Control
 
                 if (Destination == Vector3D.Zero && TargetDrift == Vector3D.Zero)
                 {
-                    if (Controller.DampenersOverride == false)
-                    {
-                        foreach (var kvp in ThrusterManagers)
-                            kvp.Value.SetThrust(0);
+                    foreach (var kvp in ThrusterManagers)
+                        kvp.Value.SetThrust(0);
 
-                        Controller.DampenersOverride = true;
-                    }
+                    Controller.DampenersOverride = true;
                 }
                 else
                 {
@@ -245,8 +248,9 @@ namespace IngameScript
                         Vector3D desiredVel = Vector3D.Zero;
                         if (Destination != Vector3D.Zero)
                         {
-                            var maxSpeed = GetMaxSpeedFromBrakingDistance(destinationDist, GetMaxAccelFromAngleDeviation((float)GetMaxAngleConstraint() * MaxAngleTolerance));
-                            desiredVel = destinationDir * maxSpeed * 0.9;
+                            var maxSpeed = Math.Min(MaxSpeed, GetMaxSpeedFromBrakingDistance(destinationDist, GetMaxAccelFromAngleDeviation((float)GetMaxAngleConstraint() * MaxAngleTolerance)) * 0.9);
+                            maxSpeed = Math.Min(maxSpeed, destinationDist * destinationDist + 0.5);
+                            desiredVel = destinationDir * maxSpeed;
                         }
                         desiredVel += TargetDrift;
                         var adjustVector = currentVel - VectorHelpers.VectorProjection(currentVel, desiredVel);
@@ -311,7 +315,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(Controller.CustomData, out result))
+            if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
             var flo = Parser.Get("Autopilot", "TP").ToDecimal();
@@ -339,16 +343,21 @@ namespace IngameScript
             if (flo != 0) CombatSpeed = (float)flo;
         }
 
-        public AtmoDrive(IMyRemoteControl remoteControl, double TimeStep = 5)
+        public AtmoDrive(IMyShipController control, double TimeStep = 5, IMyTerminalBlock programReference = null)
         {
-            Controller = remoteControl;
+            Controller = control;
             Reference = Controller;
+
+            CombatSpeed = 130;
+            CruiseSpeed = 98;
+
+            ProgramReference = programReference != null ? programReference : control;
+
+            ParseConfigs();
 
             YawPID = new PID(RP, RI, RD, 0.2, TimeStep);
             PitchPID = new PID(RP, RI, RD, 0.2, TimeStep);
             SpinPID = new PID(RP, RI, RD, 0.2, TimeStep);
-
-            ParseConfigs();
 
             XPID = new PID(TP, TI, TD, 0.05, TimeStep);
             YPID = new PID(TP, TI, TD, 0.05, TimeStep);
@@ -419,7 +428,8 @@ namespace IngameScript
 
         public void SetMaxSpeed(float maxSpeed)
         {
-            MaxSpeed = maxSpeed;
+            if (maxSpeed != -1f)
+                MaxSpeed = maxSpeed;
         }
 
         public bool AtWaypoint(Waypoint w)

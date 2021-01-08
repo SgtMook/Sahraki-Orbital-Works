@@ -144,16 +144,16 @@ namespace IngameScript
             LookingGlasses.Clear();
             Controller = null;
 
-            if (OverrideGyros)
-            {
-                Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindBases);
-                Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindUnassignedBases);
-                Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindArms);
-            }
-            else
-            {
+            //if (OverrideGyros)
+            //{
+            //    Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindBases);
+            //    Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindUnassignedBases);
+            //    Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, FindArms);
+            //}
+            //else
+            //{
                 LookingGlassArray[1] = new LookingGlass();
-            }
+            //}
 
             Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
@@ -173,95 +173,95 @@ namespace IngameScript
             if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
                 Controller = (IMyShipController)block;
 
-            if (OverrideGyros)
-            {
-                for (int i = 0; i < LookingGlassArray.Length; i++)
-                {
-                    if (LookingGlassArray[i] != null && LookingGlassArray[i].Pitch != null && block.CubeGrid.EntityId == LookingGlassArray[i].Pitch.TopGrid.EntityId)
-                    {
-                        if (block.CustomName.StartsWith("["))
-                        {
-                            var indexTagEnd = block.CustomName.IndexOf(']');
-                            if (indexTagEnd != -1)
-                            {
-                                block.CustomName = block.CustomName.Substring(indexTagEnd + 1);
-                            }
-                        }
-                        block.CustomName = $"[{Tag}{i}]" + block.CustomName;
-                        LookingGlassArray[i].AddPart(block);
-                    }
-                }
-            }
-            else
-            {
-                if (!block.CustomName.StartsWith(TagPrefix)) return false;
+            //if (OverrideGyros)
+            //{
+            //    for (int i = 0; i < LookingGlassArray.Length; i++)
+            //    {
+            //        if (LookingGlassArray[i] != null && LookingGlassArray[i].Pitch != null && block.CubeGrid.EntityId == LookingGlassArray[i].Pitch.TopGrid.EntityId)
+            //        {
+            //            if (block.CustomName.StartsWith("["))
+            //            {
+            //                var indexTagEnd = block.CustomName.IndexOf(']');
+            //                if (indexTagEnd != -1)
+            //                {
+            //                    block.CustomName = block.CustomName.Substring(indexTagEnd + 1);
+            //                }
+            //            }
+            //            block.CustomName = $"[{Tag}{i}]" + block.CustomName;
+            //            LookingGlassArray[i].AddPart(block);
+            //        }
+            //    }
+            //}
+            //else
+            //{
+                if (!block.CustomName.Contains(TagPrefix)) return false;
                 LookingGlassArray[1].AddPart(block);
-            }
+            //}
 
             return false;
         }
 
-        bool FindBases(IMyTerminalBlock block)
-        {
-            if (!ProgramReference.IsSameConstructAs(block)) return false;
-            if (block is IMyMotorStator && block.CustomName.StartsWith(TagPrefix) && !block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == ProgramReference.CubeGrid.EntityId)
-            {
-                var indexTagEnd = block.CustomName.IndexOf(']');
-                if (indexTagEnd == -1) return false;
-
-                var numString = block.CustomName.Substring(TagPrefix.Length, indexTagEnd - TagPrefix.Length);
-
-                int index;
-                if (!int.TryParse(numString, out index)) return false;
-                if (LookingGlassArray[index] == null) LookingGlassArray[index] = new LookingGlass();
-                LookingGlassArray[index].AddPart(block);
-            }
-            return false;
-        }
-
-        bool FindUnassignedBases(IMyTerminalBlock block)
-        {
-            if (!ProgramReference.IsSameConstructAs(block)) return false;
-            if (block is IMyMotorStator && block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == ProgramReference.CubeGrid.EntityId)
-            {
-                for (int i = 1; i < LookingGlassArray.Length; i++)
-                {
-                    if (LookingGlassArray[i] == null)
-                    {
-                        LookingGlassArray[i] = new LookingGlass();
-                        block.CustomName = block.CustomName.Replace($"[{Tag}x]", $"[{Tag}{i}]");
-                        LookingGlassArray[i].AddPart(block);
-                        return false;
-                    }
-                }
-            }
-            return false;
-        }
-
-        bool FindArms(IMyTerminalBlock block)
-        {
-            if (!ProgramReference.IsSameConstructAs(block)) return false;
-            if (block is IMyMotorStator)
-            {
-                for (int i = 1; i < LookingGlassArray.Length; i++)
-                {
-                    if (LookingGlassArray[i] != null && block.CubeGrid.EntityId == LookingGlassArray[i].Yaw.TopGrid.EntityId)
-                    {
-                        if (block.CustomName.StartsWith("["))
-                        {
-                            var indexTagEnd = block.CustomName.IndexOf(']');
-                            if (indexTagEnd != -1)
-                            {
-                                block.CustomName = block.CustomName.Substring(indexTagEnd + 1);
-                            }
-                        }
-                        block.CustomName = $"[{Tag}{i}]" + block.CustomName;
-                        LookingGlassArray[i].AddPart(block);
-                    }
-                }
-            }
-            return false;
-        }
+        //bool FindBases(IMyTerminalBlock block)
+        //{
+        //    if (!ProgramReference.IsSameConstructAs(block)) return false;
+        //    if (block is IMyMotorStator && block.CustomName.StartsWith(TagPrefix) && !block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == ProgramReference.CubeGrid.EntityId)
+        //    {
+        //        var indexTagEnd = block.CustomName.IndexOf(']');
+        //        if (indexTagEnd == -1) return false;
+        //
+        //        var numString = block.CustomName.Substring(TagPrefix.Length, indexTagEnd - TagPrefix.Length);
+        //
+        //        int index;
+        //        if (!int.TryParse(numString, out index)) return false;
+        //        if (LookingGlassArray[index] == null) LookingGlassArray[index] = new LookingGlass();
+        //        LookingGlassArray[index].AddPart(block);
+        //    }
+        //    return false;
+        //}
+        //
+        //bool FindUnassignedBases(IMyTerminalBlock block)
+        //{
+        //    if (!ProgramReference.IsSameConstructAs(block)) return false;
+        //    if (block is IMyMotorStator && block.CustomName.StartsWith($"[{Tag}x]") && block.CubeGrid.EntityId == ProgramReference.CubeGrid.EntityId)
+        //    {
+        //        for (int i = 1; i < LookingGlassArray.Length; i++)
+        //        {
+        //            if (LookingGlassArray[i] == null)
+        //            {
+        //                LookingGlassArray[i] = new LookingGlass();
+        //                block.CustomName = block.CustomName.Replace($"[{Tag}x]", $"[{Tag}{i}]");
+        //                LookingGlassArray[i].AddPart(block);
+        //                return false;
+        //            }
+        //        }
+        //    }
+        //    return false;
+        //}
+        //
+        //bool FindArms(IMyTerminalBlock block)
+        //{
+        //    if (!ProgramReference.IsSameConstructAs(block)) return false;
+        //    if (block is IMyMotorStator)
+        //    {
+        //        for (int i = 1; i < LookingGlassArray.Length; i++)
+        //        {
+        //            if (LookingGlassArray[i] != null && block.CubeGrid.EntityId == LookingGlassArray[i].Yaw.TopGrid.EntityId)
+        //            {
+        //                if (block.CustomName.StartsWith("["))
+        //                {
+        //                    var indexTagEnd = block.CustomName.IndexOf(']');
+        //                    if (indexTagEnd != -1)
+        //                    {
+        //                        block.CustomName = block.CustomName.Substring(indexTagEnd + 1);
+        //                    }
+        //                }
+        //                block.CustomName = $"[{Tag}{i}]" + block.CustomName;
+        //                LookingGlassArray[i].AddPart(block);
+        //            }
+        //        }
+        //    }
+        //    return false;
+        //}
 
         #region plugins
         public void AddPlugin(string name, ILookingGlassPlugin plugin)
@@ -739,8 +739,8 @@ namespace IngameScript
         public readonly Color kEnemyRed = new Color(255, 140, 140, 100);
         public readonly Color kWaypointOrange = new Color(255, 210, 180, 100);
 
-        public readonly Color kFocusedColor = new Color(0.5f, 0.5f, 1f);
-        public readonly Color kUnfocusedColor = new Color(0.2f, 0.2f, 0.5f, 0.5f);
+        public readonly Color kFocusedColor = new Color(0.9f, 0.9f, 1f);
+        public readonly Color kUnfocusedColor = new Color(0.7f, 0.7f, 1f);
         #endregion
     }
 

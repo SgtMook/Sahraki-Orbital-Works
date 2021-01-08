@@ -145,8 +145,20 @@ namespace IngameScript
             }
             else
             {
-                subsystemManager.Update(updateSource);
-                Echo(subsystemManager.GetStatus());
+                try
+                {
+                    subsystemManager.Update(updateSource);
+                    var status = subsystemManager.GetStatus();
+                    if (status != string.Empty) Echo(status);
+                }
+                catch (Exception e)
+                {
+                    Me.GetSurface(0).WriteText(e.StackTrace);
+                    Me.GetSurface(0).WriteText("\n", true);
+                    Me.GetSurface(0).WriteText(e.Message, true);
+                    Me.GetSurface(0).WriteText("\n", true);
+                    Me.GetSurface(0).WriteText(subsystemManager.GetStatus(), true);
+                }
             }
         }
     }

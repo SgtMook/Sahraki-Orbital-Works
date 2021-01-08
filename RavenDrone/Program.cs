@@ -60,11 +60,11 @@ namespace IngameScript
             {
                 MyRaven.Update(updateSource);
             }
-            catch (Exception e)
+            catch (Exception exc)
             {
-                Me.GetSurface(0).WriteText(e.StackTrace);
+                Me.GetSurface(0).WriteText(exc.StackTrace);
                 Me.GetSurface(0).WriteText("\n", true);
-                Me.GetSurface(0).WriteText(e.Message, true);
+                Me.GetSurface(0).WriteText(exc.Message, true);
                 Me.GetSurface(0).WriteText("\n", true);
                 Me.GetSurface(0).WriteText(MyRaven.GetStatus(), true);
             }

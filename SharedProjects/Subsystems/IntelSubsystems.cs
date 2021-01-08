@@ -45,6 +45,8 @@ namespace IngameScript
         void SetPriority(long EnemyID, int value);
 
         bool HasMaster { get; }
+
+        IMyShipController Controller { get; }
     }
 
     // ABOLISH SLAVERY ====================================================================================================================================================================================================================================================
@@ -66,6 +68,11 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            debugBuilder.Clear();
+            debugBuilder.AppendLine(IntelItems.Count().ToString());
+            debugBuilder.AppendLine(canonicalTimeDiff.ToString());
+            debugBuilder.AppendLine(Controller.CustomName);
+
             return debugBuilder.ToString();
         }
 
@@ -108,7 +115,7 @@ namespace IngameScript
             if (ProgramReference == null) ProgramReference = program.Me;
             Program = program;
 
-            if (Master == null)
+            if (Host == null)
             {
                 // JIT initialization
                 AsteroidIntel.IGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3);
@@ -146,7 +153,7 @@ namespace IngameScript
 
             if (runs % 30 == 0)
             {
-                if (Master == null)
+                if (Host == null)
                 {
                     if (!IsMaster) GetSyncMessages(timestamp);
                     CheckOrSendTimeMessage(timestamp);
@@ -154,7 +161,7 @@ namespace IngameScript
                 UpdateMyIntel(timestamp);
             }
 
-            if (runs % 100 == 0 && Master == null)
+            if (runs % 100 == 0 && Host == null)
             {
                 TimeoutIntelItems(timestamp);
 
@@ -207,7 +214,7 @@ namespace IngameScript
         #region IIntelProvider
         public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences(TimeSpan timestamp)
         {
-            if (Master != null) return Master.GetFleetIntelligences(timestamp);
+            if (Host != null) return Host.GetFleetIntelligences(timestamp);
             if (timestamp == TimeSpan.Zero) return IntelItems;
             GetSyncMessages(timestamp);
             return IntelItems;
@@ -215,7 +222,7 @@ namespace IngameScript
 
         public TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key)
         {
-            if (Master != null) return Master.GetLastUpdatedTime(key);
+            if (Host != null) return Host.GetLastUpdatedTime(key);
             if (!Timestamps.ContainsKey(key))
                 return TimeSpan.MaxValue;
             return Timestamps[key];
@@ -234,7 +241,7 @@ namespace IngameScript
 
         public TimeSpan CanonicalTimeDiff { get
             {
-                if (Master != null) return Master.CanonicalTimeDiff;
+                if (Host != null) return Host.CanonicalTimeDiff;
                 return canonicalTimeDiff;
             }
             set
@@ -253,9 +260,11 @@ namespace IngameScript
             }
         }
 
+        public IMyShipController Controller => controller;
+
         public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp, CommandType commandType = CommandType.Override)
         {
-            if (Master != null) Master.ReportCommand(agent, taskType, targetKey, timestamp, commandType);
+            if (Host != null) Host.ReportCommand(agent, taskType, targetKey, timestamp, commandType);
             if (agent.ID == ProgramReference.CubeGrid.EntityId && MyAgent != null)
             {
                 MyAgent.AddTask(taskType, targetKey, CommandType.Override, 0, timestamp + CanonicalTimeDiff);
@@ -314,12 +323,12 @@ namespace IngameScript
 
         float RadiusMulti = 1;
 
-        IntelSubsystem Master;
+        IntelSubsystem Host;
 
         public IntelSubsystem(int rank = 0, IntelSubsystem master = null)
         {
             Rank = rank;
-            Master = master;
+            Host = master;
         }
 
         // [Intel]
@@ -349,7 +358,7 @@ namespace IngameScript
         {
             if (!ProgramReference.IsSameConstructAs(block)) return false;
 
-            if (block is IMyShipController)
+            if (block is IMyShipController && (controller == null || block.CustomName.Contains("[I]")))
                 controller = (IMyShipController)block;
 
             return false;
@@ -359,6 +368,7 @@ namespace IngameScript
         {
             if (timestamp == TimeSpan.Zero) return;
             if (controller == null) return;
+
             FriendlyShipIntel myIntel;
             IMyCubeGrid cubeGrid = ProgramReference.CubeGrid;
             var key = MyTuple.Create(IntelItemType.Friendly, cubeGrid.EntityId);
@@ -378,7 +388,7 @@ namespace IngameScript
             foreach (var processor in intelProcessors)
                 processor.ProcessIntel(myIntel);
 
-            if (Master != null) Master.ReportFleetIntelligence(myIntel, timestamp);
+            if (Host != null) Host.ReportFleetIntelligence(myIntel, timestamp);
             else ReportFleetIntelligence(myIntel, timestamp);
         }
 
@@ -440,9 +450,6 @@ namespace IngameScript
 
         void GetTimeMessage(TimeSpan timestamp)
         {
-            debugBuilder.Clear();
-            debugBuilder.AppendLine(canonicalTimeDiff.ToString());
-            debugBuilder.AppendLine(IntelItems.Count().ToString());
             if (timestamp == TimeSpan.Zero) return;
 
             MyIGCMessage? msg = null;
@@ -453,24 +460,27 @@ namespace IngameScript
             if (msg != null)
             {
                 var tMsg = (MyIGCMessage)msg;
-                var unpacked = (MyTuple<double, int>)tMsg.Data;
-
-                if (unpacked.Item2 > CanonicalTimeSourceRank || (unpacked.Item2 == CanonicalTimeSourceRank && tMsg.Source > CanonicalTimeSourceID))
+                if (tMsg.Data is MyTuple<double, int, long>)
                 {
-                    CanonicalTimeSourceRank = unpacked.Item2;
-                    CanonicalTimeSourceID = tMsg.Source;
-                }
+                    var unpacked = (MyTuple<double, int, long>)tMsg.Data;
 
-                if (CanonicalTimeSourceID == tMsg.Source)
-                {
-                    CanonicalTimeDiff = TimeSpan.FromMilliseconds(unpacked.Item1 + kOneTick) - timestamp;
-                }
+                    if (unpacked.Item2 > CanonicalTimeSourceRank || (unpacked.Item2 == CanonicalTimeSourceRank && unpacked.Item3 > CanonicalTimeSourceID))
+                    {
+                        CanonicalTimeSourceRank = unpacked.Item2;
+                        CanonicalTimeSourceID = unpacked.Item3;
+                    }
 
-                if (unpacked.Item2 > HighestRank || (unpacked.Item2 == HighestRank && tMsg.Source > HighestRankID))
-                {
-                    HighestRank = unpacked.Item2;
-                    HighestRankID = tMsg.Source;
-                    if (IsMaster) Demote(HighestRankID, HighestRank);
+                    if (CanonicalTimeSourceID == unpacked.Item3)
+                    {
+                        CanonicalTimeDiff = TimeSpan.FromMilliseconds(unpacked.Item1 + kOneTick) - timestamp;
+                    }
+
+                    if (unpacked.Item2 > HighestRank || (unpacked.Item2 == HighestRank && unpacked.Item3 > HighestRankID))
+                    {
+                        HighestRank = unpacked.Item2;
+                        HighestRankID = unpacked.Item3;
+                        if (IsMaster) Demote(HighestRankID, HighestRank);
+                    }
                 }
             }
         }
@@ -483,7 +493,7 @@ namespace IngameScript
 
             if (Rank > 0)
             {
-                Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.TimeChannelTag, MyTuple.Create(timestamp.TotalMilliseconds, Rank));
+                Program.IGC.SendBroadcastMessage(FleetIntelligenceUtil.TimeChannelTag, MyTuple.Create(timestamp.TotalMilliseconds, Rank, Program.IGC.Me));
             }
 
             if (HighestRankID == Program.IGC.Me && !IsMaster && Rank > 0)
@@ -503,6 +513,9 @@ namespace IngameScript
 
         void UpdateIntelFromReports(TimeSpan timestamp)
         {
+            List<IMyBroadcastListener> listeners = new List<IMyBroadcastListener>();
+            Program.IGC.GetBroadcastListeners(listeners);
+
             while (ReportListener.HasPendingMessage)
             {
                 var msg = ReportListener.AcceptMessage();
@@ -510,6 +523,11 @@ namespace IngameScript
                 if (updateKey.Item1 != IntelItemType.NONE)
                 {
                     Timestamps[updateKey] = timestamp;
+                }
+
+                if (msg.Data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>, MyTuple<int, string, int, int, Vector3I>, MyTuple<long, int>>>>)
+                {
+                    var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>, MyTuple<int, string, int, int, Vector3I>, MyTuple<long, int>>>>)(msg.Data);
                 }
             }
         }

@@ -854,13 +854,17 @@ namespace IngameScript
 
         public void FromDetectedInfo(MyDetectedEntityInfo info, TimeSpan canonicalTime, bool updateSize = false)
         {
-            if (info.Type != MyDetectedEntityType.SmallGrid && info.Type != MyDetectedEntityType.LargeGrid) return;
+            if (info.Type != MyDetectedEntityType.SmallGrid && info.Type != MyDetectedEntityType.LargeGrid && info.Type != MyDetectedEntityType.Unknown) return;
             if (info.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies && info.Relationship != MyRelationsBetweenPlayerAndBlock.Neutral) return;
 
             if (ID != info.EntityId)
             {
-                CubeSize = info.Type == MyDetectedEntityType.SmallGrid ? MyCubeSize.Small : MyCubeSize.Large;
-                ID = info.EntityId;
+                if (info.Type != MyDetectedEntityType.Unknown) // Only update with unknown intel if ID matches
+                {
+                    CubeSize = info.Type == MyDetectedEntityType.SmallGrid ? MyCubeSize.Small : MyCubeSize.Large;
+                    ID = info.EntityId;
+                }
+                else return;
             }
 
             if (DisplayName == null || DisplayName.StartsWith("S-") || DisplayName.StartsWith("L-"))

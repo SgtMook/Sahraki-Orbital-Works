@@ -21,7 +21,7 @@ using VRageMath;
 
 namespace IngameScript
 {
-    enum OutputMode
+    public enum OutputMode
     {
         Debug,
         Profile,
@@ -45,7 +45,7 @@ namespace IngameScript
         const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
         Profiler profiler;
 
-        OutputMode OutputMode = OutputMode.None;
+        public OutputMode OutputMode = OutputMode.None;
         bool Active = true;
         bool Activating = false;
 

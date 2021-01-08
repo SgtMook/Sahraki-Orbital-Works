@@ -38,7 +38,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return debugBuilder.ToString();
+            return Cameras.Count().ToString();
         }
 
         public string SerializeSubsystem()
@@ -153,7 +153,7 @@ namespace IngameScript
         {
             if (!(block is IMyCameraBlock)) 
                 return false;
-            if (!(block.CustomName.StartsWith(TagPrefix))) 
+            if (!(block.CustomName.Contains(TagPrefix))) 
                 return false;
 
             var camera = (IMyCameraBlock)block;
@@ -179,30 +179,8 @@ namespace IngameScript
             // Go through each target
             var intelItems = IntelProvider.GetFleetIntelligences(localTime);
             var canonicalTime = localTime + IntelProvider.CanonicalTimeDiff;
-            foreach (var kvp in intelItems)
-            {
-                if (kvp.Key.Item1 != IntelItemType.Enemy) 
-                    continue;
-                EnemyShipIntel enemy = (EnemyShipIntel)kvp.Value;
 
-                int priority = IntelProvider.GetPriority(kvp.Key.Item2);
-                if (priority < 1) 
-                    continue;
-
-                if (!EnemyShipIntel.PrioritizeTarget(enemy)) 
-                    continue;
-                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.1) > canonicalTime) 
-                    continue;
-                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime && priority < 4) 
-                    continue;
-
-                Vector3D targetPosition = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
-
-                TryScanTarget(targetPosition, localTime, enemy);
-
-            }
-
-            var intelDict = IntelProvider.GetFleetIntelligences(localTime);
+            debugBuilder.Clear();
 
             // WC only...
             if (WCAPI != null)
@@ -212,7 +190,7 @@ namespace IngameScript
 
                 foreach (var target in GetThreatsScratchpad.Keys)
                 {
-                    TryAddEnemyShipIntel(intelDict, localTime, canonicalTime, target, true);
+                    TryAddEnemyShipIntel(intelItems, localTime, canonicalTime, target, true);
                 }
             }
             else
@@ -224,39 +202,62 @@ namespace IngameScript
 
                     var target = turret.GetTargetedEntity();
 
-                    TryAddEnemyShipIntel(intelDict, localTime, canonicalTime, target);
+                    TryAddEnemyShipIntel(intelItems, localTime, canonicalTime, target);
                 }
             }
-            debugBuilder.Clear();
+
+            foreach (var kvp in intelItems)
+            {
+                if (kvp.Key.Item1 != IntelItemType.Enemy)
+                    continue;
+                EnemyShipIntel enemy = (EnemyShipIntel)kvp.Value;
+
+                int priority = IntelProvider.GetPriority(kvp.Key.Item2);
+                if (priority < 1)
+                    continue;
+
+                if (!EnemyShipIntel.PrioritizeTarget(enemy))
+                    continue;
+                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.2) > canonicalTime)
+                    continue;
+                if (enemy.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.4) > canonicalTime && priority < 4)
+                    continue;
+
+                Vector3D targetPosition = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
+
+                TryScanTarget(targetPosition, localTime, enemy);
+            }
         }
         public void TryAddEnemyShipIntel(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelDict, TimeSpan localTime, TimeSpan canonicalTime, MyDetectedEntityInfo target, bool validated = false)
         {
             if (target.IsEmpty())
                 return;
-            if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid)
+            if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid && target.Type != MyDetectedEntityType.Unknown)
                 return;
             if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies)
                 return;
 
             var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
-            IFleetIntelligence TargetIntel = null;
+            bool gotNewIntel = false;
+            IFleetIntelligence TargetIntel;
+
             if (!intelDict.TryGetValue(key, out TargetIntel))
             {
+                gotNewIntel = true;
                 TargetIntel = new EnemyShipIntel();
             }
             EnemyShipIntel enemyIntel = (EnemyShipIntel)TargetIntel;
 
             enemyIntel.ID = target.EntityId;
 
-            if (enemyIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) < canonicalTime)
+            if (validated && (target.Type != MyDetectedEntityType.Unknown || !gotNewIntel))
             {
-                if (validated)
-                {
-                    enemyIntel.FromDetectedInfo(target, canonicalTime, true);
-                    IntelProvider.ReportFleetIntelligence(enemyIntel, localTime);
-                }
-                else
-                    TryScanTarget(target.Position, localTime, enemyIntel);
+                enemyIntel.FromDetectedInfo(target, canonicalTime, true);
+                IntelProvider.ReportFleetIntelligence(enemyIntel, localTime);
+            }
+            else if (enemyIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) < canonicalTime)
+            {
+                TryScanTarget(target.Position, localTime, enemyIntel);
             }
         }
         public void LookingGlassRaycast(IMyCameraBlock camera, TimeSpan localTime)
