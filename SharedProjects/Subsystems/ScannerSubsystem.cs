@@ -38,7 +38,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return Cameras.Count().ToString();
+            return debugBuilder.ToString();
         }
 
         public string SerializeSubsystem()
@@ -100,6 +100,8 @@ namespace IngameScript
         double RaycastDistanceMax = 10000;
         int ScanExtent;
         float ScanScatter;
+
+        List<IMyCameraBlock> CameraRetrys = new List<IMyCameraBlock>();
 
         public ScannerNetworkSubsystem(IIntelProvider intelProvider, string tag = "SE", int scanExtent = 30, float scanScatter = 0.25f)
         {
@@ -179,8 +181,6 @@ namespace IngameScript
             // Go through each target
             var intelItems = IntelProvider.GetFleetIntelligences(localTime);
             var canonicalTime = localTime + IntelProvider.CanonicalTimeDiff;
-
-            debugBuilder.Clear();
 
             // WC only...
             if (WCAPI != null)
@@ -307,9 +307,16 @@ namespace IngameScript
                 return;
 
             int failures = 0;
-            foreach (var camera in Cameras)
+            CameraRetrys.Clear();
+            CameraRetrys.AddRange(Cameras);
+            while (CameraRetrys.Count > Cameras.Count * 0.6)
             {
-                if (!camera.IsWorking) 
+                var index = random.Next(0, CameraRetrys.Count);
+                var camera = CameraRetrys[index];
+
+                CameraRetrys.RemoveAt(index);
+
+                if (!camera.IsWorking)
                     continue;
 
                 offset = new Vector3D(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5) * offsetDist;
@@ -318,11 +325,11 @@ namespace IngameScript
                 bool terminate = true;
                 switch ( result )
                 {
-                    case TryScanResults.CannotScan:
+                    case TryScanResults.Retry:
                         failures++;
                         terminate = false;
                         break;
-                    case TryScanResults.Missed:
+                    case TryScanResults.DoNotRetry:
 //                        debugBuilder.AppendLine("CTS R=" + result.ToString());
                         break;
                     case TryScanResults.Scanned:
@@ -330,7 +337,7 @@ namespace IngameScript
 //                        debugBuilder.AppendLine("CTS R=" + result.ToString());
                         break;
                 }
-                if (terminate)
+                if (terminate || failures > 5)
                     break;
             }
 //            debugBuilder.AppendLine("CTS F=" + failures.ToString() + " T=" + Cameras.Count);
@@ -351,8 +358,8 @@ namespace IngameScript
         public enum TryScanResults
         {
             Scanned,
-            CannotScan,
-            Missed,
+            Retry,
+            DoNotRetry,
         }
         public TryScanResults CameraTryScan(IIntelProvider intelProvider, IMyCameraBlock camera, Vector3D targetPosition, TimeSpan localTime, EnemyShipIntel enemy)
         {
@@ -360,19 +367,46 @@ namespace IngameScript
             var cameraDist = cameraToTarget.Length();
 
             if (!camera.CanScan(cameraDist + this.ScanExtent)) 
-                return TryScanResults.CannotScan;
+                return TryScanResults.Retry;
            
             if (!camera.CanScan(targetPosition)) 
-                return TryScanResults.CannotScan;
+                return TryScanResults.Retry;
 
             cameraToTarget.Normalize();
             var cameraFinalPosition = cameraToTarget * (cameraDist + this.ScanExtent) + camera.WorldMatrix.Translation;
             var info = camera.Raycast(cameraFinalPosition);
-            if (info.EntityId == 0 || (enemy.ID != 0 && info.EntityId != enemy.ID)) 
-                return TryScanResults.Missed;
+
+            if (info.IsEmpty())
+                return TryScanResults.Retry;
+
+            // if ((ProgramReference.CubeGrid.GetPosition() - info.HitPosition.Value).Length() < ProgramReference.CubeGrid.WorldAABB.Size.Length())
+            //     return TryScanResults.Retry;
+
+            if (info.Relationship == MyRelationsBetweenPlayerAndBlock.NoOwnership)
+                return TryScanResults.DoNotRetry;
+
+            if (enemy.ID != 0 && info.EntityId != enemy.ID)
+                return TryScanResults.Retry;
+
+            if (info.BoundingBox.Size.Length() * 0.5f < 4)
+            {
+                return TryScanResults.Retry;
+                //debugBuilder.AppendLine($"SUSP: {info.BoundingBox.Size.Length() * 0.5f}");
+                //debugBuilder.AppendLine($"{info.Name}");
+                //debugBuilder.AppendLine($"{info.EntityId}");
+                //debugBuilder.AppendLine($"{(int)info.Position.X}, {(int)info.Position.Y}, {(int)info.Position.Z}");
+                //debugBuilder.AppendLine($"{(int)info.Velocity.X}, {(int)info.Velocity.Y}, {(int)info.Velocity.Z}");
+                //debugBuilder.AppendLine($"========");
+                //debugBuilder.AppendLine($"{enemy.ID}");
+                //var enemyPos = enemy.GetPositionFromCanonicalTime(localTime + IntelProvider.CanonicalTimeDiff);
+                //debugBuilder.AppendLine($"{(int)enemyPos.X}, {(int)enemyPos.Y}, {(int)enemyPos.Z}");
+                //debugBuilder.AppendLine($"{(int)enemy.CurrentVelocity.X}, {(int)enemy.CurrentVelocity.Y}, {(int)enemy.CurrentVelocity.Z}");
+                //debugBuilder.AppendLine($"{enemy.Radius}");
+            }
 
             enemy.FromDetectedInfo(info, localTime + intelProvider.CanonicalTimeDiff, true);
             intelProvider.ReportFleetIntelligence(enemy, localTime);
+
             return TryScanResults.Scanned;
         }
 
@@ -434,10 +468,10 @@ namespace IngameScript
                 if (!camera.IsWorking) continue;
                 var result = Host.CameraTryScan(intelProvider, camera, targetPosition, localTime, enemy);
                 if (result == ScannerNetworkSubsystem.TryScanResults.Scanned) return result;
-                if (result == ScannerNetworkSubsystem.TryScanResults.Missed) return ScannerNetworkSubsystem.TryScanResults.CannotScan; // This array cannot scan
+                if (result == ScannerNetworkSubsystem.TryScanResults.DoNotRetry) return ScannerNetworkSubsystem.TryScanResults.Retry; // This array cannot scan
             }
 
-            return ScannerNetworkSubsystem.TryScanResults.CannotScan;
+            return ScannerNetworkSubsystem.TryScanResults.Retry;
         }
     }
 }

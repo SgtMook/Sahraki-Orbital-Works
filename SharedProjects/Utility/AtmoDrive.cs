@@ -70,7 +70,7 @@ namespace IngameScript
         float TD = 8;
 
         float RP = 5;
-        float RI = 0.01f;
+        float RI = 0.2f;
         float RD = 2;
 
         PID XPID;
@@ -103,9 +103,11 @@ namespace IngameScript
 
         public float CombatSpeed { get; set; }
 
-        float MaxSpeed = 98;
+        float MaxSpeed = 150;
 
         int runs = 0;
+
+        public bool FullAuto = true;
 
         public void Setup(MyGridProgram program, string name, IMyTerminalBlock reference = null)
         {
@@ -166,34 +168,37 @@ namespace IngameScript
                     {
                         targetDir = ForwardDir;
                     }
-                    else
+                    else if (FullAuto)
                     {
                         targetDir = Controller.WorldMatrix.Forward - VectorHelpers.VectorProjection(Controller.WorldMatrix.Forward, gravDir);
                     }
 
-                    if (UpDir == Vector3D.Zero)
+                    if (targetDir != Vector3D.Zero)
                     {
-                        var angleFromVertical = VectorHelpers.VectorAngleBetween(targetDir, gravDir) - Math.PI * 0.5;
-                        var maxAngleFromVertical = GetMaxAngleConstraint();
-                        angleFromVertical = Math.Max(Math.Min(angleFromVertical, maxAngleFromVertical), -maxAngleFromVertical);
-                        var flatAimDir = targetDir - VectorHelpers.VectorProjection(targetDir, gravDir);
-                        flatAimDir.Normalize();
+                        if (UpDir == Vector3D.Zero)
+                        {
+                            var angleFromVertical = VectorHelpers.VectorAngleBetween(targetDir, gravDir) - Math.PI * 0.5;
+                            var maxAngleFromVertical = GetMaxAngleConstraint();
+                            angleFromVertical = Math.Max(Math.Min(angleFromVertical, maxAngleFromVertical), -maxAngleFromVertical);
+                            var flatAimDir = targetDir - VectorHelpers.VectorProjection(targetDir, gravDir);
+                            flatAimDir.Normalize();
 
-                        var downDir = TrigHelpers.FastCos(angleFromVertical) * gravDir + TrigHelpers.FastSin(angleFromVertical) * flatAimDir;
+                            var downDir = TrigHelpers.FastCos(angleFromVertical) * gravDir + TrigHelpers.FastSin(angleFromVertical) * flatAimDir;
 
-                        orientationMatrix.Forward = Controller.WorldMatrix.Down;
-                        orientationMatrix.Left = Controller.WorldMatrix.Left;
-                        orientationMatrix.Up = Controller.WorldMatrix.Forward;
+                            orientationMatrix.Forward = Controller.WorldMatrix.Down;
+                            orientationMatrix.Left = Controller.WorldMatrix.Left;
+                            orientationMatrix.Up = Controller.WorldMatrix.Forward;
 
-                        spinAngle = -VectorHelpers.VectorAngleBetween(flatAimDir, flatCurrentDir) * Math.Sign(Controller.WorldMatrix.Left.Dot(flatAimDir));
-                        TrigHelpers.GetRotationAngles(downDir, orientationMatrix.Forward, orientationMatrix.Left, orientationMatrix.Up, out yawAngle, out pitchAngle);
-                    }
-                    else
-                    {
-                        orientationMatrix = reference.WorldMatrix;
-                        TrigHelpers.GetRotationAngles(ForwardDir, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
-                        var projectedTargetUp = UpDir - reference.WorldMatrix.Forward.Dot(UpDir) * reference.WorldMatrix.Forward;
-                        spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(UpDir));
+                            spinAngle = -VectorHelpers.VectorAngleBetween(flatAimDir, flatCurrentDir) * Math.Sign(Controller.WorldMatrix.Left.Dot(flatAimDir));
+                            TrigHelpers.GetRotationAngles(downDir, orientationMatrix.Forward, orientationMatrix.Left, orientationMatrix.Up, out yawAngle, out pitchAngle);
+                        }
+                        else
+                        {
+                            orientationMatrix = reference.WorldMatrix;
+                            TrigHelpers.GetRotationAngles(ForwardDir, reference.WorldMatrix.Forward, reference.WorldMatrix.Left, reference.WorldMatrix.Up, out yawAngle, out pitchAngle);
+                            var projectedTargetUp = UpDir - reference.WorldMatrix.Forward.Dot(UpDir) * reference.WorldMatrix.Forward;
+                            spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(UpDir));
+                        }
                     }
                 }
                 else if(ForwardDir != Vector3D.Zero)
@@ -207,13 +212,14 @@ namespace IngameScript
                         spinAngle = -1 * VectorHelpers.VectorAngleBetween(reference.WorldMatrix.Up, projectedTargetUp) * Math.Sign(reference.WorldMatrix.Left.Dot(UpDir));
                     }
                 }
+
+                if (yawAngle != 0 || pitchAngle != 0 || spinAngle != 0)
+                    TrigHelpers.ApplyGyroOverride(PitchPID.Control(pitchAngle), YawPID.Control(yawAngle), gravDir == Vector3D.Zero ? spinAngle : SpinPID.Control(spinAngle), Gyros, orientationMatrix);
                 else
                 {
                     foreach (var gyro in Gyros)
                         if (gyro.GyroOverride) gyro.GyroOverride = false;
                 }
-                if (yawAngle != 0 || pitchAngle != 0 || spinAngle != 0)
-                    TrigHelpers.ApplyGyroOverride(PitchPID.Control(pitchAngle), YawPID.Control(yawAngle), SpinPID.Control(spinAngle), Gyros, orientationMatrix);
 
                 // Translational Control
 
@@ -222,7 +228,8 @@ namespace IngameScript
                     foreach (var kvp in ThrusterManagers)
                         kvp.Value.SetThrust(0);
 
-                    Controller.DampenersOverride = true;
+                    if (FullAuto)
+                        Controller.DampenersOverride = true;
                 }
                 else
                 {
@@ -355,9 +362,9 @@ namespace IngameScript
 
             ParseConfigs();
 
-            YawPID = new PID(RP, RI, RD, 0.2, TimeStep);
-            PitchPID = new PID(RP, RI, RD, 0.2, TimeStep);
-            SpinPID = new PID(RP, RI, RD, 0.2, TimeStep);
+            YawPID = new PID(RP, RI, RD, -12, 12, TimeStep);
+            PitchPID = new PID(RP, RI, RD, -12, 12, TimeStep);
+            SpinPID = new PID(RP, RI, RD, -12, 12, TimeStep);
 
             XPID = new PID(TP, TI, TD, 0.05, TimeStep);
             YPID = new PID(TP, TI, TD, 0.05, TimeStep);

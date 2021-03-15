@@ -121,11 +121,16 @@ namespace IngameScript
 
         public float FireTolerance = 0.2f;
 
+        public float OwnSpeedMultiplier = 1f;
+
         int runs = 0;
 
-        public HornetCombatSubsystem(IIntelProvider provider)
+        bool UseGuns;
+
+        public HornetCombatSubsystem(IIntelProvider provider, bool useGuns = true)
         {
             IntelProvider = provider;
+            UseGuns = useGuns;
         }
 
         void GetParts()
@@ -137,10 +142,10 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (block is IMyUserControllableGun && block.IsSameConstructAs(ProgramReference))
-                Guns.Add((IMyUserControllableGun)block);
-
             if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+
+            if (block is IMyUserControllableGun && UseGuns)
+                Guns.Add((IMyUserControllableGun)block);
 
             if (block is IMyLargeTurretBase)
             {
@@ -160,6 +165,7 @@ namespace IngameScript
         // ProjectileSpeed = 400
         // EngageTheta = 0.1
         // FireTolerance = 0.2
+        // OwnSpeedMultiplier = 1
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -182,6 +188,8 @@ namespace IngameScript
             
             flo = Parser.Get("Hornet", "FireTolerance").ToDecimal();
             if (flo != 0) FireTolerance = (float)flo;
+
+            OwnSpeedMultiplier = (float)Parser.Get("Hornet", "OwnSpeedMultiplier").ToDecimal(1);
         }
 
         #region Public accessors

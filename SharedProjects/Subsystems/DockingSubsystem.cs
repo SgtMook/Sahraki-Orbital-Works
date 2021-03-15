@@ -108,8 +108,8 @@ namespace IngameScript
             foreach (var block in TurnOnOffList) block.Enabled = false;
             foreach (var bat in Batteries) bat.ChargeMode = ChargeMode.Recharge;
             foreach (var tank in Tanks) tank.Stockpile = true;
-            Merge.Enabled = false;
-            if (LoaderSubsystem != null) LoaderSubsystem.Reload();
+            if (Merge != null) Merge.Enabled = false;
+            if (LoaderSubsystem != null) LoaderSubsystem.QueueReload = 2;
         }
         public void Undock(bool fake = false)
         {
@@ -117,6 +117,7 @@ namespace IngameScript
             foreach (var block in TurnOnOffList) block.Enabled = true;
             foreach (var bat in Batteries) bat.ChargeMode = ChargeMode.Auto;
             foreach (var tank in Tanks) tank.Stockpile = false;
+            if (Merge != null) Merge.Enabled = false;
             Connector.Disconnect();
         }
         #endregion
@@ -148,19 +149,23 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
+            if (block.CustomName.Contains("[X]")) return false;
+            if (!block.IsSameConstructAs(ProgramReference)) return false;
+
             if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
             if (block is IMyShipConnector && (Connector == null || block.CustomName.Contains("[D]"))) Connector = (IMyShipConnector)block;
             if (block is IMyShipMergeBlock && (Merge == null || block.CustomName.Contains("[D]"))) Merge = (IMyShipMergeBlock)block;
             if (block is IMyInteriorLight && (DirectionIndicator == null || block.CustomName.Contains("[D]"))) DirectionIndicator = (IMyInteriorLight)block;
 
+            if (block is IMyRadioAntenna) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyThrust) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyCameraBlock) TurnOnOffList.Add((IMyFunctionalBlock)block);
-            if (block is IMyRadioAntenna) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyGyro) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyLargeTurretBase) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyBatteryBlock) Batteries.Add((IMyBatteryBlock)block);
             if (block is IMySmallGatlingGun) TurnOnOffList.Add((IMySmallGatlingGun)block);
             if (block is IMyTimerBlock) TurnOnOffList.Add((IMyFunctionalBlock)block);
+            if (block is IMyReactor) TurnOnOffList.Add((IMyFunctionalBlock)block);
             if (block is IMyGasTank) Tanks.Add((IMyGasTank)block);
 
             return false;

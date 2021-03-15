@@ -320,7 +320,7 @@ namespace IngameScript
         readonly List<Vector3> PositionScratchpad;
 
         readonly AvoidObstacleMode ObstacleMode;
-        readonly IMyTerminalBlock MoveReference;
+        public IMyTerminalBlock MoveReference;
 
         bool Cleared;
 

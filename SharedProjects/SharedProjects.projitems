@@ -29,6 +29,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Subsystems\TextCommandSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Subsystems\TorpedoSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Tasks\HoneybeeTasks.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Tasks\AutoPDCTask.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Tasks\HornetTasks.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\GridTerminalHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\Raven.cs" />

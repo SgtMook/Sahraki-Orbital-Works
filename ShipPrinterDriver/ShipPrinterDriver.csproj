@@ -4,7 +4,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{0A425C31-C27C-4CF4-B17F-73006E569844}</ProjectGuid>
+    <ProjectGuid>{5D93B6DC-EC94-47A2-9635-C64F8C2E3451}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>IngameScript</RootNamespace>
     <AssemblyName>Suntracker</AssemblyName>

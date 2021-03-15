@@ -140,11 +140,17 @@ namespace IngameScript
             }
             else if(argument == "release")
             {
-                var otherMerge = GridTerminalHelper.OtherMergeBlock(TopMerge);
-                if (otherMerge != null)
+                while (ReleaseListener.HasPendingMessage)
                 {
-                    otherMerge.Enabled = false;
-                    State = 6;
+                    var msg = ReleaseListener.AcceptMessage();
+                    if (msg.Data is string && Me.CustomName.Contains((string)msg.Data))
+                    {
+                        var otherMerge = GridTerminalHelper.OtherMergeBlock(TopMerge);
+                        if (otherMerge != null)
+                        {
+                            otherMerge.Enabled = false;
+                        }
+                    }
                 }
             }
             else
@@ -250,7 +256,7 @@ namespace IngameScript
                     if (GridTerminalHelper.OtherMergeBlock(TopMerge) == null)
                     {
                         State = 6;
-                        GraceTimer = 3;
+                        GraceTimer = 5;
                     }
                 }
                 else if (State == 6)
@@ -288,6 +294,7 @@ namespace IngameScript
         bool CollectParts(IMyTerminalBlock block)
         {
             if (!block.IsSameConstructAs(Me)) return false;
+            //if (!block.CustomName.Contains(Me.CustomName.Last())) return false;
             if (block is IMyMotorAdvancedStator && block.CustomName.Contains("Small Hinge")) SmallHinge = (IMyMotorAdvancedStator)block;
             if (block is IMyMotorAdvancedStator && block.CustomName.Contains("Large Hinge")) LargeHinge = (IMyMotorAdvancedStator)block;
             if (block is IMyMotorAdvancedStator && block.CustomName.Contains("Elevation")) Elevation = (IMyMotorAdvancedStator)block;

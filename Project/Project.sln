@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InventoryManager", "..\Inve
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "SharedProjects", "..\SharedProjects\SharedProjects.shproj", "{12EF10EA-9B88-483F-AA83-70B64811E9AF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandShipModularSystemManager", "..\CommandShipModularSystemManager\CommandShipModularSystemManager.csproj", "{E7DE1F96-17D1-4220-B5C2-9581AED1A6F7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandShipModularSystemManager", "..\CommandShipModularSystemManager\CommandShipModularSystemManager.csproj", "{C0F8A8EF-52C4-4691-939F-13AB878E433F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DragonflyCommandDrone", "..\SlaveShipModularSystemManager\DragonflyCommandDrone.csproj", "{70C361CF-0E80-4055-806D-248EF0B022DB}"
 EndProject
@@ -47,6 +47,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HeisenbergModularSubsystemM
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RavenDrone", "..\RavenDrone\RavenDrone.csproj", "{C30FEF71-AECF-44B3-A1AB-042F75FEFDB5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WelderShip", "..\WelderShip\WelderShip.csproj", "{B3C7E43E-522B-45C7-8A0B-51AE7A25B22F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpinMiner", "..\SpinMiner\SpinMiner.csproj", "{E7F27FD8-05C1-4B8C-9158-075F7C9014D4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PDCForgeDriver", "..\PDCForgeDriver\PDCForgeDriver.csproj", "{35FF9C5E-B5C4-4E99-BB6C-E0629A275258}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuringCorvetteModularSubsystemManager", "..\TuringCorvetteModularSubsystemManager\TuringCorvetteModularSubsystemManager.csproj", "{F9259D26-1B48-4B6A-8CF3-0ECF31371884}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShipPrinterDriver", "..\ShipPrinterDriver\ShipPrinterDriver.csproj", "{5D93B6DC-EC94-47A2-9635-C64F8C2E3451}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		..\SharedProjects\SharedProjects.projitems*{0a425c31-c27c-4cf4-b17f-73006e569844}*SharedItemsImports = 4
@@ -58,18 +68,27 @@ Global
 		..\SharedProjects\Utility\Utility.projitems*{195332f7-c60b-48c1-930f-ccc516698133}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{21d1e24d-f1b4-4078-97c2-0d554c8c16e9}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{2e7321b6-2fd7-4a3c-819e-4ab1fc9bad86}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{35ff9c5e-b5c4-4e99-bb6c-e0629a275258}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{57419806-32cb-4f6e-b3f8-2dafae01f75e}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{5d93b6dc-ec94-47a2-9635-c64f8c2e3451}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{70c361cf-0e80-4055-806d-248ef0b022db}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{831f9648-398d-4cac-8937-dc4d4db51b4e}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{8d4db9bc-0bd6-4b20-bbb1-c17c924d7984}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{b3c7e43e-522b-45c7-8a0b-51ae7a25b22f}*SharedItemsImports = 4
 		..\SharedProjects\Subsystems\Subsystems.projitems*{c0bf6a7e-e4a7-4ce5-bcca-0bf8f5542793}*SharedItemsImports = 4
 		..\SharedProjects\Tasks\Tasks.projitems*{c0bf6a7e-e4a7-4ce5-bcca-0bf8f5542793}*SharedItemsImports = 4
 		..\SharedProjects\Utility\Utility.projitems*{c0bf6a7e-e4a7-4ce5-bcca-0bf8f5542793}*SharedItemsImports = 4
+		..\SharedProjects\Subsystems\Subsystems.projitems*{c0f8a8ef-52c4-4691-939f-13ab878e433f}*SharedItemsImports = 4
+		..\SharedProjects\Tasks\Tasks.projitems*{c0f8a8ef-52c4-4691-939f-13ab878e433f}*SharedItemsImports = 4
+		..\SharedProjects\Utility\Utility.projitems*{c0f8a8ef-52c4-4691-939f-13ab878e433f}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{c30fef71-aecf-44b3-a1ab-042f75fefdb5}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{d02f10a6-eeda-45e2-9e37-40247ec6ebc4}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{e18e0ede-4e3d-49cf-b1aa-2b822278f54d}*SharedItemsImports = 4
-		..\SharedProjects\SharedProjects.projitems*{e7de1f96-17d1-4220-b5c2-9581aed1a6f7}*SharedItemsImports = 4
+		..\SharedProjects\SharedProjects.projitems*{e7f27fd8-05c1-4b8c-9158-075f7c9014d4}*SharedItemsImports = 4
 		..\SharedProjects\SharedProjects.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
+		..\SharedProjects\Subsystems\Subsystems.projitems*{f9259d26-1b48-4b6a-8cf3-0ecf31371884}*SharedItemsImports = 4
+		..\SharedProjects\Tasks\Tasks.projitems*{f9259d26-1b48-4b6a-8cf3-0ecf31371884}*SharedItemsImports = 4
+		..\SharedProjects\Utility\Utility.projitems*{f9259d26-1b48-4b6a-8cf3-0ecf31371884}*SharedItemsImports = 4
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -77,8 +96,8 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{3D4E7DFE-9C39-44DE-BEFA-E197191168AD}.Debug|x64.ActiveCfg = Debug|x64
 		{3D4E7DFE-9C39-44DE-BEFA-E197191168AD}.Debug|x64.Build.0 = Debug|x64
-		{E7DE1F96-17D1-4220-B5C2-9581AED1A6F7}.Debug|x64.ActiveCfg = Debug|x64
-		{E7DE1F96-17D1-4220-B5C2-9581AED1A6F7}.Debug|x64.Build.0 = Debug|x64
+		{C0F8A8EF-52C4-4691-939F-13AB878E433F}.Debug|x64.ActiveCfg = Debug|x64
+		{C0F8A8EF-52C4-4691-939F-13AB878E433F}.Debug|x64.Build.0 = Debug|x64
 		{70C361CF-0E80-4055-806D-248EF0B022DB}.Debug|x64.ActiveCfg = Debug|x64
 		{70C361CF-0E80-4055-806D-248EF0B022DB}.Debug|x64.Build.0 = Debug|x64
 		{2E7321B6-2FD7-4A3C-819E-4AB1FC9BAD86}.Debug|x64.ActiveCfg = Debug|x64
@@ -111,12 +130,22 @@ Global
 		{57419806-32CB-4F6E-B3F8-2DAFAE01F75E}.Debug|x64.Build.0 = Debug|x64
 		{C30FEF71-AECF-44B3-A1AB-042F75FEFDB5}.Debug|x64.ActiveCfg = Debug|x64
 		{C30FEF71-AECF-44B3-A1AB-042F75FEFDB5}.Debug|x64.Build.0 = Debug|x64
+		{B3C7E43E-522B-45C7-8A0B-51AE7A25B22F}.Debug|x64.ActiveCfg = Debug|x64
+		{B3C7E43E-522B-45C7-8A0B-51AE7A25B22F}.Debug|x64.Build.0 = Debug|x64
+		{E7F27FD8-05C1-4B8C-9158-075F7C9014D4}.Debug|x64.ActiveCfg = Debug|x64
+		{E7F27FD8-05C1-4B8C-9158-075F7C9014D4}.Debug|x64.Build.0 = Debug|x64
+		{35FF9C5E-B5C4-4E99-BB6C-E0629A275258}.Debug|x64.ActiveCfg = Debug|x64
+		{35FF9C5E-B5C4-4E99-BB6C-E0629A275258}.Debug|x64.Build.0 = Debug|x64
+		{F9259D26-1B48-4B6A-8CF3-0ECF31371884}.Debug|x64.ActiveCfg = Debug|x64
+		{F9259D26-1B48-4B6A-8CF3-0ECF31371884}.Debug|x64.Build.0 = Debug|x64
+		{5D93B6DC-EC94-47A2-9635-C64F8C2E3451}.Debug|x64.ActiveCfg = Debug|x64
+		{5D93B6DC-EC94-47A2-9635-C64F8C2E3451}.Debug|x64.Build.0 = Debug|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{E7DE1F96-17D1-4220-B5C2-9581AED1A6F7} = {0CD9106A-C337-4093-84BF-DB7DF918B59F}
+		{C0F8A8EF-52C4-4691-939F-13AB878E433F} = {0CD9106A-C337-4093-84BF-DB7DF918B59F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C26038BA-FFC5-4D14-A3C3-96981693312D}

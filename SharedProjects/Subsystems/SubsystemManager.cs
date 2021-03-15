@@ -39,7 +39,7 @@ namespace IngameScript
         StringBuilder StatusBuilder = new StringBuilder();
         StringBuilder DebugBuilder = new StringBuilder();
 
-        TimeSpan Timestamp = new TimeSpan();
+        public TimeSpan Timestamp = new TimeSpan();
 
         const double PROFILER_NEW_VALUE_FACTOR = 0.01;
         const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);

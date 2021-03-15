@@ -188,7 +188,7 @@ namespace IngameScript
                 CombatSystem.MarkEngaged();
                 LeadTask.Destination.MaxSpeed = Autopilot.CombatSpeed;
                 Vector3D targetPosition = orbitIntel.GetPositionFromCanonicalTime(canonicalTime);
-                var periodicFactor = runs * Math.PI / (CombatSystem.EngageTheta * 100);
+                var periodicFactor = runs * Math.PI * CombatSystem.EngageTheta / 4;
                 Vector3D periodicDirection = Math.Sin(periodicFactor) * controller.WorldMatrix.Left + Math.Cos(periodicFactor) * controller.WorldMatrix.Up;
 
                 var Acceleration = linearVelocity - LastLinearVelocity;
@@ -209,6 +209,8 @@ namespace IngameScript
 
                 var accelerationAdjust = Vector3D.TransformNormal(CurrentAccelerationPreviousFrame, controller.WorldMatrix);
                 var velocityAdjust = linearVelocity + accelerationAdjust * 0.4;
+
+                velocityAdjust *= CombatSystem.OwnSpeedMultiplier;
 
                 Vector3D relativeAttackPoint = AttackHelpers.GetAttackPoint(enemyVelocityAdjust - velocityAdjust, shootIntel.GetPositionFromCanonicalTime(canonicalTime) + enemyVelocityAdjust * 0.25 - controller.WorldMatrix.Translation - velocityAdjust * 0.25, CombatSystem.ProjectileSpeed);
 
@@ -242,7 +244,7 @@ namespace IngameScript
                     {
                         var flatDirTargetToMe = dirTargetToMe - VectorHelpers.VectorProjection(dirTargetToMe, gravdir);
                         flatDirTargetToMe.Normalize();
-                        LeadTask.Destination.Position = targetPosition + orbitIntel.GetVelocity() + flatDirTargetToMe * CombatSystem.EngageDist - gravdir * 200 + periodicDirection * 100;
+                        LeadTask.Destination.Position = targetPosition + orbitIntel.GetVelocity() + flatDirTargetToMe * CombatSystem.EngageDist * 0.9 - gravdir * 300 + periodicDirection * 100;
                     }
                     LeadTask.Destination.Velocity = orbitIntel.GetVelocity() * 0.5;
                 }
@@ -360,7 +362,6 @@ namespace IngameScript
             LastReference = MatrixD.Zero;
 
             Attack = taskType == TaskType.Attack;
-            runs = 0;
         }
     }
 }

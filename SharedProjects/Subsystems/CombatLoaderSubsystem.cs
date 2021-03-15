@@ -25,6 +25,8 @@ namespace IngameScript
     //
     // SubtypeIDs:
     // NATO_25x184mm
+    // Missile200mm
+    // NATO_5p56x45mm
     // Construction
     // MetalGrid
     // InteriorPlate
@@ -69,9 +71,6 @@ namespace IngameScript
 
             debugBuilder.AppendLine(CargoGroupName);
             debugBuilder.AppendLine(StoreGroupName);
-            debugBuilder.AppendLine(TotalInventory.Count.ToString());
-            debugBuilder.AppendLine(InventoryOwners.Count.ToString());
-            debugBuilder.AppendLine(LastCheckIndex.ToString());
             
             foreach (var kvp in TotalInventory)
             {
@@ -101,18 +100,25 @@ namespace IngameScript
         {
             runs++;
 
-            if (runs % 20 == 0)
+            if (QueueReload > 0)
+            {
+                QueueReload--;
+                if (QueueReload == 0)
+                    Reload();
+            }
+
+            if (runs % 10 == 0)
             {
                 UpdateInventories();
             }
         }
         #endregion
-        const string kInventoryRequestSection = "InventoryRequest";
+        string InventoryRequestSection = "InventoryRequest";
         const string kLoaderSection = "Loader";
         MyGridProgram Program;
 
         List<IMyTerminalBlock> StoreInventoryOwners = new List<IMyTerminalBlock>();
-        Dictionary<IMyTerminalBlock, Dictionary<MyItemType, int>> InventoryRequests = new Dictionary<IMyTerminalBlock, Dictionary<MyItemType, int>>();
+        Dictionary<long, Dictionary<MyItemType, int>> InventoryRequests = new Dictionary<long, Dictionary<MyItemType, int>>();
         public List<IMyTerminalBlock> InventoryOwners = new List<IMyTerminalBlock>();
         public Dictionary<MyItemType, int> TotalInventoryRequests = new Dictionary<MyItemType, int>();
         public Dictionary<MyItemType, int> TotalInventory = new Dictionary<MyItemType, int>();
@@ -132,12 +138,18 @@ namespace IngameScript
         int runs = 0;
 
         public bool LoadingInventory = false;
+        public int QueueReload = 0;
         bool UnloadingInventory = false;
 
         StringBuilder debugBuilder = new StringBuilder();
+        StringBuilder reportBuilder = new StringBuilder();
 
         string CargoGroupName;
         string StoreGroupName;
+        string ReportOutputName;
+        int ReportOutputIndex;
+
+        IMyTextSurface TextSurface;
 
         public CombatLoaderSubsystem(string cargoGroupName = "Cargo", string storeGroupName = "Store")
         {
@@ -150,6 +162,9 @@ namespace IngameScript
             LastCheckIndex = 0;
             InventoryOwners.Clear();
             InventoryRequests.Clear();
+
+            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectBlocks);
+
             var cargoGroup = Program.GridTerminalSystem.GetBlockGroupWithName(CargoGroupName);
             if (cargoGroup == null) return;
             cargoGroup.GetBlocks(null, CollectInventoryOwners);
@@ -167,9 +182,27 @@ namespace IngameScript
             return false;
         }
 
+        bool CollectBlocks(IMyTerminalBlock block)
+        {
+            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
+            if (block.CustomName == ReportOutputName)
+            {
+                if (block is IMyTextSurface)
+                    TextSurface = (IMyTextSurface)block;
+                else if (block is IMyTextSurfaceProvider)
+                    TextSurface = ((IMyTextSurfaceProvider)block).GetSurface(ReportOutputIndex);
+
+                return false;
+            }
+            return false;
+        }
+
         // [Loader]
         // CargoGroupName = Cargo
         // StoreGroupName = Store
+        // ReportOutputName = ""
+        // ReportOutputIndex = 0
+        // Loadout = InventoryRequest
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -179,18 +212,21 @@ namespace IngameScript
 
             CargoGroupName = Parser.Get(kLoaderSection, "CargoGroupName").ToString(CargoGroupName);
             StoreGroupName = Parser.Get(kLoaderSection, "StoreGroupName").ToString(StoreGroupName);
+            ReportOutputName = Parser.Get(kLoaderSection, "ReportOutputName").ToString(ReportOutputName);
+            ReportOutputIndex = Parser.Get(kLoaderSection, "ReportOutputIndex").ToInt32(ReportOutputIndex);
+            InventoryRequestSection = Parser.Get(kLoaderSection, "Loadout").ToString(InventoryRequestSection);
         }
 
         void GetBlockRequestSettings(IMyTerminalBlock block)
         {
-            InventoryRequests[block] = new Dictionary<MyItemType, int>();
+            InventoryRequests[block.EntityId] = new Dictionary<MyItemType, int>();
 
-            if (iniParser.TryParse(block.CustomData) && iniParser.ContainsSection(kInventoryRequestSection))
+            if (iniParser.TryParse(block.CustomData) && iniParser.ContainsSection(InventoryRequestSection))
             {
                 iniParser.GetKeys(iniKeyScratchpad);
                 foreach (var key in iniKeyScratchpad)
                 {
-                    if (key.Section != kInventoryRequestSection) continue;
+                    if (key.Section != InventoryRequestSection) continue;
                     var count = iniParser.Get(key).ToInt32();
                     if (count == 0) continue;
                     var type = MyItemType.Parse(key.Name);
@@ -200,7 +236,7 @@ namespace IngameScript
                     inventory.GetAcceptedItems(itemTypeScratchpad);
                     if (!itemTypeScratchpad.Contains(type)) continue;
 
-                    InventoryRequests[block][type] = count;
+                    InventoryRequests[block.EntityId][type] = count;
 
                     if (!TotalInventoryRequests.ContainsKey(type)) TotalInventoryRequests[type] = 0;
                     TotalInventoryRequests[type] += count;
@@ -217,6 +253,8 @@ namespace IngameScript
                     if (LoadingInventory)
                     {
                         SortInventory(InventoryOwners[i]);
+                        if (TextSurface != null)
+                            TextSurface.WriteText($"LOADING - {i} / {InventoryOwners.Count()}");
                     }
 
                     inventoryItemsScratchpad.Clear();
@@ -237,6 +275,24 @@ namespace IngameScript
                     LastCheckIndex = 0;
                     if (LoadingInventory)
                     {
+                        if (TextSurface != null)
+                        {
+                            reportBuilder.Clear();
+                            reportBuilder.AppendLine("LOADER REPORT");
+                            reportBuilder.AppendLine($"LOADOUT: {InventoryRequestSection}");
+                            reportBuilder.AppendLine(DateTime.Now.ToShortTimeString());
+                            reportBuilder.AppendLine("========");
+
+                            foreach (var kvp in TotalInventoryRequests)
+                            {
+                                var request = kvp.Value;
+                                int got = TotalInventory.GetValueOrDefault(kvp.Key);
+                                reportBuilder.AppendLine($"{(got == request ? "AOK" : (got > request ? "OVR" : "MIS"))} - {kvp.Key.SubtypeId} - {got} / {request}");
+                            }
+
+                            TextSurface.WriteText(reportBuilder.ToString());
+                        }
+
                         UnloadingInventory = false;
                         LoadingInventory = false;
                         StoreInventoryOwners.Clear();
@@ -278,7 +334,7 @@ namespace IngameScript
             CombineStacks(inventory);
 
             // Transfer out
-            if (!InventoryRequests.ContainsKey(inventoryOwner)) return;
+            if (!InventoryRequests.ContainsKey(inventoryOwner.EntityId)) return;
 
             inventoryItemsScratchpad.Clear();
             inventory.GetItems(inventoryItemsScratchpad);
@@ -286,8 +342,8 @@ namespace IngameScript
             foreach (var inventoryItem in inventoryItemsScratchpad)
             {
                 int desiredAmount = 0;
-                if (!UnloadingInventory && InventoryRequests[inventoryOwner].ContainsKey(inventoryItem.Type))
-                    desiredAmount = InventoryRequests[inventoryOwner][inventoryItem.Type];
+                if (!UnloadingInventory && InventoryRequests[inventoryOwner.EntityId].ContainsKey(inventoryItem.Type))
+                    desiredAmount = InventoryRequests[inventoryOwner.EntityId][inventoryItem.Type];
 
                 var amountDiff = inventoryItem.Amount - desiredAmount;
 
@@ -295,7 +351,7 @@ namespace IngameScript
                 {
                     foreach (var store in StoreInventoryOwners)
                     {
-                        var destInventory = store.GetInventory(0);
+                        var destInventory = store.GetInventory(store.InventoryCount - 1);
                         amountDiff = InventoryHelpers.TransferAsMuchAsPossible(inventory, destInventory, inventoryItem, amountDiff);
                         if (amountDiff <= 0) break;
                     }
@@ -307,7 +363,7 @@ namespace IngameScript
             if (!UnloadingInventory)
             {
                 // Transfer in
-                foreach (var kvp in InventoryRequests[inventoryOwner])
+                foreach (var kvp in InventoryRequests[inventoryOwner.EntityId])
                 {
                     MyFixedPoint requestAmount = kvp.Value;
                     if (inventoryRequestAmountsCache.ContainsKey(kvp.Key))
@@ -318,7 +374,7 @@ namespace IngameScript
                         foreach (var store in StoreInventoryOwners)
                         {
                             inventoryItemsScratchpad.Clear();
-                            var storeInventory = store.GetInventory(0);
+                            var storeInventory = store.GetInventory(store.InventoryCount - 1);
                             storeInventory.GetItems(inventoryItemsScratchpad);
 
                             foreach (var item in inventoryItemsScratchpad)
@@ -362,11 +418,10 @@ namespace IngameScript
             UpdateNum++;
             StoreInventoryOwners.Clear();
             var storeGroup = Program.GridTerminalSystem.GetBlockGroupWithName(StoreGroupName);
-            if (storeGroup == null)
+            if (storeGroup != null)
             {
-                return;
+                storeGroup.GetBlocksOfType<IMyTerminalBlock>(null, CollectStores);
             }
-            storeGroup.GetBlocksOfType<IMyTerminalBlock>(null, CollectStores);
 
             LoadingInventory = true;
             LastCheckIndex = 0;

@@ -67,16 +67,22 @@ namespace IngameScript
             }
             else
             {
-                Vector3I[] vec = { -Base6Directions.GetIntVector(origin.Orientation.Left), Base6Directions.GetIntVector(origin.Orientation.Up), -Base6Directions.GetIntVector(origin.Orientation.Forward) };
-                Vector3I[] inv = { new Vector3I(vec[0].X, vec[1].X, vec[2].X), new Vector3I(vec[0].Y, vec[1].Y, vec[2].Y), new Vector3I(vec[0].Z, vec[1].Z, vec[2].Z) };
-
-                Vector3I input = block.Position - origin.Position;
-                input = (input.X * inv[0]) + (input.Y * inv[1]) + (input.Z * inv[2]);
-
-                var result = (input.X * vec[0]) + (input.Y * vec[1]) + (input.Z * vec[2]) + origin.Position;
+                Vector3I input = TransformGridPosToBlockPos(block.Position, origin);
 
                 return input.X + "." + input.Y + "." + input.Z;
             }
+        }
+
+        public static Vector3I TransformGridPosToBlockPos(Vector3I blockPos, IMyTerminalBlock origin)
+        {
+            Vector3I[] vec = { -Base6Directions.GetIntVector(origin.Orientation.Left), Base6Directions.GetIntVector(origin.Orientation.Up), -Base6Directions.GetIntVector(origin.Orientation.Forward) };
+            Vector3I[] inv = { new Vector3I(vec[0].X, vec[1].X, vec[2].X), new Vector3I(vec[0].Y, vec[1].Y, vec[2].Y), new Vector3I(vec[0].Z, vec[1].Z, vec[2].Z) };
+
+            Vector3I input = blockPos - origin.Position;
+            input = (input.X * inv[0]) + (input.Y * inv[1]) + (input.Z * inv[2]);
+
+            var result = (input.X * vec[0]) + (input.Y * vec[1]) + (input.Z * vec[2]) + origin.Position;
+            return input;
         }
 
         public static bool Base64BytePosToBlockList<T>(string input, IMyTerminalBlock origin, ref List<T> result) where T : class, IMyTerminalBlock
@@ -114,7 +120,6 @@ namespace IngameScript
 
         public static Vector3I Base64ByteToVector3I(string input, IMyTerminalBlock origin)
         {
-            Vector3I[] vec = { -Base6Directions.GetIntVector(origin.Orientation.Left), Base6Directions.GetIntVector(origin.Orientation.Up), -Base6Directions.GetIntVector(origin.Orientation.Forward) };
             Vector3I result = new Vector3I();
             if (input != null)
             {
@@ -122,39 +127,16 @@ namespace IngameScript
                 result.X = int.Parse(split[0]);
                 result.Y = int.Parse(split[1]);
                 result.Z = int.Parse(split[2]);
-                result = (result.X * vec[0]) + (result.Y * vec[1]) + (result.Z * vec[2]) + origin.Position;
+                result = TransformBlockPosToGridPos(result, origin);
             }
             return result;
         }
-    }
 
-    public static class SensorBounderHelper
-    {
-        public static IEnumerable<IMyTerminalBlock> GetBlocksFromSensorBoundingBox(IMySensorBlock sensor)
+        public static Vector3I TransformBlockPosToGridPos(Vector3I blockPos, IMyTerminalBlock origin)
         {
-            var size = sensor.CubeGrid.GridSize;
-
-            int xmin = -(int)Math.Ceiling((sensor.RightExtend - (size * 0.5)) / size);
-            int xmax = (int)Math.Ceiling((sensor.LeftExtend - (size * 0.5)) / size);
-            int ymin = -(int)Math.Ceiling((sensor.BottomExtend - (size * 0.5)) / size);
-            int ymax = (int)Math.Ceiling((sensor.TopExtend - (size * 0.5)) / size);
-            int zmin = -(int)Math.Ceiling(sensor.BackExtend / size);
-            int zmax = (int)Math.Ceiling((sensor.FrontExtend - size) / size);
-
-            for (int x = xmin; x <= xmax; x++)
-            {
-                for (int y = ymin; y <= ymax; y++)
-                {
-                    for (int z = zmin; z <= zmax; z++)
-                    {
-                        var part = GridTerminalHelper.GetBlockFromReferenceAndPosition(sensor, new Vector3I(x, y, z));
-                        if (part != null)
-                        {
-                            yield return part;
-                        }
-                    }
-                }
-            }
+            Vector3I[] vec = { -Base6Directions.GetIntVector(origin.Orientation.Left), Base6Directions.GetIntVector(origin.Orientation.Up), -Base6Directions.GetIntVector(origin.Orientation.Forward) };
+            blockPos = (blockPos.X * vec[0]) + (blockPos.Y * vec[1]) + (blockPos.Z * vec[2]) + origin.Position;
+            return blockPos;
         }
     }
 }

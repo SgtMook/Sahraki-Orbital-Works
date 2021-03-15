@@ -41,22 +41,34 @@ namespace IngameScript
             IntelSubsystem = new IntelSubsystem();
             MiningSubsystem = new HoneybeeMiningSystem();
             LookingGlassNetwork = new LookingGlassNetworkSubsystem(IntelSubsystem, "LG", false, false);
-            AgentSubsystem = new AgentSubsystem(IntelSubsystem, AgentClass.None);
+            AgentSubsystem = new AgentSubsystem(IntelSubsystem, AgentClass.Fighter);
             MonitorSubsystem = new MonitorSubsystem(IntelSubsystem);
-
-            var MiningTaskGenerator = new HoneybeeMiningTaskGenerator(this, MiningSubsystem, AutopilotSubsystem, AgentSubsystem, null, null, null, IntelSubsystem, MonitorSubsystem);
-            AgentSubsystem.AddTaskGenerator(MiningTaskGenerator);
+            var loader = new CombatLoaderSubsystem("Pascal Cargo", "Base Cargo");
+            var docking = new DockingSubsystem(IntelSubsystem, loader);
 
             ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
             LookingGlassNetwork.AddPlugin("combat", new LookingGlass_Pascal(this));
 
+
+            subsystemManager.AddSubsystem("indicator", new StatusIndicatorSubsystem(docking, IntelSubsystem));
+
             subsystemManager.AddSubsystem("autopilot", AutopilotSubsystem);
             subsystemManager.AddSubsystem("intel", IntelSubsystem);
             subsystemManager.AddSubsystem("mining", MiningSubsystem);
-            subsystemManager.AddSubsystem("agent", AgentSubsystem);
             subsystemManager.AddSubsystem("scanner", ScannerSubsystem);
             subsystemManager.AddSubsystem("lookingglass", LookingGlassNetwork);
             subsystemManager.AddSubsystem("monitor", MonitorSubsystem);
+            subsystemManager.AddSubsystem("loader", loader);
+            subsystemManager.AddSubsystem("docking", docking);
+
+            var MiningTaskGenerator = new HoneybeeMiningTaskGenerator(this, MiningSubsystem, AutopilotSubsystem, AgentSubsystem, null, null, null, IntelSubsystem, MonitorSubsystem);
+            var HomingTaskGenerator = new SetHomeTaskGenerator(this, docking);
+            var DockingTaskGenerator = new DockTaskGenerator(this, AutopilotSubsystem, docking);
+            AgentSubsystem.AddTaskGenerator(MiningTaskGenerator);
+            AgentSubsystem.AddTaskGenerator(HomingTaskGenerator);
+            AgentSubsystem.AddTaskGenerator(DockingTaskGenerator);
+
+            subsystemManager.AddSubsystem("agent", AgentSubsystem);
 
             subsystemManager.DeserializeManager(Storage);
         }

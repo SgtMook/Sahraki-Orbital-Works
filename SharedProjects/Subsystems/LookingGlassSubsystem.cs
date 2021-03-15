@@ -1708,7 +1708,7 @@ namespace IngameScript
                     int ready = kvp.Value.NumReady;
                     int total = kvp.Value.Children.Count();
                     // LG [||--    ] AUTO
-                    Builder.Append(kvp.Value.Name).Append(" [").Append('|', ready).Append('-', total - ready).Append(' ', 8 - total).Append(kvp.Value.AutoFire ? "] AUTO \n" : "] MANL \n");
+                    Builder.Append(kvp.Value.Name).Append(" [").Append('|', ready).Append('-', total - ready).Append(' ', Math.Max(0, 8 - total)).Append(kvp.Value.AutoFire ? "] AUTO \n" : "] MANL \n");
                 }
             }
 
@@ -1767,10 +1767,6 @@ namespace IngameScript
                     }
                 }
             }
-
-            Builder.AppendLine();
-            Builder.AppendLine("===  AUTOFORGE  ===");
-            Builder.AppendLine();
 
             foreach (var screen in Host.ActiveLookingGlass.LeftHUDs)
             {
