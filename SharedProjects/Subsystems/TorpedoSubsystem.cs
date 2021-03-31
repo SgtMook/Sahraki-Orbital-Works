@@ -26,7 +26,7 @@ namespace IngameScript
         #region ISubsystem
         public UpdateFrequency UpdateFrequency { get; set; }
 
-        Logger Log = new Logger();
+//        public static Logger Log = new Logger();
         public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "fire")
@@ -56,7 +56,7 @@ namespace IngameScript
         public string GetStatus()
         {
             debugBuilder.Clear();
-            Log.GetOutput(debugBuilder);
+//            Log.GetOutput(debugBuilder);
 //             if (TorpedoTubes != null)
 //             {
 //                 debugBuilder.AppendLine("TRP#:" + TorpedoTubes.Length);
@@ -100,6 +100,7 @@ namespace IngameScript
                 {
                     if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
                     {
+//                        Log.Debug("Updating Tube " + i);
                         TorpedoTubes[i].Update(timestamp);
                     }
                 }
@@ -331,8 +332,9 @@ namespace IngameScript
                 {
                     if (!TorpedoTubeGroups.ContainsKey(TorpedoTubes[i].GroupName))
                         TorpedoTubeGroups[TorpedoTubes[i].GroupName] = new TorpedoTubeGroup(TorpedoTubes[i].GroupName);
-
-                    Log.Debug("Add Tube#" + i + " to " + TorpedoTubes[i].GroupName);
+                    
+                    //Log.Debug("Add Tube#" + i + " to " + TorpedoTubes[i].GroupName);
+                    
                     TorpedoTubeGroups[TorpedoTubes[i].GroupName].AddTube(TorpedoTubes[i]);
                 }
             }
@@ -421,7 +423,6 @@ namespace IngameScript
             return null;
         }
     }
-
     // This is a refhax torpedo
     public class Torpedo
     {
@@ -993,13 +994,15 @@ namespace IngameScript
             {
                 release = new TorpedoTubeRelease();
                 release.Merge = merge;
+//                TorpedoSubsystem.Log.Debug("Merge Release "+ block.CustomName);
             }
-
+            
             IMyMechanicalConnectionBlock mechanical = block as IMyMechanicalConnectionBlock;
             if (mechanical != null)
             {
                 release = new TorpedoTubeRelease();
                 release.Mech = mechanical;
+//                TorpedoSubsystem.Log.Debug("Mechanical Release " + block.CustomName);
             }
 
             return release;
@@ -1087,13 +1090,17 @@ namespace IngameScript
 
         public void AddPart(IMyTerminalBlock block)
         {
-            Release = TorpedoTubeRelease.TryConstruct(block);
-
-            if (Release != null)
+            if ( Release == null)
             {
-                Size = Release.Size();
-                AutoFire = Size == MyCubeSize.Small;
-                GroupName = Size == MyCubeSize.Small ? "SM" : "LG";
+                Release = TorpedoTubeRelease.TryConstruct(block);
+
+                if (Release != null)
+                {
+//                    TorpedoSubsystem.Log.Debug("Testing Size " + Name);
+                    Size = Release.Size();
+                    AutoFire = Size == MyCubeSize.Small;
+                    GroupName = Size == MyCubeSize.Small ? "SM" : "LG";
+                }
             }
 
             if (block is IMyShipConnector)
@@ -1151,10 +1158,12 @@ namespace IngameScript
             Host.PartsScratchpad.Clear();
             if (!LoadTorpedoParts(ref Host.PartsScratchpad))
             {
+//                TorpedoSubsystem.Log.Debug("LoadTorpedoParts FAILURE");
                 LoadedTorpedo = null;
                 return;
             }
 
+//            TorpedoSubsystem.Log.Debug("LoadTorpedoParts SUCCESS");
             foreach (var part in Host.PartsScratchpad)
             {
                 AddTorpedoPart(part);
@@ -1214,4 +1223,5 @@ namespace IngameScript
             return torp;
         }
     }
+
 }
