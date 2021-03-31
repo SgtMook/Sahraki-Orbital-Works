@@ -24,7 +24,7 @@ namespace IngameScript
     {
         public SubsystemManager SubsystemManager;
 
-        int runs = 0;
+//        int runs = 0;
 
         IMyRemoteControl Controller;
 
@@ -38,7 +38,7 @@ namespace IngameScript
             Program = program;
             Controller = reference;
 
-            SubsystemManager = new SubsystemManager(Program, reference, false);
+            SubsystemManager = new SubsystemManager(Program, reference);
             Drive = new AtmoDrive(Controller);
             CombatLoaderSubsystem loaderSubsystem = new CombatLoaderSubsystem("Drone Cargo", "Drone Store");
             IntelSubsystem intelSubsystem = new IntelSubsystem();

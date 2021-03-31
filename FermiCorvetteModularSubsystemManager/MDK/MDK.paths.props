@@ -1,15 +1,10 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <!-- 
-    You can safely exclude this file from code repositories and use different 
-    user settings per machine.
-    -->
-    <MDKVersion>1.2.31</MDKVersion>
-    <MDKUseGameBinPath>no</MDKUseGameBinPath>
-    <MDKGameBinPath>D:\SteamLibrary\SteamApps\common\SpaceEngineers\Bin64</MDKGameBinPath>
-    <MDKInstallPath>c:\users\sgtmook\appdata\local\microsoft\visualstudio\16.0_cd7b4d57\extensions\wabygocv.n0b</MDKInstallPath>
-    <MDKOutputPath>C:\Users\SgtMook\AppData\Roaming\SpaceEngineers\IngameScripts\local</MDKOutputPath>
+    <MDKVersion>1.4.7</MDKVersion>
+    <MDKGameBinPath>d:\games\steam\SteamApps\common\SpaceEngineers\Bin64</MDKGameBinPath>
+    <MDKInstallPath>c:\users\brend\appdata\local\microsoft\visualstudio\16.0_18565220\extensions\5glhs2re.50u</MDKInstallPath>
+    <MDKOutputPath>C:\Users\brend\AppData\Roaming\SpaceEngineers\IngameScripts\local</MDKOutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Sandbox.Common">

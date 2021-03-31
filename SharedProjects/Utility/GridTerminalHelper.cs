@@ -42,7 +42,7 @@ namespace IngameScript
             return m2;
         }
 
-        public static string BlockListBytePosToBase64<T>(List<T> blocks, IMyTerminalBlock origin) where T : class, IMyTerminalBlock
+        public static string BlockListBytePosToBase64<T>(List<T> blocks, IMyCubeBlock origin) where T : class, IMyTerminalBlock
         {
             if (blocks == null || blocks.Count == 0)
             {
@@ -59,7 +59,7 @@ namespace IngameScript
             }
         }
 
-        public static string BlockBytePosToBase64(IMyTerminalBlock block, IMyTerminalBlock origin)
+        public static string BlockBytePosToBase64(IMyTerminalBlock block, IMyCubeBlock origin)
         {
             if (block == null)
             {
@@ -73,7 +73,7 @@ namespace IngameScript
             }
         }
 
-        public static Vector3I TransformGridPosToBlockPos(Vector3I blockPos, IMyTerminalBlock origin)
+        public static Vector3I TransformGridPosToBlockPos(Vector3I blockPos, IMyCubeBlock origin)
         {
             Vector3I[] vec = { -Base6Directions.GetIntVector(origin.Orientation.Left), Base6Directions.GetIntVector(origin.Orientation.Up), -Base6Directions.GetIntVector(origin.Orientation.Forward) };
             Vector3I[] inv = { new Vector3I(vec[0].X, vec[1].X, vec[2].X), new Vector3I(vec[0].Y, vec[1].Y, vec[2].Y), new Vector3I(vec[0].Z, vec[1].Z, vec[2].Z) };
@@ -85,7 +85,7 @@ namespace IngameScript
             return input;
         }
 
-        public static bool Base64BytePosToBlockList<T>(string input, IMyTerminalBlock origin, ref List<T> result) where T : class, IMyTerminalBlock
+        public static bool Base64BytePosToBlockList<T>(string input, IMyCubeBlock origin, ref List<T> result) where T : class, IMyTerminalBlock
         {
             if (string.IsNullOrEmpty(input))
             {
@@ -118,7 +118,7 @@ namespace IngameScript
             return true;
         }
 
-        public static Vector3I Base64ByteToVector3I(string input, IMyTerminalBlock origin)
+        public static Vector3I Base64ByteToVector3I(string input, IMyCubeBlock origin)
         {
             Vector3I result = new Vector3I();
             if (input != null)
@@ -132,7 +132,7 @@ namespace IngameScript
             return result;
         }
 
-        public static Vector3I TransformBlockPosToGridPos(Vector3I blockPos, IMyTerminalBlock origin)
+        public static Vector3I TransformBlockPosToGridPos(Vector3I blockPos, IMyCubeBlock origin)
         {
             Vector3I[] vec = { -Base6Directions.GetIntVector(origin.Orientation.Left), Base6Directions.GetIntVector(origin.Orientation.Up), -Base6Directions.GetIntVector(origin.Orientation.Forward) };
             blockPos = (blockPos.X * vec[0]) + (blockPos.Y * vec[1]) + (blockPos.Z * vec[2]) + origin.Position;

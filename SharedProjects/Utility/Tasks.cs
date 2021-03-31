@@ -555,7 +555,7 @@ namespace IngameScript
         Vector3D ExpectedVelocity;
 
         DockIntel dock;
-        bool cleared = false;
+//        bool cleared = false;
 
         public UndockSeperationTask(IAutopilot autopilotSubsystem, IDockingSubsystem dockingSubsystem, MyGridProgram program)
         {
@@ -574,7 +574,7 @@ namespace IngameScript
             ExpectedPosition = DockingSubsystem.Connector.WorldMatrix.Translation;
             WaitTask.Status = TaskStatus.Incomplete;
             dock = null;
-            cleared = false;
+//            cleared = false;
         }
     }
 

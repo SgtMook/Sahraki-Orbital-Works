@@ -27,6 +27,39 @@ namespace IngameScript
         Profile,
         None
     }
+    public class Logger
+    {
+        private const int LineCount = 20;
+        private string[] LogLines;
+        private int LogIndex = 0;
+
+        public Logger()
+        {
+            LogLines = new string[LineCount];
+        }
+        public void Debug(string msg)
+        {
+            LogLines[LogIndex] = "> " + msg;
+            LogIndex = (LogIndex + 1) % LineCount;
+        }
+        public string GetOutput()
+        {
+            StringBuilder builder = new StringBuilder(512);
+            GetOutput(builder);
+            return builder.ToString();
+        }
+
+        public void GetOutput(StringBuilder builder)
+        {
+            for(int i = 0; i < LogLines.Length; ++i)
+            {
+                if (i == LogIndex)
+                    builder.AppendLine("================================");
+                else
+                    builder.AppendLine(LogLines[i]);
+            }
+        }
+    }
 
     public class SubsystemManager
     {
@@ -53,14 +86,12 @@ namespace IngameScript
 
         IMyTerminalBlock ProgramReference;
 
-        DRMSubsystem DRM = null;
-
         IMyBroadcastListener GeneralListener;
         const string GeneralChannel = "[FLT-GNR]";
 
         MyCommandLine commandLine = new MyCommandLine();
 
-        public SubsystemManager(MyGridProgram program, IMyTerminalBlock reference = null, bool useDRM = true)
+        public SubsystemManager(MyGridProgram program, IMyTerminalBlock reference = null)
         {
             ProgramReference = reference;
             if (reference == null) ProgramReference = program.Me;
@@ -70,12 +101,6 @@ namespace IngameScript
                 profiler = new Profiler(program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
 
             GeneralListener = program.IGC.RegisterBroadcastListener(GeneralChannel);
-
-            if (useDRM)
-            {
-                DRM = new DRMSubsystem();
-                DRM.Setup(Program, "", Program.Me);
-            }
         }
 
         // [Manager]
@@ -191,7 +216,7 @@ namespace IngameScript
 
         public void Update(UpdateType updateSource)
         {
-            if (Active && (DRM == null || DRM.LicenseOK))
+            if (Active)
             {
                 while (GeneralListener.HasPendingMessage)
                 {
@@ -238,9 +263,6 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            if (DRM != null && !DRM.LicenseOK) 
-                return string.Empty;
-
             StatusBuilder.Clear();
             StatusBuilder.AppendLine($"OUTPUT MODE: {(int)OutputMode}");
             if (OutputMode == OutputMode.Profile)
@@ -262,7 +284,7 @@ namespace IngameScript
 
                 foreach (KeyValuePair<string, ISubsystem> kvp in Subsystems)
                 {
-                    StatusBuilder.AppendLine(kvp.Key);
+                    StatusBuilder.AppendLine("["+kvp.Key+"]");
                     StatusBuilder.AppendLine(kvp.Value.GetStatus());
                 }
             }

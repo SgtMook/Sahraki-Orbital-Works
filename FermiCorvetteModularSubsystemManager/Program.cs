@@ -30,9 +30,9 @@ namespace IngameScript
         public LookingGlassNetworkSubsystem LookingGlassNetwork;
         public AgentSubsystem AgentSubsystem;
         public ScannerNetworkSubsystem ScannerSubsystem;
-        public TorpedoSubsystem TorpedoSubsystem;
         public CombatLoaderSubsystem CombatLoaderSubsystem;
         public HornetAttackTaskGenerator TaskGenerator;
+        public TorpedoSubsystem TorpedoSubsystem;
 
         public Program()
         {
@@ -45,11 +45,11 @@ namespace IngameScript
             CombatSubsystem = new HornetCombatSubsystem(IntelSubsystem);
             LookingGlassNetwork = new LookingGlassNetworkSubsystem(IntelSubsystem, "LG", false, false);
             AgentSubsystem = new AgentSubsystem(IntelSubsystem, AgentClass.None);
-            TorpedoSubsystem = new TorpedoSubsystem(IntelSubsystem);
             TaskGenerator = new HornetAttackTaskGenerator(this, CombatSubsystem, AutopilotSubsystem, AgentSubsystem, null, IntelSubsystem);
             AgentSubsystem.AddTaskGenerator(TaskGenerator);
             TaskGenerator.HornetAttackTask.FocusedTarget = true;
             CombatLoaderSubsystem = new CombatLoaderSubsystem("Fermi Cargo", "Combat Supplies");
+            TorpedoSubsystem = new TorpedoSubsystem(IntelSubsystem);
 
             ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
             LookingGlassNetwork.AddPlugin("combat", new LookingGlass_Fermi(this));

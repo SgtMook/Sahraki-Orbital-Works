@@ -13,11 +13,9 @@
     <Compile Include="$(MSBuildThisFileDirectory)AutopilotSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)CombatLoaderSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DockingSubsystem.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)DRMSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HangarSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HoneybeeSubsystems.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HornetSubsystems.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)HummingbirdControlSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IntelSubsystems.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)InventoryManagerSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ISubsystem.cs" />

@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>61eba249-19f3-48b6-a25b-a4cee90168ba</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>IngameScript</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AutoPDCTask.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DRMSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)HoverEngineDriver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Hummingbird.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)HummingbirdControlSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)LicenseHasher.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TriskelionDrive.cs" />
+  </ItemGroup>
+</Project>

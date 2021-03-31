@@ -41,8 +41,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MissileBatteryMSM", "Missil
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModularSystemManagerBase", "ModularSystemManagerBase\ModularSystemManagerBase.csproj", "{E61D9E0F-AE0E-41A5-9C83-CC268641CA53}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PoIMarker", "PoIMarker\PoIMarker.csproj", "{0A425C31-C27C-4CF4-B17F-73006E569844}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HoneybeeMinerDrone", "Project\HoneybeeMinerDrone\HoneybeeMinerDrone.csproj", "{21D1E24D-F1B4-4078-97C2-0D554C8C16E9}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocustBomberDrone", "Project\LocustBomberDrone\LocustBomberDrone.csproj", "{E18E0EDE-4E3D-49CF-B1AA-2B822278F54D}"
@@ -59,9 +57,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Suntracker", "Backup\Suntra
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandShipModularSystemManager", "CommandShipModularSystemManager\CommandShipModularSystemManager.csproj", "{C0F8A8EF-52C4-4691-939F-13AB878E433F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuringCorvetteModularSubsystemManager", "TuringCorvetteModularSubsystemManager\TuringCorvetteModularSubsystemManager.csproj", "{F9259D26-1B48-4B6A-8CF3-0ECF31371884}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HingeMissileDesignHelper", "HingeMissileDesignHelper\HingeMissileDesignHelper.csproj", "{F859A0B3-ADE3-4409-9529-C2AC20CD0E51}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "LegacyShared", "SharedProjects\LegacyShared\LegacyShared.shproj", "{DE00C4F2-C050-4B87-84C9-2D77D1E00064}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		SharedProjects\SharedProjects.projitems*{0a425c31-c27c-4cf4-b17f-73006e569844}*SharedItemsImports = 4
 		SharedProjects\SharedProjects.projitems*{1023a8cb-5d16-499e-9d7c-3f547e160d40}*SharedItemsImports = 4
 		SharedProjects\SharedProjects.projitems*{1952d777-ecb7-4db8-a07d-9a5d1d3752d0}*SharedItemsImports = 4
 		SharedProjects\Subsystems\Subsystems.projitems*{195332f7-c60b-48c1-930f-ccc516698133}*SharedItemsImports = 4
@@ -84,10 +87,17 @@ Global
 		SharedProjects\SharedProjects.projitems*{c30fef71-aecf-44b3-a1ab-042f75fefdb5}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{c53f458b-e409-4c3b-bc29-1a7e6c413809}*SharedItemsImports = 13
 		SharedProjects\SharedProjects.projitems*{d02f10a6-eeda-45e2-9e37-40247ec6ebc4}*SharedItemsImports = 4
+		SharedProjects\LegacyShared\LegacyShared.projitems*{de00c4f2-c050-4b87-84c9-2d77d1e00064}*SharedItemsImports = 13
 		SharedProjects\SharedProjects.projitems*{e18e0ede-4e3d-49cf-b1aa-2b822278f54d}*SharedItemsImports = 4
 		SharedProjects\SharedProjects.projitems*{e61d9e0f-ae0e-41a5-9c83-cc268641ca53}*SharedItemsImports = 4
 		SharedProjects\SharedProjects.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
 		SharedProjects\Utility\Utility.projitems*{f7efccfa-c507-4160-ab79-8baa84f8e05f}*SharedItemsImports = 13
+		SharedProjects\Subsystems\Subsystems.projitems*{f859a0b3-ade3-4409-9529-c2ac20cd0e51}*SharedItemsImports = 4
+		SharedProjects\Tasks\Tasks.projitems*{f859a0b3-ade3-4409-9529-c2ac20cd0e51}*SharedItemsImports = 4
+		SharedProjects\Utility\Utility.projitems*{f859a0b3-ade3-4409-9529-c2ac20cd0e51}*SharedItemsImports = 4
+		SharedProjects\Subsystems\Subsystems.projitems*{f9259d26-1b48-4b6a-8cf3-0ecf31371884}*SharedItemsImports = 4
+		SharedProjects\Tasks\Tasks.projitems*{f9259d26-1b48-4b6a-8cf3-0ecf31371884}*SharedItemsImports = 4
+		SharedProjects\Utility\Utility.projitems*{f9259d26-1b48-4b6a-8cf3-0ecf31371884}*SharedItemsImports = 4
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -114,7 +124,6 @@ Global
 		{3D4E7DFE-9C39-44DE-BEFA-E197191168AD}.Debug|x64.ActiveCfg = Debug|x64
 		{D02F10A6-EEDA-45E2-9E37-40247EC6EBC4}.Debug|x64.ActiveCfg = Debug|x64
 		{E61D9E0F-AE0E-41A5-9C83-CC268641CA53}.Debug|x64.ActiveCfg = Debug|x64
-		{0A425C31-C27C-4CF4-B17F-73006E569844}.Debug|x64.ActiveCfg = Debug|x64
 		{21D1E24D-F1B4-4078-97C2-0D554C8C16E9}.Debug|x64.ActiveCfg = Debug|x64
 		{E18E0EDE-4E3D-49CF-B1AA-2B822278F54D}.Debug|x64.ActiveCfg = Debug|x64
 		{2E7321B6-2FD7-4A3C-819E-4AB1FC9BAD86}.Debug|x64.ActiveCfg = Debug|x64
@@ -124,6 +133,10 @@ Global
 		{7880AD0A-8B53-415A-9F95-1B5B3F4DF8E2}.Debug|x64.ActiveCfg = Debug|x64
 		{C0F8A8EF-52C4-4691-939F-13AB878E433F}.Debug|x64.ActiveCfg = Debug|x64
 		{C0F8A8EF-52C4-4691-939F-13AB878E433F}.Debug|x64.Build.0 = Debug|x64
+		{F9259D26-1B48-4B6A-8CF3-0ECF31371884}.Debug|x64.ActiveCfg = Debug|x64
+		{F9259D26-1B48-4B6A-8CF3-0ECF31371884}.Debug|x64.Build.0 = Debug|x64
+		{F859A0B3-ADE3-4409-9529-C2AC20CD0E51}.Debug|x64.ActiveCfg = Debug|x64
+		{F859A0B3-ADE3-4409-9529-C2AC20CD0E51}.Debug|x64.Build.0 = Debug|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -142,14 +155,15 @@ Global
 		{3D4E7DFE-9C39-44DE-BEFA-E197191168AD} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
 		{D02F10A6-EEDA-45E2-9E37-40247EC6EBC4} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
 		{E61D9E0F-AE0E-41A5-9C83-CC268641CA53} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
-		{0A425C31-C27C-4CF4-B17F-73006E569844} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
 		{21D1E24D-F1B4-4078-97C2-0D554C8C16E9} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
 		{E18E0EDE-4E3D-49CF-B1AA-2B822278F54D} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
 		{2E7321B6-2FD7-4A3C-819E-4AB1FC9BAD86} = {5ED0EB74-ABB9-4505-A189-AD5B92260507}
 		{70C361CF-0E80-4055-806D-248EF0B022DB} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
-		{831F9648-398D-4CAC-8937-DC4D4DB51B4E} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
+		{831F9648-398D-4CAC-8937-DC4D4DB51B4E} = {5ED0EB74-ABB9-4505-A189-AD5B92260507}
 		{7880AD0A-8B53-415A-9F95-1B5B3F4DF8E2} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
 		{C0F8A8EF-52C4-4691-939F-13AB878E433F} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
+		{F9259D26-1B48-4B6A-8CF3-0ECF31371884} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
+		{F859A0B3-ADE3-4409-9529-C2AC20CD0E51} = {5ED0EB74-ABB9-4505-A189-AD5B92260507}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F3FB794D-D238-4AE1-AFFE-BA7BFCD452C3}

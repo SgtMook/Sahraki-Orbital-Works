@@ -26,6 +26,7 @@ namespace IngameScript
         #region ISubsystem
         public UpdateFrequency UpdateFrequency { get; set; }
 
+        Logger Log = new Logger();
         public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "fire")
@@ -55,6 +56,15 @@ namespace IngameScript
         public string GetStatus()
         {
             debugBuilder.Clear();
+            Log.GetOutput(debugBuilder);
+//             if (TorpedoTubes != null)
+//             {
+//                 debugBuilder.AppendLine("TRP#:" + TorpedoTubes.Length);
+//                 for (int i = 0; i < TorpedoTubes.Length; ++i)
+//                 {
+//                     debugBuilder.AppendLine("[" + i + "]=" + TorpedoTubes[i] != null ? TorpedoTubes[i].OK().ToString() : "null");
+//                 }
+//             }
             return debugBuilder.ToString();
         }
 
@@ -258,8 +268,8 @@ namespace IngameScript
         List<EnemyShipIntel> MissileDumpScratchpad = new List<EnemyShipIntel>();
         List<TorpedoTubeGroup> TorpedoTubeGroupScratchpad = new List<TorpedoTubeGroup>();
 
-        HashSet<long> AutofireTargetLog = new HashSet<long>();
-        Queue<Torpedo> ReserveTorpedoes = new Queue<Torpedo>();
+//         HashSet<long> AutofireTargetLog = new HashSet<long>();
+//         Queue<Torpedo> ReserveTorpedoes = new Queue<Torpedo>();
 
         MyGridProgram Program;
         IIntelProvider IntelProvider;
@@ -322,6 +332,7 @@ namespace IngameScript
                     if (!TorpedoTubeGroups.ContainsKey(TorpedoTubes[i].GroupName))
                         TorpedoTubeGroups[TorpedoTubes[i].GroupName] = new TorpedoTubeGroup(TorpedoTubes[i].GroupName);
 
+                    Log.Debug("Add Tube#" + i + " to " + TorpedoTubes[i].GroupName);
                     TorpedoTubeGroups[TorpedoTubes[i].GroupName].AddTube(TorpedoTubes[i]);
                 }
             }
@@ -346,7 +357,8 @@ namespace IngameScript
             if (!int.TryParse(numString, out index)) return false;
             if (TorpedoTubes[index] == null) TorpedoTubes[index] = new TorpedoTube(index, Program, this);
             TorpedoTubes[index].AddPart(block);
-
+//             Log.Debug("Allocated Tube #" + index);
+//             Log.Debug(" Part " + block.CustomName);
             return false;
         }
 
@@ -466,7 +478,7 @@ namespace IngameScript
             if (block is IMyGyro) { Gyros.Add((IMyGyro)block); part = true; }
             if (block is IMyCameraBlock) { var camera = (IMyCameraBlock)block; Cameras.Add(camera); camera.EnableRaycast = true; float.TryParse(camera.CustomData, out CameraExtends[Cameras.Count]); part = true; }
             if (block is IMySensorBlock) { Sensor = (IMySensorBlock)block; part = true; }
-            if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); ((IMyThrust)block).Enabled = false ; part = true; }
+            if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); ((IMyThrust)block).Enabled = false; part = true; }
             if (block is IMyWarhead) { Warheads.Add((IMyWarhead)block); part = true; }
             if (block is IMyShipMergeBlock) { Splitters.Add((IMyShipMergeBlock)block); part = true; }
             if (block is IMyBatteryBlock) { Batteries.Add((IMyBatteryBlock)block); ((IMyBatteryBlock)block).Enabled = false; part = true; }
@@ -682,7 +694,7 @@ namespace IngameScript
                 // TrickshotOffset += dist;
                 UseTrickshot = false;
             }
-            if (TrickshotOffset != Vector3D.Zero && rangeVector.LengthSquared() < 100*100)
+            if (TrickshotOffset != Vector3D.Zero && rangeVector.LengthSquared() < 100 * 100)
             {
                 TrickshotOffset = Vector3D.Zero;
             }
@@ -968,9 +980,82 @@ namespace IngameScript
         public List<IMyInteriorLight> AutofireIndicator = new List<IMyInteriorLight>();
     }
 
+    public class TorpedoTubeRelease
+    {
+        private IMyShipMergeBlock Merge;
+        private IMyMechanicalConnectionBlock Mech;
+        public static TorpedoTubeRelease TryConstruct(IMyTerminalBlock block)
+        {
+            TorpedoTubeRelease release = null;
+
+            IMyShipMergeBlock merge = block as IMyShipMergeBlock;
+            if (merge != null)
+            {
+                release = new TorpedoTubeRelease();
+                release.Merge = merge;
+            }
+
+            IMyMechanicalConnectionBlock mechanical = block as IMyMechanicalConnectionBlock;
+            if (mechanical != null)
+            {
+                release = new TorpedoTubeRelease();
+                release.Mech = mechanical;
+            }
+
+            return release;
+        }
+
+        public bool Detach()
+        {
+            if (Merge != null)
+            {
+                var releaseOther = GridTerminalHelper.OtherMergeBlock(Merge);
+                if (releaseOther == null)
+                    return false;
+                releaseOther.Enabled = false;
+            }
+            else
+            if (Mech != null)
+            {
+                if (Mech.Top == null)
+                    return false;
+                Mech.Detach();
+            }
+            return true;
+        }
+        public MyCubeSize Size()
+        {
+            if (Merge != null)
+                return Merge.CubeGrid.GridSizeEnum;
+            if (Mech != null)
+                return Mech.CubeGrid.GridSizeEnum;
+
+            return MyCubeSize.Small;
+        }
+
+        public bool LoadTorpedoParts(ref List<IMyTerminalBlock> results)
+        {
+            if (Merge != null)
+            {
+                var releaseOther = GridTerminalHelper.OtherMergeBlock(Merge);
+                if (releaseOther == null || !releaseOther.IsFunctional || !releaseOther.Enabled)
+                    return false;
+
+                return GridTerminalHelper.Base64BytePosToBlockList(releaseOther.CustomData, releaseOther, ref results);
+            }
+            else if (Mech != null)
+            {
+                if (Mech.Top == null)
+                    return false;
+
+                return GridTerminalHelper.Base64BytePosToBlockList(Mech.CustomData, Mech.Top, ref results);
+            }
+            return false;
+        }
+    }
     public class TorpedoTube : ITorpedoControllable
     {
-        public IMyShipMergeBlock Release;
+        public TorpedoTubeRelease Release;
         public IMyShipConnector Connector;
 
         public Torpedo LoadedTorpedo;
@@ -1002,14 +1087,17 @@ namespace IngameScript
 
         public void AddPart(IMyTerminalBlock block)
         {
-            if (block is IMyShipMergeBlock)
+            Release = TorpedoTubeRelease.TryConstruct(block);
+
+            if (Release != null)
             {
-                Release = (IMyShipMergeBlock)block;
-                Size = Release.CubeGrid.GridSizeEnum;
+                Size = Release.Size();
                 AutoFire = Size == MyCubeSize.Small;
                 GroupName = Size == MyCubeSize.Small ? "SM" : "LG";
             }
-            if (block is IMyShipConnector) Connector = (IMyShipConnector)block;
+
+            if (block is IMyShipConnector)
+                Connector = (IMyShipConnector)block;
         }
 
         public void Update(TimeSpan LocalTime)
@@ -1035,7 +1123,7 @@ namespace IngameScript
                 {
                     SubTorpedosScratchpad[index] = new Torpedo();
                     SubTorpedosScratchpad[index].Tag = index.ToString();
-                    
+
                     LoadedTorpedo.SubTorpedos.Add(SubTorpedosScratchpad[index]);
                 }
                 return SubTorpedosScratchpad[index].AddPart(part);
@@ -1048,10 +1136,7 @@ namespace IngameScript
 
         bool LoadTorpedoParts(ref List<IMyTerminalBlock> results)
         {
-            var releaseOther = GridTerminalHelper.OtherMergeBlock(Release);
-            if (releaseOther == null || !releaseOther.IsFunctional || !releaseOther.Enabled) return false;
-
-            return GridTerminalHelper.Base64BytePosToBlockList(releaseOther.CustomData, releaseOther, ref results);
+            return Release.LoadTorpedoParts(ref results);
         }
 
         void GetTorpedo()
@@ -1111,9 +1196,7 @@ namespace IngameScript
             if (canonicalTime == TimeSpan.Zero) return null;
             if (LoadedTorpedo == null) return null;
 
-            var releaseOther = GridTerminalHelper.OtherMergeBlock(Release);
-            if (releaseOther == null) return null;
-            releaseOther.Enabled = false;
+            if (!Release.Detach()) return null;
 
             if (Connector != null && Connector.Status == MyShipConnectorStatus.Connected) Connector.OtherConnector.Enabled = false;
             var torp = LoadedTorpedo;

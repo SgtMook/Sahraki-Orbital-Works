@@ -27,6 +27,7 @@ namespace IngameScript
         public AtmoDrive AutopilotSubsystem;
         public IntelSubsystem IntelSubsystem;
         public HornetCombatSubsystem CombatSubsystem;
+        public LookingGlassNetworkSubsystem LookingGlassNetwork;
         public AgentSubsystem AgentSubsystem;
         public ScannerNetworkSubsystem ScannerSubsystem;
         public CombatLoaderSubsystem CombatLoaderSubsystem;
@@ -45,11 +46,25 @@ namespace IngameScript
 
         int runs = 0;
 
-        List<IMyShipWelder> Welders = new List<IMyShipWelder>();
+/*        List<IMyShipWelder> Welders = new List<IMyShipWelder>();*/
         IMyShipConnector Connector;
         bool lastDocked = false;
         bool scriptDocked = false;
 
+        Dictionary<MyItemType, int> TorpComponents = new Dictionary<MyItemType, int>();
+//         {
+//             { MyItemType.MakeComponent("SteelPlate"), 87} ,
+//             { MyItemType.MakeComponent("Construction"), 47} ,
+//             { MyItemType.MakeComponent("LargeTube"), 5} ,
+//             { MyItemType.MakeComponent("Motor"), 10} ,
+//             { MyItemType.MakeComponent("Computer"), 37} ,
+//             { MyItemType.MakeComponent("MetalGrid"), 4} ,
+//             { MyItemType.MakeComponent("SmallTube"), 14} ,
+//             { MyItemType.MakeComponent("InteriorPlate"), 2} ,
+//             { MyItemType.MakeComponent("Girder"), 1} ,
+//             { MyItemType.MakeComponent("Explosives"), 2} ,
+//             { MyItemType.MakeComponent("PowerCell"), 2} ,
+//         };
         public Program()
         {
             subsystemManager = new SubsystemManager(this);
@@ -60,6 +75,7 @@ namespace IngameScript
             AutopilotSubsystem.FullAuto = false;
             IntelSubsystem = new IntelSubsystem();
             CombatSubsystem = new HornetCombatSubsystem(IntelSubsystem, false);
+            LookingGlassNetwork = new LookingGlassNetworkSubsystem(IntelSubsystem, "LG", false, false);
             AgentSubsystem = new AgentSubsystem(IntelSubsystem, AgentClass.None);
             TaskGenerator = new HornetAttackTaskGenerator(this, CombatSubsystem, AutopilotSubsystem, AgentSubsystem, null, IntelSubsystem);
             AgentSubsystem.AddTaskGenerator(TaskGenerator);
@@ -69,12 +85,14 @@ namespace IngameScript
             TorpedoSubsystem = new TorpedoSubsystem(IntelSubsystem);
 
             ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
+            LookingGlassNetwork.AddPlugin("combat", new LookingGlass_Fermi(this));
 
             subsystemManager.AddSubsystem("autopilot", AutopilotSubsystem);
             subsystemManager.AddSubsystem("intel", IntelSubsystem);
             subsystemManager.AddSubsystem("combat", CombatSubsystem);
             subsystemManager.AddSubsystem("agent", AgentSubsystem);
             subsystemManager.AddSubsystem("scanner", ScannerSubsystem);
+            subsystemManager.AddSubsystem("lookingglass", LookingGlassNetwork);
             subsystemManager.AddSubsystem("loader", CombatLoaderSubsystem);
             subsystemManager.AddSubsystem("docking", DockingSubsystem);
             subsystemManager.AddSubsystem("torpedo", TorpedoSubsystem);
@@ -90,7 +108,7 @@ namespace IngameScript
                 return false;
             if (block is IMyShipController && (Controller == null || block.CustomName.Contains("[I]"))) Controller = (IMyShipController)block;
             if (block is IMyCockpit) Cockpit = (IMyCockpit)block;
-            if (block is IMyShipWelder) Welders.Add((IMyShipWelder)block);
+//            if (block is IMyShipWelder) Welders.Add((IMyShipWelder)block);
             if (block is IMyShipConnector && block.CustomName.Contains("Docking"))
             {
                 Connector = (IMyShipConnector)block;
@@ -149,10 +167,10 @@ namespace IngameScript
             {
                 CombatAutopilot = !CombatAutopilot;
 
-                foreach (var welder in Welders)
-                {
-                    welder.Enabled = true;
-                }
+//                 foreach (var welder in Welders)
+//                 {
+//                     welder.Enabled = true;
+//                 }
 
                 if (!CombatAutopilot)
                 {
@@ -161,18 +179,6 @@ namespace IngameScript
                 }
 
                 UpdateName();
-            }
-            else if (argument == "releaseremote 1")
-            {
-                IGC.SendBroadcastMessage("[PDCFORGE]", "1");
-            }
-            else if (argument == "releaseremote 2")
-            {
-                IGC.SendBroadcastMessage("[PDCFORGE]", "2");
-            }
-            else if (argument == "releaseremote 3")
-            {
-                IGC.SendBroadcastMessage("[PDCFORGE]", "3");
             }
             else if (commandLine.TryParse(argument))
             {
@@ -280,5 +286,313 @@ namespace IngameScript
                 if (status != string.Empty) Echo(status);
             }
         }
+        class LookingGlass_Fermi : ILookingGlassPlugin
+        {
+            public LookingGlassNetworkSubsystem Host { get; set; }
+
+            public void Do4(TimeSpan localTime)
+            {
+                HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, localTime);
+            }
+
+            public void Do7(TimeSpan localTime)
+            {
+            }
+
+            public void Do6(TimeSpan localTime)
+            {
+                if (closestEnemyToCursorID != -1)
+                {
+                    HostProgram.IntelSubsystem.SetPriority(closestEnemyToCursorID, 1);
+                    FeedbackOnTarget = true;
+                }
+            }
+
+            public void Do5(TimeSpan localTime)
+            {
+                if (HostProgram.TorpedoSubsystem.TorpedoTubeGroups.ContainsKey("SM"))
+                {
+                    if (FireTorpedoAtCursorTarget("SM", localTime))
+                    {
+                        FeedbackOnTarget = true;
+                        return;
+                    }
+                }
+                FeedbackText = "NOT LOADED";
+            }
+
+            public void Do3(TimeSpan localTime)
+            {
+                if (CAPMode == 0)
+                {
+                    CAPMode = 1;
+                    HostProgram.TaskGenerator.HornetAttackTask.Mode = 1;
+                }
+                else if (CAPMode == 1)
+                {
+                    HostProgram.TaskGenerator.HornetAttackTask.Mode = 0;
+                    CAPMode = 3;
+                }
+                else
+                {
+                    CAPMode = 0;
+                    HostProgram.AgentSubsystem.AddTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.Override, 0, TimeSpan.Zero);
+                    HostProgram.AutopilotSubsystem.Clear();
+                }
+            }
+
+            public void Do8(TimeSpan localTime)
+            {
+            }
+
+            public void Setup()
+            {
+            }
+
+            public void UpdateHUD(TimeSpan localTime)
+            {
+                DrawActionsUI(localTime);
+                DrawMiddleHUD(localTime);
+            }
+
+            public void UpdateState(TimeSpan localTime)
+            {
+                if (CAPMode != 0)
+                {
+                    if (HostProgram.AgentSubsystem.TaskQueue.Count == 0)
+                    {
+                        if (closestEnemyToCursorID != -1)
+                        {
+                            HostProgram.AgentSubsystem.AddTask(TaskType.Attack, MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID), CommandType.Override, 0,
+                                localTime + HostProgram.IntelSubsystem.CanonicalTimeDiff);
+                        }
+                    }
+                }
+            }
+
+            public LookingGlass_Fermi(Program program)
+            {
+                HostProgram = program;
+            }
+
+            StringBuilder Builder = new StringBuilder();
+
+            List<MySprite> SpriteScratchpad = new List<MySprite>();
+
+            long closestEnemyToCursorID = -1;
+
+            string FeedbackText = string.Empty;
+            bool FeedbackOnTarget = false;
+
+            Program HostProgram;
+
+            bool HUDPromptOK = false;
+            int CAPMode = 0; // 0 - off, 1 - aim, 2 - kite, 3 - standard
+
+            int LastInventoryUpdate = 0;
+
+            bool FireTorpedoAtCursorTarget(string group, TimeSpan localTime)
+            {
+                var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
+                var key = MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID);
+                var target = (EnemyShipIntel)intelItems.GetValueOrDefault(key, null);
+
+                return HostProgram.TorpedoSubsystem.Fire(localTime, HostProgram.TorpedoSubsystem.TorpedoTubeGroups[group], target, false) != null;
+            }
+
+            void DrawActionsUI(TimeSpan timestamp)
+            {
+                if (!HUDPromptOK)
+                {
+                    HUDPromptOK = true;
+                    Builder.Clear();
+
+                    Builder.AppendLine(" ===== BAR 2 ===== ");
+                    Builder.AppendLine();
+                    Builder.AppendLine("1 - FIRE WEAPON");
+                    Builder.AppendLine("2 - CAMERA");
+                    Builder.AppendLine("3 - COMBAT AUTOP.");
+                    Builder.AppendLine("4 - RAYCAST");
+                    Builder.AppendLine("5 - FIRE MISSILE");
+                    Builder.AppendLine("6 - CONFIRM KILL");
+                    Builder.AppendLine("7 - JUMP");
+                    Builder.AppendLine("8 - RELOAD AMMO/");
+                    Builder.AppendLine("    TORPEDOES");
+                    Builder.AppendLine();
+                    Builder.AppendLine(" ===== BAR 3 ===== ");
+                    Builder.AppendLine();
+                    Builder.AppendLine("1 - WELDERS ON/OFF");
+                    Builder.AppendLine("2 - TURRETS ON/OFF");
+                    Builder.AppendLine("3 - PROJECTORS");
+                    Builder.AppendLine("    ON/OFF");
+
+                    foreach (var screen in Host.ActiveLookingGlass.RightHUDs)
+                    {
+                        screen.FontColor = Host.ActiveLookingGlass.kFocusedColor;
+                        screen.WriteText(Builder.ToString());
+                    }
+                }
+
+                if (HostProgram.CombatLoaderSubsystem.UpdateNum > LastInventoryUpdate)
+                {
+                    Builder.Clear();
+                    Builder.AppendLine("  ==== TORP ====  ");
+
+                    LastInventoryUpdate = HostProgram.CombatLoaderSubsystem.UpdateNum;
+
+                    int numTorpsReserve = 10000;
+
+                    foreach (var kvp in HostProgram.TorpComponents)
+                    {
+                        if (!HostProgram.CombatLoaderSubsystem.TotalInventory.ContainsKey(kvp.Key))
+                        {
+                            numTorpsReserve = 0;
+                            break;
+                        }
+                        numTorpsReserve = Math.Min(numTorpsReserve, HostProgram.CombatLoaderSubsystem.TotalInventory[kvp.Key] / kvp.Value);
+                    }
+
+                    if (HostProgram.TorpedoSubsystem.TorpedoTubeGroups.ContainsKey("SM"))
+                    {
+                        int numTorpsLoaded = HostProgram.TorpedoSubsystem.TorpedoTubeGroups["SM"].NumReady;
+
+                        Builder.AppendLine();
+                        Builder.Append("[");
+                        for (int i = 1; i < 5; i++)
+                        {
+                            Builder.Append(i <= numTorpsLoaded ? "^" : " ").Append(i < 4 ? '|' : ']');
+                        }
+                        Builder.Append($"  {numTorpsLoaded}/4  ");
+                        Builder.AppendLine();
+                        Builder.AppendLine();
+                        for (int i = 0; i < 24; i++)
+                        {
+                            if (i % 4 == 0) Builder.Append(' ');
+                            if (i == 12) Builder.AppendLine(" ");
+                            Builder.Append(i < numTorpsReserve ? '^' : ' ');
+                        }
+
+                        Builder.Append(numTorpsReserve > 24 ? "+ " : "  ");
+                        Builder.AppendLine();
+                    }
+                    else
+                    {
+                        Builder.AppendLine("NO TORPEDOES");
+                    }
+
+                    Builder.AppendLine("  ==== GATS ====  ");
+
+                    Builder.AppendLine();
+
+                    int numGats = HostProgram.CombatLoaderSubsystem.TotalInventory.GetValueOrDefault(MyItemType.MakeAmmo("NATO_25x184mm"));
+
+                    int percentGats = Math.Min(numGats / 10, 10);
+
+                    Builder.Append('|', percentGats).Append(' ', 10 - percentGats).Append(' ').Append(string.Format("{0:000}", numGats)).AppendLine("  ");
+
+                    Builder.AppendLine();
+
+                    Builder.AppendLine("  ==== ==== ====  ");
+
+                    Builder.AppendLine();
+
+                    Builder.AppendLine(HostProgram.CombatLoaderSubsystem.LoadingInventory ? "  LOADING...    " : "");
+
+
+                    foreach (var screen in Host.ActiveLookingGlass.LeftHUDs)
+                    {
+                        screen.FontColor = Host.ActiveLookingGlass.kFocusedColor;
+                        screen.WriteText(Builder.ToString());
+                    }
+                }
+            }
+
+            void DrawMiddleHUD(TimeSpan localTime)
+            {
+                if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
+                SpriteScratchpad.Clear();
+
+                Host.GetDefaultSprites(SpriteScratchpad);
+
+                float closestDistSqr = 200 * 200;
+                long newClosestIntelID = -1;
+
+                foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
+                {
+                    if (intel.IntelItemType == IntelItemType.Friendly)
+                    {
+                        var fsi = (FriendlyShipIntel)intel;
+
+                        if ((fsi.AgentStatus & AgentStatus.DockedAtHome) != 0) continue;
+
+                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small;
+                        if (fsi.AgentClass == AgentClass.None) options = LookingGlass.IntelSpriteOptions.ShowName;
+
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
+                    }
+                    else if (intel.IntelItemType == IntelItemType.Enemy)
+                    {
+                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.None;
+
+                        if (!EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)intel) || Host.IntelProvider.GetPriority(intel.ID) < 2)
+                        {
+                            options = LookingGlass.IntelSpriteOptions.Small;
+                            Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
+                        }
+                        else
+                        {
+                            if (intel.ID == closestEnemyToCursorID)
+                            {
+                                options |= LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
+                                if (FeedbackOnTarget)
+                                    options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
+                                options |= LookingGlass.IntelSpriteOptions.ShowTruncatedName;
+                            }
+
+                            var distToCenterSqr = Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options).LengthSquared();
+
+                            if (distToCenterSqr < closestDistSqr)
+                            {
+                                closestDistSqr = distToCenterSqr;
+                                newClosestIntelID = intel.ID;
+                            }
+                        }
+                    }
+
+                }
+                closestEnemyToCursorID = newClosestIntelID;
+
+                Builder.Clear();
+
+                if (CAPMode == 1) FeedbackText = "CAP ON - AIM MODE - 3 FULL";
+                else if (CAPMode == 3) FeedbackText = "CAP ON - FULL MODE - 3 OFF";
+                else FeedbackText = string.Empty;
+
+                foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)
+                {
+                    using (var frame = screen.DrawFrame())
+                    {
+                        foreach (var spr in SpriteScratchpad)
+                        {
+                            frame.Add(spr);
+                        }
+
+                        if (FeedbackText != string.Empty)
+                        {
+                            var prompt = MySprite.CreateText(FeedbackText, "Debug", Color.HotPink, 0.9f);
+                            prompt.Position = new Vector2(0, -45) + screen.TextureSize / 2f;
+                            frame.Add(prompt);
+                        }
+
+                        var HUD = MySprite.CreateText(Builder.ToString(), "Monospace", Color.LightBlue, 0.3f);
+                        HUD.Position = new Vector2(0, -25) + screen.TextureSize / 2f;
+                        frame.Add(HUD);
+                    }
+                }
+
+                FeedbackOnTarget = false;
+            }
+        }
     }
+
 }

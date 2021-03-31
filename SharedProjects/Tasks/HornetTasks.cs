@@ -181,7 +181,7 @@ namespace IngameScript
                 LastEnemyVelocity = Vector3D.Zero;
                 LastEnemyPosition = Vector3D.Zero;
                 LastRelativeAttackPoint = Vector3D.Zero;
-                targetLastPoweredRun = 0;
+//                targetLastPoweredRun = 0;
             }
             else
             {
@@ -333,7 +333,7 @@ namespace IngameScript
         public bool FocusedTarget = false;
 
         int runs = 0;
-        int targetLastPoweredRun = 0;
+//        int targetLastPoweredRun = 0;
 
         public HornetAttackTask(MyGridProgram program, HornetCombatSubsystem combatSystem, IAutopilot autopilot, IAgentSubsystem agentSubsystem, IMonitorSubsystem monitorSubsystem, IIntelProvider intelProvider)
         {
