@@ -364,7 +364,7 @@ namespace IngameScript
                     continue;
 
                 // If it's an asteroid or a ship, we might be interested
-                if (kvp.Value.IntelItemType == IntelItemType.Asteroid || kvp.Value.IntelItemType == IntelItemType.Friendly || kvp.Value.IntelItemType == IntelItemType.Enemy)
+                if (kvp.Value.Type == IntelItemType.Asteroid || kvp.Value.Type == IntelItemType.Friendly || kvp.Value.Type == IntelItemType.Enemy)
                 {
                     Vector3D c = kvp.Value.GetPositionFromCanonicalTime(canonicalTime);
                     float r = kvp.Value.Radius + SafetyRadius;

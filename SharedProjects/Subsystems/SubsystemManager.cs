@@ -27,6 +27,7 @@ namespace IngameScript
         Profile,
         None
     }
+    /*
     public class Logger
     {
         private const int LineCount = 20;
@@ -60,7 +61,7 @@ namespace IngameScript
             }
         }
     }
-
+   */
     public class SubsystemManager
     {
         MyGridProgram Program;

@@ -1099,10 +1099,10 @@ namespace IngameScript
             TargetSelection_Targets.Clear();
             foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(timestamp).Values)
             {
-                if ((intel.IntelItemType & TaskTypeToTargetTypes[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]) != 0)
+                if ((intel.Type & TaskTypeToTargetTypes[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]) != 0)
                     TargetSelection_Targets.Add(intel);
                 else if ((TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex] == TaskType.Dock || TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex] == TaskType.SetHome)
-                    && intel.IntelItemType == IntelItemType.Dock && 
+                    && intel.Type == IntelItemType.Dock && 
                     DockIntel.TagsMatch(Agent.HangarTags, ((DockIntel)intel).Tags)) // Special Handling
                     TargetSelection_Targets.Add(intel);
             }
@@ -1193,7 +1193,7 @@ namespace IngameScript
             Host.GetDefaultSprites(SpriteScratchpad);
             foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
             {
-                if (intel.IntelItemType == IntelItemType.Friendly)
+                if (intel.Type == IntelItemType.Friendly)
                 {
                     var options = LookingGlass.IntelSpriteOptions.Small;
                     if (AgentSelection_FriendlyAgents.Count > AgentSelection_CurrentIndex && intel == AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])
@@ -1201,7 +1201,7 @@ namespace IngameScript
 
                     Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
                 }
-                else if (intel.IntelItemType == IntelItemType.Enemy)
+                else if (intel.Type == IntelItemType.Enemy)
                 {
                     var options = LookingGlass.IntelSpriteOptions.ShowDist;
                     if (realTargetIndex >= 0 && TargetSelection_Targets.Count > realTargetIndex && intel == TargetSelection_Targets[realTargetIndex])
@@ -1216,7 +1216,7 @@ namespace IngameScript
 
                     Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
                 }
-                else if (intel.IntelItemType == IntelItemType.Waypoint)
+                else if (intel.Type == IntelItemType.Waypoint)
                 {
                     var options = LookingGlass.IntelSpriteOptions.ShowDist;
                     Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kWaypointOrange, ref SpriteScratchpad, options);
@@ -1264,7 +1264,7 @@ namespace IngameScript
 
         void SendCommand(IFleetIntelligence target, TimeSpan timestamp)
         {
-            SendCommand(MyTuple.Create(target.IntelItemType, target.ID), timestamp);
+            SendCommand(MyTuple.Create(target.Type, target.ID), timestamp);
         }
         void SendCommand(MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp)
         {
@@ -1500,11 +1500,11 @@ namespace IngameScript
 
             foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
             {
-                if (intel.IntelItemType == IntelItemType.Friendly)
+                if (intel.Type == IntelItemType.Friendly)
                 {
                     Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.Small);
                 }
-                else if (intel.IntelItemType == IntelItemType.Enemy)
+                else if (intel.Type == IntelItemType.Enemy)
                 {
                     LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
 
@@ -1523,7 +1523,7 @@ namespace IngameScript
 
                     Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, priority == 0 ? Color.White : Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
                 }
-                else if (intel.IntelItemType == IntelItemType.Asteroid)
+                else if (intel.Type == IntelItemType.Asteroid)
                 {
                     Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Color.Green, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.Large);
                 }
@@ -1823,7 +1823,7 @@ namespace IngameScript
 
             foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
             {
-                if (intel.IntelItemType == IntelItemType.Friendly)
+                if (intel.Type == IntelItemType.Friendly)
                 {
                     var fsi = (FriendlyShipIntel)intel;
 
@@ -1835,7 +1835,7 @@ namespace IngameScript
 
                     Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
                 }
-                else if (intel.IntelItemType == IntelItemType.Enemy)
+                else if (intel.Type == IntelItemType.Enemy)
                 {
                     LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
 
