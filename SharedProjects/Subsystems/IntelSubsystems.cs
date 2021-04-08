@@ -117,11 +117,11 @@ namespace IngameScript
             if (Host == null)
             {
                 // JIT initialization
-                AsteroidIntel.IGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3);
-                FriendlyShipIntel.IGCUnpack(FriendlyShipIntel.IGCPackGeneric(new FriendlyShipIntel()).Item3);
-                EnemyShipIntel.IGCUnpack(EnemyShipIntel.IGCPackGeneric(new EnemyShipIntel()).Item3);
-                DockIntel.IGCUnpack(DockIntel.IGCPackGeneric(new DockIntel()).Item3);
-                Waypoint.IGCUnpack(Waypoint.IGCPackGeneric(new Waypoint()).Item3);
+                AsteroidIntel.TryIGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3, IntelItems, CanonicalTimeSourceID);
+                FriendlyShipIntel.TryIGCUnpack(FriendlyShipIntel.IGCPackGeneric(new FriendlyShipIntel()).Item3, IntelItems, CanonicalTimeSourceID);
+                EnemyShipIntel.TryIGCUnpack(EnemyShipIntel.IGCPackGeneric(new EnemyShipIntel()).Item3, IntelItems, CanonicalTimeSourceID);
+                DockIntel.TryIGCUnpack(DockIntel.IGCPackGeneric(new DockIntel()).Item3, IntelItems, CanonicalTimeSourceID);
+                Waypoint.TryIGCUnpack(Waypoint.IGCPackGeneric(new Waypoint()).Item3, IntelItems, CanonicalTimeSourceID);
 
                 FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(123, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID);
                 FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(123, IntelItems, CanonicalTimeSourceID);
@@ -516,9 +516,9 @@ namespace IngameScript
             {
                 var msg = ReportListener.AcceptMessage();
                 var updateKey = FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(msg.Data, IntelItems, Program.IGC.Me);
-                if (updateKey.Item1 != IntelItemType.NONE)
+                if (updateKey.HasValue)
                 {
-                    Timestamps[updateKey] = timestamp;
+                    Timestamps[updateKey.Value] = timestamp;
                 }
 
                 if (msg.Data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>, MyTuple<int, string, int, int, Vector3I>, MyTuple<long, int>>>>)

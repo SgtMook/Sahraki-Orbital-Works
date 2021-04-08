@@ -24,6 +24,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)ScannerSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)StatusIndicatorSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SubsystemManager.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TacMapSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TextCommandSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TorpedoSubsystem.cs" />
   </ItemGroup>

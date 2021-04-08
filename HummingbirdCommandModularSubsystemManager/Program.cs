@@ -159,7 +159,7 @@ namespace IngameScript
 
                 foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
                 {
-                    if (intel.IntelItemType == IntelItemType.Friendly)
+                    if (intel.Type == IntelItemType.Friendly)
                     {
                         var fsi = (FriendlyShipIntel)intel;
 
@@ -170,7 +170,7 @@ namespace IngameScript
 
                         Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
                     }
-                    else if (intel.IntelItemType == IntelItemType.Enemy)
+                    else if (intel.Type == IntelItemType.Enemy)
                     {
                         LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
 

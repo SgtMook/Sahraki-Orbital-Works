@@ -30,7 +30,31 @@ namespace IngameScript
         Dock = 8,
         Enemy = 16,
     }
+    public class IGCArrayWrapper<T> where T : IEnumerable
+    {
+        public object data;
+        public bool HasValue() { return data is T; }
+        public T GetValue() { return (T)data; }
+        public IGCArrayWrapper( object _data )
+        {
+            data = _data;
+        }
+        public bool TryIGCUnpack(Func<object, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>, long, MyTuple<IntelItemType, long>?> unpacker, 
+                                    Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, ref List<MyTuple<IntelItemType, long>> updatedScratchpad, long masterID)
+        {
+            if (!HasValue())
+                return false;
+            T array = GetValue();
+            foreach (var item in array)
+            {
+                var updatedKey = Waypoint.TryIGCUnpack(item, intelItems, masterID);
+                if (updatedKey.HasValue)
+                    updatedScratchpad.Add(updatedKey.Value);
+            }
+            return true;
+        }
 
+    }
     public static class FleetIntelligenceUtil
     {
         public const string IntelReportChannelTag = "[FLTINT-RPT]";
@@ -62,38 +86,35 @@ namespace IngameScript
             else if (item is EnemyShipIntel)
                 IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, EnemyShipIntel.IGCPackGeneric((EnemyShipIntel)item)));
         }
-
         /// <summary>
         /// Receives an IGC packed IFleetIntelligence item and if it matches master ID puts it into the dictionary provided, updating the existing entry if necessary. Returns the key of the object updated, if available.
         /// </summary>
-        public static MyTuple<IntelItemType, long> ReceiveAndUpdateFleetIntelligence(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
+        public static MyTuple<IntelItemType, long>? ReceiveAndUpdateFleetIntelligence(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
+            MyTuple<IntelItemType, long>? updatedIntel;
 
-            MyTuple<IntelItemType, long> updatedIntel = MyTuple.Create(IntelItemType.NONE, (long)0);
-            // Waypoint
-            if (Waypoint.TryIGCUnpack(data, intelItems, masterID, ref updatedIntel))
-            {
+            updatedIntel = Waypoint.TryIGCUnpack(data, intelItems, masterID);
+            if (updatedIntel != null)
                 return updatedIntel;
-            }
-            if (FriendlyShipIntel.TryIGCUnpack(data, intelItems, masterID, ref updatedIntel))
-            {
+
+            updatedIntel = FriendlyShipIntel.TryIGCUnpack(data, intelItems, masterID);
+            if (updatedIntel != null)
                 return updatedIntel;
-            }
-            if (DockIntel.TryIGCUnpack(data, intelItems, masterID, ref updatedIntel))
-            {
+
+            updatedIntel = DockIntel.TryIGCUnpack(data, intelItems, masterID);
+            if (updatedIntel != null)
                 return updatedIntel;
-            }
-            if (AsteroidIntel.TryIGCUnpack(data, intelItems, masterID, ref updatedIntel))
-            {
+
+            updatedIntel = AsteroidIntel.TryIGCUnpack(data, intelItems, masterID);
+            if (updatedIntel != null)
                 return updatedIntel;
-            }
-            if (EnemyShipIntel.TryIGCUnpack(data, intelItems, masterID, ref updatedIntel))
-            {
+
+            updatedIntel = EnemyShipIntel.TryIGCUnpack(data, intelItems, masterID);
+            if (updatedIntel != null)
                 return updatedIntel;
-            }
+
             return updatedIntel;
         }
-
         public static void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID, IGCSyncPacker packer)
         {
             packer.WaypointArrayBuilder.Clear();
@@ -126,53 +147,39 @@ namespace IngameScript
         /// <summary>
         /// Receives an array of all of one type of fleet intelligence and puts them into the dictionary provided, updating existing entry if necessary. Adds the keys of each item updated this way to the provided scratchpad.
         /// </summary>
+        /// 
         public static void ReceiveAndUpdateFleetIntelligenceSyncPackage(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, ref List<MyTuple<IntelItemType, long>> updatedScratchpad, long masterID)
         {
             // Waypoint
-            if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>>)
+            var waypointWrapper = new IGCArrayWrapper<ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>>>(data);
+            if (waypointWrapper.TryIGCUnpack(Waypoint.TryIGCUnpack, intelItems, ref updatedScratchpad, masterID))
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>>)data)
-                {
-                    var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
-                }
+                return;
             }
             // FriendlyShipIntel
-            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>, MyTuple<int, string, int, int, Vector3I>, MyTuple<long, int>>>>>)
+            var friendlyWrapper = new IGCArrayWrapper<ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>, MyTuple<int, string, int, int, Vector3I>, MyTuple<long, int>>>>>>(data);
+            if (waypointWrapper.TryIGCUnpack(FriendlyShipIntel.TryIGCUnpack, intelItems, ref updatedScratchpad, masterID))
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>, MyTuple<int, string, int, int, Vector3I>, MyTuple<long, int>>>>>)data)
-                {
-                    var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
-                }
+                return;
             }
             // DockIntel
-            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>)
+            var dockWrapper = new IGCArrayWrapper<ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>>(data);
+            if (dockWrapper.TryIGCUnpack(DockIntel.TryIGCUnpack, intelItems, ref updatedScratchpad, masterID))
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>>)data)
-                {
-                    var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
-                }
+                return;
             }
             // AsteroidIntel
-            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>)
+            var asteroidWrapper = new IGCArrayWrapper<ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>>(data);
+            if (asteroidWrapper.TryIGCUnpack(AsteroidIntel.TryIGCUnpack, intelItems, ref updatedScratchpad, masterID))
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>>)data)
-                {
-                    var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
-                }
+                return;
             }
             // EnemyShipIntel
-            else if (data is ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double, double>, MyTuple<string, long, float, int>>>>>)
+            var enemyWrapper = new IGCArrayWrapper<ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double, double>, MyTuple<string, long, float, int>>>>>>(data);
+            if (enemyWrapper.TryIGCUnpack(EnemyShipIntel.TryIGCUnpack, intelItems, ref updatedScratchpad, masterID))
             {
-                foreach (var item in (ImmutableArray<MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double, double>, MyTuple<string, long, float, int>>>>>)data)
-                {
-                    var updatedKey = ReceiveAndUpdateFleetIntelligence(item, intelItems, masterID);
-                    if (updatedKey.Item1 != IntelItemType.NONE) updatedScratchpad.Add(updatedKey);
-                }
             }
+            return;
         }
 
         public static MyTuple<IntelItemType, long> GetIntelItemKey(IFleetIntelligence item)
@@ -315,7 +322,7 @@ public class Waypoint : IFleetIntelligence
         Name = unpacked.Item5;
     }
 
-    public static bool TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID, ref MyTuple<IntelItemType, long> updatedIntel)
+    public static MyTuple<IntelItemType, long>? TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
     {
         if (data is MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>)
         {
@@ -330,16 +337,11 @@ public class Waypoint : IFleetIntelligence
                     else
                         intelItems.Add(key, Waypoint.IGCUnpack(unpacked.Item2.Item3));
 
-                    updatedIntel = key;
-                    return true;
+                    return key;
                 }
             }
-            else
-            {
-                return true; // consumes message
-            }
         }
-        return false;
+        return null;
     }
 }
 
@@ -424,7 +426,7 @@ public class FriendlyShipIntel : IFleetIntelligence
                 )
             );
         }
-        public static bool TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID, ref MyTuple<IntelItemType, long> updatedIntel)
+        public static MyTuple<IntelItemType, long>? TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
             if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>, MyTuple<int, string, int, int, Vector3I>, MyTuple<long, int>>>>)
             {
@@ -439,16 +441,11 @@ public class FriendlyShipIntel : IFleetIntelligence
                         else
                             intelItems.Add(key, FriendlyShipIntel.IGCUnpack(unpacked.Item2.Item3));
 
-                        updatedIntel = key;
-                        return true;
+                        return key;
                     }
                 }
-                else
-                {
-                    return true; // consumes message
-                }
             }
-            return false;
+            return null;
         }
 
         static public FriendlyShipIntel IGCUnpack(object data)
@@ -553,32 +550,27 @@ public class FriendlyShipIntel : IFleetIntelligence
             Radius = unpacked.Item2;
             ID = unpacked.Item3;
         }
-        public static bool TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID, ref MyTuple<IntelItemType, long> updatedIntel)
+        public static MyTuple<IntelItemType, long>? TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
-        if (data is MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>)
-        {
-            var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>)data;
-            if (masterID == unpacked.Item1)
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>)
             {
-                var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
-                if (key.Item1 == IntelItemType.Asteroid)
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<Vector3D, float, long>>>)data;
+                if (masterID == unpacked.Item1)
                 {
-                    if (intelItems.ContainsKey(key))
-                        ((AsteroidIntel)intelItems[key]).IGCUnpackInto(unpacked.Item2.Item3);
-                    else
-                        intelItems.Add(key, AsteroidIntel.IGCUnpack(unpacked.Item2.Item3));
+                    var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
+                    if (key.Item1 == IntelItemType.Asteroid)
+                    {
+                        if (intelItems.ContainsKey(key))
+                            ((AsteroidIntel)intelItems[key]).IGCUnpackInto(unpacked.Item2.Item3);
+                        else
+                            intelItems.Add(key, AsteroidIntel.IGCUnpack(unpacked.Item2.Item3));
 
-                    updatedIntel = key;
-                    return true;
+                        return key;
+                    }
                 }
             }
-            else
-            {
-                return true; // consumes message
-            }
+            return null;
         }
-        return false;
-    }
     }
 
     public enum HangarStatus
@@ -705,31 +697,26 @@ public class FriendlyShipIntel : IFleetIntelligence
             ID = unpacked.Item3.Item1;
             DisplayName = unpacked.Item3.Item2;
         }
-        public static bool TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID, ref MyTuple<IntelItemType, long> updatedIntel)
+        public static MyTuple<IntelItemType, long>? TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
-        if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>)
-        {
-            var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>)data;
-            if (masterID == unpacked.Item1)
+            if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>)
             {
-                var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
-                if (key.Item1 == IntelItemType.Dock)
+                var unpacked = (MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<MatrixD, float, float, Vector3D, double, Vector3D>, MyTuple<long, int, int, string>, MyTuple<long, string>>>>)data;
+                if (masterID == unpacked.Item1)
                 {
-                    if (intelItems.ContainsKey(key))
-                        ((DockIntel)intelItems[key]).IGCUnpackInto(unpacked.Item2.Item3);
-                    else
-                        intelItems.Add(key, DockIntel.IGCUnpack(unpacked.Item2.Item3));
+                    var key = MyTuple.Create((IntelItemType)unpacked.Item2.Item1, unpacked.Item2.Item2);
+                    if (key.Item1 == IntelItemType.Dock)
+                    {
+                        if (intelItems.ContainsKey(key))
+                            ((DockIntel)intelItems[key]).IGCUnpackInto(unpacked.Item2.Item3);
+                        else
+                            intelItems.Add(key, IGCUnpack(unpacked.Item2.Item3));
 
-                    updatedIntel = key;
-                    return true;
+                        return key;
+                    }
                 }
             }
-            else
-            {
-                return true; // consumes message
-            }
-        }
-        return false;
+            return null;
         }
 
         static public bool TagsMatch(HangarTags x, HangarTags y)
@@ -818,7 +805,7 @@ public class FriendlyShipIntel : IFleetIntelligence
             CubeSize = (MyCubeSize)unpacked.Item2.Item4;
         }
 
-        public static bool TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID, ref MyTuple<IntelItemType, long> updatedIntel)
+        public static MyTuple<IntelItemType, long>? TryIGCUnpack(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
         {
             // Enemy
             if (data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double, double>, MyTuple<string, long, float, int>>>>)
@@ -832,18 +819,13 @@ public class FriendlyShipIntel : IFleetIntelligence
                         if (intelItems.ContainsKey(key))
                             ((EnemyShipIntel)intelItems[key]).IGCUnpackInto(unpacked.Item2.Item3);
                         else
-                            intelItems.Add(key, EnemyShipIntel.IGCUnpack(unpacked.Item2.Item3));
+                            intelItems.Add(key, IGCUnpack(unpacked.Item2.Item3));
 
-                        updatedIntel = key;
-                        return true;
+                        return key;
                     }
                 }
-                else
-                {
-                    return true;
-                }
             }
-            return false;
+            return null;
         }
 
         static public bool PrioritizeTarget(EnemyShipIntel target)

@@ -250,9 +250,9 @@ namespace IngameScript
             if (localCoords.Length() > MapSize) 
                 return;
 
-            var intelKey = MyTuple.Create(intel.IntelItemType, intel.ID);
+            var intelKey = MyTuple.Create(intel.Type, intel.ID);
             var color = Color.White;
-            if (intel.IntelItemType == IntelItemType.Friendly)
+            if (intel.Type == IntelItemType.Friendly)
             {
                 if ((((FriendlyShipIntel)intel).AgentStatus & AgentStatus.DockedAtHome) != 0)
                     return;
@@ -263,7 +263,7 @@ namespace IngameScript
                 else if (SelectedItems.Contains(intelKey))
                     color = Color.Teal;
             }
-            else if (intel.IntelItemType == IntelItemType.Enemy)
+            else if (intel.Type == IntelItemType.Enemy)
             {
                 color = Color.Red;
                 var lastDetectedTime = localTime + IntelProvider.CanonicalTimeDiff - ((EnemyShipIntel)intel).LastValidatedCanonicalTime;
@@ -274,7 +274,7 @@ namespace IngameScript
                 else if (lastDetectedTime > TimeSpan.FromSeconds(2))
                     color = new Color(1f, 0f, 0f, 0.007f);
             }
-            else if (intel.IntelItemType == IntelItemType.Waypoint)
+            else if (intel.Type == IntelItemType.Waypoint)
             {
                 color = Color.Green;
             }
@@ -294,7 +294,7 @@ namespace IngameScript
                 AddSprite("SquareSimple", middlePosition, new Vector2(2, lineLength * PixelsPerMeter), color);
             }
 
-            if (intel.IntelItemType == IntelItemType.Friendly)
+            if (intel.Type == IntelItemType.Friendly)
             {
                 AddSprite("CircleHollow", altitudePosition, new Vector2(2 * ScannerRange * MapScale * PixelsPerMeter), color);
 
@@ -497,7 +497,7 @@ namespace IngameScript
         int ScannerRange = 1000;
         float MapScale = 0;
 
-        float ActionBarHeight = 1.25f;
+//        float ActionBarHeight = 1.25f;
         float ActionBarMargin = 0.1f;
 
         bool LastFrameMouseDown = false;
