@@ -116,15 +116,18 @@ namespace IngameScript
 
             if (Host == null)
             {
-                // JIT initialization
-                AsteroidIntel.TryIGCUnpack(AsteroidIntel.IGCPackGeneric(new AsteroidIntel()).Item3, IntelItems, CanonicalTimeSourceID);
-                FriendlyShipIntel.TryIGCUnpack(FriendlyShipIntel.IGCPackGeneric(new FriendlyShipIntel()).Item3, IntelItems, CanonicalTimeSourceID);
-                EnemyShipIntel.TryIGCUnpack(EnemyShipIntel.IGCPackGeneric(new EnemyShipIntel()).Item3, IntelItems, CanonicalTimeSourceID);
-                DockIntel.TryIGCUnpack(DockIntel.IGCPackGeneric(new DockIntel()).Item3, IntelItems, CanonicalTimeSourceID);
-                Waypoint.TryIGCUnpack(Waypoint.IGCPackGeneric(new Waypoint()).Item3, IntelItems, CanonicalTimeSourceID);
+                IGCBindings.Add(new FleetIntelligenceUtil.IGCIntelBinding<Waypoint,             MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>());
+                IGCBindings.Add(new FleetIntelligenceUtil.IGCIntelBinding<AsteroidIntel,        MyTuple<int, long, MyTuple<Vector3D, float, long>>>());
+                IGCBindings.Add(new FleetIntelligenceUtil.IGCIntelBinding<FriendlyShipIntel,    MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>, MyTuple<int, string, int, int, Vector3I>, MyTuple<long, int>>>>());
+                IGCBindings.Add(new FleetIntelligenceUtil.IGCIntelBinding<DockIntel,            MyTuple<int, long, MyTuple<Vector3D, Vector3D, Vector3D, float, string>>>());
+                IGCBindings.Add(new FleetIntelligenceUtil.IGCIntelBinding<EnemyShipIntel,       MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double, double>, MyTuple<string, long, float, int>>>>());
 
-                FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(123, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID);
-                FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(123, IntelItems, CanonicalTimeSourceID);
+                foreach (var binding in IGCBindings)
+                {
+                    binding.ReceiveAndUpdateFleetIntelligenceSyncPackage(123, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID);
+                    binding.ReceiveAndUpdateFleetIntelligence(123, IntelItems, CanonicalTimeSourceID);
+                    binding.JIT();
+                }
 
                 GetTimeMessage(TimeSpan.Zero);
                 GetFleetIntelligences(TimeSpan.Zero);
@@ -229,7 +232,7 @@ namespace IngameScript
         {
             if (CanonicalTimeSourceID != 0 && !IsMaster)
             {
-                FleetIntelligenceUtil.PackAndBroadcastFleetIntelligence(Program.IGC, item, CanonicalTimeSourceID);
+                IGCBindings.ForEach(binding => binding.PackAndBroadcastFleetIntelligence(Program.IGC, item, CanonicalTimeSourceID));
             }
             MyTuple<IntelItemType, long> intelKey = FleetIntelligenceUtil.GetIntelItemKey(item);
             Timestamps[intelKey] = timestamp;
@@ -304,7 +307,8 @@ namespace IngameScript
 
         ImmutableDictionary<long, int> EnemyPriorities = null;
         Dictionary<long, int> MasterEnemyPriorities = new Dictionary<long, int>();
-        IGCSyncPacker IGCSyncPacker = new IGCSyncPacker();
+        
+        List<IIGCIntelBinding> IGCBindings = new List<IIGCIntelBinding>();
 
         Dictionary<long, int> EnemyPrioritiesOverride = new Dictionary<long, int>();
         HashSet<long> EnemyPrioritiesKeepSet = new HashSet<long>();
@@ -394,7 +398,7 @@ namespace IngameScript
             {
                 var msg = SyncListener.AcceptMessage();
                 if (msg.Source == CanonicalTimeSourceID)
-                    FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligenceSyncPackage(msg.Data, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID);
+                    IGCBindings.ForEach(binding => binding.ReceiveAndUpdateFleetIntelligenceSyncPackage(msg.Data, IntelItems, ref KeyScratchpad, CanonicalTimeSourceID));
             }
 
             foreach (var key in KeyScratchpad)
@@ -485,7 +489,8 @@ namespace IngameScript
         {
             if (timestamp == TimeSpan.Zero) return;
 
-            if (IsMaster) FleetIntelligenceUtil.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me, IGCSyncPacker);
+            if (IsMaster)
+                IGCBindings.ForEach(binding => binding.PackAndBroadcastFleetIntelligenceSyncPackage(Program.IGC, IntelItems, Program.IGC.Me));
 
             if (Rank > 0)
             {
@@ -515,10 +520,14 @@ namespace IngameScript
             while (ReportListener.HasPendingMessage)
             {
                 var msg = ReportListener.AcceptMessage();
-                var updateKey = FleetIntelligenceUtil.ReceiveAndUpdateFleetIntelligence(msg.Data, IntelItems, Program.IGC.Me);
-                if (updateKey.HasValue)
+                foreach ( var binding in IGCBindings)
                 {
-                    Timestamps[updateKey.Value] = timestamp;
+                    var updateKey = binding.ReceiveAndUpdateFleetIntelligence(msg.Data, IntelItems, Program.IGC.Me);
+                    if (updateKey.HasValue)
+                    {
+                        Timestamps[updateKey.Value] = timestamp;
+                        break;
+                    }
                 }
 
                 if (msg.Data is MyTuple<long, MyTuple<int, long, MyTuple<MyTuple<Vector3D, Vector3D, double>, MyTuple<string, long, float, int>, MyTuple<int, string, int, int, Vector3I>, MyTuple<long, int>>>>)

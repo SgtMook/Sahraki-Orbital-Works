@@ -294,12 +294,21 @@ namespace IngameScript
         // GuidanceStartSeconds = 2
         // PlungeDist = 1000
         // AutoFireRange = 15000
+//         void ParseTubeGroupConfig(string groupName)
+//         {
+// 
+//         }
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
             if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
+
+//             for ( var group in TorpedoTubeGroups)
+//             {
+//                 ParseTubeGroupConfig(group.key);
+//             }
 
             AutoFire = Parser.Get("Torpedo", "AutoFire").ToBoolean();
 
@@ -432,7 +441,7 @@ namespace IngameScript
         public HashSet<IMyBatteryBlock> Batteries = new HashSet<IMyBatteryBlock>();
         public HashSet<IMyGasTank> Tanks = new HashSet<IMyGasTank>();
         public List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
-        public float[] CameraExtends = new float[8];
+        public List<float> CameraExtends = new List<float>();
         public IMySensorBlock Sensor;
         public IMyShipController Controller;
         public string Tag; // HE, CLST, MICRO, etc
@@ -477,7 +486,15 @@ namespace IngameScript
             if (block.CustomName.Contains("[F]")) { Fuse = block; part = true; }
             if (block is IMyShipController) { Controller = (IMyShipController)block; part = true; }
             if (block is IMyGyro) { Gyros.Add((IMyGyro)block); part = true; }
-            if (block is IMyCameraBlock) { var camera = (IMyCameraBlock)block; Cameras.Add(camera); camera.EnableRaycast = true; float.TryParse(camera.CustomData, out CameraExtends[Cameras.Count]); part = true; }
+            if (block is IMyCameraBlock) {
+                var camera = (IMyCameraBlock)block; 
+                Cameras.Add(camera); 
+                camera.EnableRaycast = true;
+                float extents = 0.0f;
+                float.TryParse(camera.CustomData, out extents);
+                CameraExtends.Add(extents);
+                part = true; 
+            }
             if (block is IMySensorBlock) { Sensor = (IMySensorBlock)block; part = true; }
             if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); ((IMyThrust)block).Enabled = false; part = true; }
             if (block is IMyWarhead) { Warheads.Add((IMyWarhead)block); part = true; }

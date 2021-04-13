@@ -27,7 +27,7 @@ namespace IngameScript
 
         public bool AddComponent(IMyTerminalBlock block)
         {
-            if (block.CubeGrid.EntityId != Controller.CubeGrid.EntityId)
+            if (Controller == null || block.CubeGrid.EntityId != Controller.CubeGrid.EntityId)
                 return false;
             // TODO: Add block to whatever stores
             if (block is IMyGyro) Gyros.Add((IMyGyro)block);
