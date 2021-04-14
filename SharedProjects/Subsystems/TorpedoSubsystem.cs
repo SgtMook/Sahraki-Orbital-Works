@@ -85,10 +85,10 @@ namespace IngameScript
 
             foreach (var group in TorpedoTubeGroups.Values)
             {
-                group.AutoFire = AutoFire;
                 foreach (var light in group.AutofireIndicator) light.Color = group.AutoFire ? Color.LightPink : Color.LightGreen;
             }
 
+            // JIT
             Fire(null, TimeSpan.Zero);
         }
 
@@ -111,40 +111,40 @@ namespace IngameScript
                 runs++;
                 if (runs % 60 == 0)
                 {
-                    seconds++;
-
-                    if (seconds % AutoFireSeconds == 0)
+                    foreach(var group in TorpedoTubeGroups.Values)
                     {
-                        TorpedoTubeGroupScratchpad.Clear();
-                        foreach (var kvp in TorpedoTubeGroups)
+                        group.seconds++;
+                        if ( group.AutoFire && group.NumReady > 0)
                         {
-                            if (kvp.Value.AutoFire && kvp.Value.NumReady > 0)
-                                TorpedoTubeGroupScratchpad.Add(kvp.Value);
-                        }
-
-                        if (TorpedoTubeGroupScratchpad.Count > 0)
-                        {
-                            var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
-                            MissileDumpScratchpad.Clear();
-
-                            foreach (var kvp in intelItems)
+                            if (group.seconds % group.AutoFireSeconds == 0)
                             {
-                                if (kvp.Key.Item1 != IntelItemType.Enemy) continue;
+                                var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+                                MissileDumpScratchpad.Clear();
 
-                                var target = (EnemyShipIntel)kvp.Value;
-                                var isValidDumpTarget = target.Radius > 30 && (target.GetPositionFromCanonicalTime(canonicalTime) - ProgramReference.GetPosition()).Length() < AutoFireRange && target.CubeSize == MyCubeSize.Large;
-
-                                if (isValidDumpTarget)
+                                // NOTE: This may be slow in fleet engagement.
+                                foreach (var kvp in intelItems)
                                 {
-                                    MissileDumpScratchpad.Add(target);
-                                    continue;
-                                }
-                            }
+                                    if (kvp.Key.Item1 != IntelItemType.Enemy) 
+                                        continue;
 
-                            if (MissileDumpScratchpad.Count > 0)
-                            {
-                                foreach (var group in TorpedoTubeGroupScratchpad)
+                                    var target = (EnemyShipIntel)kvp.Value;
+
+                                    int targetSizeFlag = (1 << (int)(target.CubeSize));
+                                    targetSizeFlag &= group.AutoFireSizeMask;
+
+                                    var isValidDumpTarget = targetSizeFlag != 0
+                                        && target.Radius > group.AutoFireRadius
+                                        && (target.GetPositionFromCanonicalTime(canonicalTime) - ProgramReference.GetPosition()).Length() < group.AutoFireRange;
+
+                                    if (isValidDumpTarget)
+                                    {
+                                        MissileDumpScratchpad.Add(target);
+                                    }
+                                }
+                                if (MissileDumpScratchpad.Count > 0)
+                                {
                                     Fire(timestamp, group, MissileDumpScratchpad[rand.Next(MissileDumpScratchpad.Count)], false);
+                                }
                             }
                         }
                     }
@@ -167,7 +167,7 @@ namespace IngameScript
                             }
                             else
                             {
-                                torp.Update((EnemyShipIntel)intelItems[intelKey], canonicalTime, GuidanceStartSeconds);
+                                torp.Update((EnemyShipIntel)intelItems[intelKey], canonicalTime);
                             }
                         }
 
@@ -195,7 +195,7 @@ namespace IngameScript
                                     combatIntel = enemyIntel;
                                 }
                             }
-                            torp.Update(combatIntel, canonicalTime, GuidanceStartSeconds);
+                            torp.Update(combatIntel, canonicalTime);
                         }
                         if (torp.Disabled) TorpedoScratchpad.Add(torp);
                     }
@@ -267,7 +267,6 @@ namespace IngameScript
         public List<IMyTerminalBlock> PartsScratchpad = new List<IMyTerminalBlock>();
         List<MyDetectedEntityInfo> DetectedInfoScratchpad = new List<MyDetectedEntityInfo>();
         List<EnemyShipIntel> MissileDumpScratchpad = new List<EnemyShipIntel>();
-        List<TorpedoTubeGroup> TorpedoTubeGroupScratchpad = new List<TorpedoTubeGroup>();
 
 //         HashSet<long> AutofireTargetLog = new HashSet<long>();
 //         Queue<Torpedo> ReserveTorpedoes = new Queue<Torpedo>();
@@ -281,23 +280,34 @@ namespace IngameScript
         public MyIni IniParser = new MyIni();
 
         long runs;
+        void ParseTubeGroupConfig(MyIni parser, string groupName, TorpedoTubeGroup group)
+        {
+            string section = "Torpedo";
+            if (parser.ContainsSection(section + "_" + groupName))
+            {
+                section = section + "_" + groupName;
+            }
+            group.GuidanceStartSeconds = (float)parser.Get(section, "GuidanceStartSeconds").ToDouble(2.0);
+            group.PlungeDist = parser.Get(section, "PlungeDist").ToInt16(1000);
+            group.HitOffset = parser.Get(section, "HitOffset").ToDouble(0.0);
 
-        bool AutoFire = false;
-        float GuidanceStartSeconds = 2;
-        public int PlungeDist = 1000;
-        int AutoFireRange = 15000;
-        int AutoFireSeconds = 2;
-        int seconds = 0;
+            group.AutoFire = parser.Get(section, "AutoFire").ToBoolean();
+            group.AutoFireRange = parser.Get(section, "AutoFireRange").ToInt16(15000);
+            group.AutoFireSeconds = parser.Get(section, "AutoFireSeconds").ToInt16(2);
+            group.AutoFireRadius = parser.Get(section, "AutoFireRadius").ToInt16(30);
+            group.AutoFireSizeMask = parser.Get(section, "AutoFireSizeMask").ToInt16(1);
+    }
 
-        // [Torpedo]
-        // AutoFire = False
+        // NOTE: [Torpedo_SM] & [Torpedo_LG] work for specific torpedo groups, otherwise it uses the default tag.
+        // [Torpedo] 
         // GuidanceStartSeconds = 2
         // PlungeDist = 1000
+        // HitOffset = 0
+        // AutoFire = False
         // AutoFireRange = 15000
-//         void ParseTubeGroupConfig(string groupName)
-//         {
-// 
-//         }
+        // AutoFireSeconds = 2;
+        // AutoFireRadius = 30; In Meters
+        // AutoFireSizeMask = 1; 1 = LG 2 = SM 3 = BOTH
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -305,24 +315,10 @@ namespace IngameScript
             if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
-//             for ( var group in TorpedoTubeGroups)
-//             {
-//                 ParseTubeGroupConfig(group.key);
-//             }
-
-            AutoFire = Parser.Get("Torpedo", "AutoFire").ToBoolean();
-
-            var flo = Parser.Get("Torpedo", "GuidanceStartSeconds").ToDecimal();
-            if (flo != 0) GuidanceStartSeconds = (float)flo;
-
-            var num = Parser.Get("Torpedo", "PlungeDist").ToInt16();
-            if (num != 0) PlungeDist = num;
-
-            num = Parser.Get("Torpedo", "AutoFireRange").ToInt16();
-            if (num != 0) AutoFireRange = num;
-
-            num = Parser.Get("Torpedo", "AutoFireSeconds").ToInt16();
-            if (num != 0) AutoFireSeconds = num;
+            foreach (var group in TorpedoTubeGroups)
+            {
+                ParseTubeGroupConfig(Parser, group.Key, group.Value);
+            }
         }
 
         void GetParts()
@@ -435,6 +431,7 @@ namespace IngameScript
     // This is a refhax torpedo
     public class Torpedo
     {
+        public TorpedoTubeGroup Group;
         public List<IMyGyro> Gyros = new List<IMyGyro>();
         public HashSet<IMyWarhead> Warheads = new HashSet<IMyWarhead>();
         public HashSet<IMyThrust> Thrusters = new HashSet<IMyThrust>();
@@ -490,7 +487,7 @@ namespace IngameScript
                 var camera = (IMyCameraBlock)block; 
                 Cameras.Add(camera); 
                 camera.EnableRaycast = true;
-                float extents = 0.0f;
+                float extents;
                 float.TryParse(camera.CustomData, out extents);
                 CameraExtends.Add(extents);
                 part = true; 
@@ -504,9 +501,10 @@ namespace IngameScript
             return part;
         }
 
-        public void Init(TimeSpan CanonicalTime)
+        public void Init(TimeSpan CanonicalTime, TorpedoTubeGroup group)
         {
             initialized = true;
+            Group = group;
             gyroControl = new GyroControl(Gyros);
             var refWorldMatrix = Controller.WorldMatrix;
             gyroControl.Init(ref refWorldMatrix);
@@ -535,14 +533,14 @@ namespace IngameScript
                 torp.canInitialize = true;
                 if (!torp.Reserve)
                 {
-                    torp.Init(launchTime);
+                    torp.Init(launchTime, Group);
                     if (torp.Target == null) torp.Target = Target;
                 }
             }
             SubTorpedos.Clear();
         }
 
-        public void Update(EnemyShipIntel Target, TimeSpan CanonicalTime, float SeparationTime = 2)
+        public void Update(EnemyShipIntel Target, TimeSpan CanonicalTime)
         {
             if (!initialized) return;
             if (!OK())
@@ -555,10 +553,10 @@ namespace IngameScript
                 Disabled = true;
             }
             if (Disabled) return;
-            if (CanonicalTime - launchTime < TimeSpan.FromSeconds(SeparationTime)) return;
+            if (CanonicalTime - launchTime < TimeSpan.FromSeconds(Group.GuidanceStartSeconds)) return;
             if (Target == null) return;
 
-            if (CanonicalTime - launchTime > TimeSpan.FromSeconds(SeparationTime + 1) && SubTorpedos.Count > 0) Split();
+            if (CanonicalTime - launchTime > TimeSpan.FromSeconds(Group.GuidanceStartSeconds + 1) && SubTorpedos.Count > 0) Split();
 
             this.Target = Target;
 
@@ -657,7 +655,7 @@ namespace IngameScript
 
         Vector3D RefreshNavigation(TimeSpan CanonicalTime)
         {
-            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * 0) - Controller.WorldMatrix.Translation;
+            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * Group.HitOffset) - Controller.WorldMatrix.Translation;
             var distTarget = rangeVector.Length();
 
             if (rangeVector.LengthSquared() < 120 * 120) proxArmed = true;
@@ -678,14 +676,14 @@ namespace IngameScript
 
                 var targetHeightDiff = rangeVector.Dot(-gravDir); // Positive if target is higher than missile
 
-                if (rangeVector.LengthSquared() < HostSubsystem.PlungeDist * HostSubsystem.PlungeDist && targetHeightDiff > 0)
+                if (rangeVector.LengthSquared() < Group.PlungeDist * Group.PlungeDist && targetHeightDiff > 0)
                 {
                     plunging = false;
                 }
 
                 if (plunging)
                 {
-                    rangeVector -= gravDir * HostSubsystem.PlungeDist;
+                    rangeVector -= gravDir * Group.PlungeDist;
                     if (rangeVector.LengthSquared() < 300 * 300)
                         plunging = false;
                 }
@@ -702,9 +700,9 @@ namespace IngameScript
                 var rand = new Random();
                 var theta = rand.NextDouble() * Math.PI * 2;
 
-                var dist = -rangeVector;
-                dist.Normalize();
-                dist *= 1200;
+//                 var dist = -rangeVector;
+//                 dist.Normalize();
+//                 dist *= 1200;
 
                 TrickshotOffset = perp * Math.Sin(theta) + coperp * Math.Cos(theta);
 
@@ -956,7 +954,19 @@ namespace IngameScript
             }
         }
 
-        public bool AutoFire { get; set; }
+        public float GuidanceStartSeconds = 2;
+        public int PlungeDist = 1000;
+        public double HitOffset = 0;
+
+        public bool AutoFire = false;
+        public int AutoFireRange = 15000;
+        public int AutoFireSeconds = 2;
+        public int AutoFireRadius = 30;
+        public int AutoFireSizeMask = 1;
+        public List<IMyInteriorLight> AutofireIndicator = new List<IMyInteriorLight>();
+
+        public int seconds = 0;
+
 
         public List<ITorpedoControllable> Children { get; set; }
 
@@ -973,7 +983,6 @@ namespace IngameScript
         {
             Name = name;
             Children = new List<ITorpedoControllable>();
-            AutoFire = false;
         }
 
         public void AddTube(TorpedoTube tube)
@@ -994,8 +1003,6 @@ namespace IngameScript
                 return count;
             }
         }
-
-        public List<IMyInteriorLight> AutofireIndicator = new List<IMyInteriorLight>();
     }
 
     public class TorpedoTubeRelease
@@ -1085,7 +1092,6 @@ namespace IngameScript
         Torpedo[] SubTorpedosScratchpad = new Torpedo[16];
 
         public MyCubeSize Size;
-        public bool AutoFire { get; set; }
         public string Name { get; set; }
         public string GroupName;
         public bool Ready => LoadedTorpedo != null;
@@ -1115,7 +1121,6 @@ namespace IngameScript
                 {
 //                    TorpedoSubsystem.Log.Debug("Testing Size " + Name);
                     Size = Release.Size();
-                    AutoFire = Size == MyCubeSize.Small;
                     GroupName = Size == MyCubeSize.Small ? "SM" : "LG";
                 }
             }
@@ -1219,12 +1224,17 @@ namespace IngameScript
 
         public Torpedo Fire(TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true)
         {
-            if (canonicalTime == TimeSpan.Zero) return null;
-            if (LoadedTorpedo == null) return null;
+            if (canonicalTime == TimeSpan.Zero)
+                return null;
+            if (LoadedTorpedo == null)
+                return null;
+            if (!Release.Detach())
+                return null;
 
-            if (!Release.Detach()) return null;
+            if (Connector != null 
+                && Connector.Status == MyShipConnectorStatus.Connected) 
+                Connector.OtherConnector.Enabled = false;
 
-            if (Connector != null && Connector.Status == MyShipConnectorStatus.Connected) Connector.OtherConnector.Enabled = false;
             var torp = LoadedTorpedo;
             torp.UseTrickshot = trickshot;
             foreach (var sub in torp.SubTorpedos)
@@ -1233,7 +1243,7 @@ namespace IngameScript
                 sub.UseTrickshot = trickshot;
                 sub.canInitialize = false;
             }
-            torp.Init(canonicalTime);
+            torp.Init(canonicalTime, Host.TorpedoTubeGroups[GroupName]);
             LoadedTorpedo = null;
             torp.Target = target;
             torp.HostSubsystem = Host;
