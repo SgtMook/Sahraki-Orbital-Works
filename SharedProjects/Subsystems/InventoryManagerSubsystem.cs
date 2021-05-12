@@ -50,12 +50,10 @@ namespace IngameScript
             return string.Empty;
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             GetParts();
         }
         
@@ -66,7 +64,7 @@ namespace IngameScript
         }
         #endregion
         const string kInventoryRequestSection = "InventoryRequest";
-        MyGridProgram Program;
+        ExecutionContext Context;
 
         List<IMyTerminalBlock> InventoryOwners = new List<IMyTerminalBlock>();
         List<IMyTerminalBlock> StoreInventoryOwners = new List<IMyTerminalBlock>();
@@ -91,7 +89,7 @@ namespace IngameScript
             LastCheckIndex = 0;
             InventoryOwners.Clear();
             InventoryRequests.Clear();
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
         
         bool CollectParts(IMyTerminalBlock block)

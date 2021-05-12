@@ -107,7 +107,7 @@ namespace IngameScript
 
                 if (turretRotor != null)
                 {
-                    Hummingbird = Hummingbird.GetHummingbird(turretRotor, Host.Program.GridTerminalSystem.GetBlockGroupWithName(Hummingbird.GroupName));
+                    Hummingbird = Hummingbird.GetHummingbird(turretRotor, Host.Context.Terminal.GetBlockGroupWithName(Hummingbird.GroupName));
                     if (Hummingbird.Gats.Count == 0)
                     {
                         Hummingbird = null;
@@ -146,7 +146,7 @@ namespace IngameScript
             else if (releaseStage > 11 && Piston.CurrentPosition == Piston.MaxLimit)
             {
                 turretRotor.Displacement = 0.11f;
-                Hummingbird = Hummingbird.GetHummingbird(turretRotor, Host.Program.GridTerminalSystem.GetBlockGroupWithName(Hummingbird.GroupName));
+                Hummingbird = Hummingbird.GetHummingbird(turretRotor, Host.Context.Terminal.GetBlockGroupWithName(Hummingbird.GroupName));
             }
         }
 
@@ -220,12 +220,9 @@ namespace IngameScript
             if (command == "Recall") Recall();
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
 
             UpdateFrequency = UpdateFrequency.Update1;
 
@@ -239,18 +236,18 @@ namespace IngameScript
 
         void GetParts()
         {
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (block is IMyShipController && ProgramReference.CubeGrid.EntityId == block.CubeGrid.EntityId)
+            if (block is IMyShipController && Context.Reference.CubeGrid.EntityId == block.CubeGrid.EntityId)
                 Controller = (IMyShipController)block;
 
             if (block.HasInventory && block.CustomName.StartsWith("HB-AMMO"))
                 AmmoBox = block.GetInventory(0);
 
-            if (!ProgramReference.IsSameConstructAs(block)) return false; // Allow subgrid
+            if (!Context.Reference.IsSameConstructAs(block)) return false; // Allow subgrid
 
             bool Chasis = block.CustomName.StartsWith("[HBC-CHS");
             bool Turret = block.CustomName.StartsWith("[HBC-TRT");
@@ -304,7 +301,7 @@ namespace IngameScript
                     if (intelItem.Key.Item1 == IntelItemType.Enemy)
                     {
                         var esi = (EnemyShipIntel)intelItem.Value;
-                        var dist = (esi.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff) - ProgramReference.WorldMatrix.Translation).Length();
+                        var dist = (esi.GetPositionFromCanonicalTime(timestamp + IntelProvider.CanonicalTimeDiff) - Context.Reference.WorldMatrix.Translation).Length();
                         if (dist > MaxEngagementDist) continue;
 
                         var priority = IntelProvider.GetPriority(esi.ID);
@@ -530,7 +527,7 @@ namespace IngameScript
                     else if (NeedsMoreBirds && BirdReleaseTimeout <= 0)
                     {
                         Hummingbird bird = Cradles[i].Release();
-                        bird.Base = ProgramReference;
+                        bird.Base = Context.Reference;
                         RegisterBird(bird);
                         BirdReleaseTimeout = 5;
                     }
@@ -572,7 +569,7 @@ namespace IngameScript
             return statusbuilder.ToString();
         }
 
-        public MyGridProgram Program { get; private set; }
+        public ExecutionContext Context { get; private set; }
         public UpdateFrequency UpdateFrequency { get; set; }
         public IIntelProvider IntelProvider;
         public ScannerNetworkSubsystem ScannerSubsystem;

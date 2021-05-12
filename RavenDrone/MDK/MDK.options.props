@@ -6,13 +6,13 @@
     -->
     <MDKVersion>1.4.7</MDKVersion>
     <MDKTrimTypes>
-        <Enabled>yes</Enabled>
+      <Enabled>yes</Enabled>
     </MDKTrimTypes>
     <MDKMinify>
-        <Level>Full</Level>
+      <Level>None</Level>
     </MDKMinify>
     <MDKIgnore>
-        <Folder>mdk</Folder>
+      <Folder>mdk</Folder>
     </MDKIgnore>
   </PropertyGroup>
 </Project>

@@ -19,6 +19,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)PID.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Profiler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Raven.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)RoundRobin.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Tasks.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TerminalPropertiesHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ThrusterManager.cs" />

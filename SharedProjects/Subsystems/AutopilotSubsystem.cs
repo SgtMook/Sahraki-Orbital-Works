@@ -59,13 +59,9 @@ namespace IngameScript
             if (command == "spin") Spin(ParseGPS((string)argument) - reference.WorldMatrix.Translation);
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-
-            Program = program;
+            Context = context;
 
             UpdateFrequency = UpdateFrequency.Update10;
 
@@ -247,7 +243,7 @@ namespace IngameScript
         public float CombatSpeed => MaxCombatSpeed;
         #endregion
 
-        MyGridProgram Program;
+        ExecutionContext Context;
 
         IMyShipController controller;
         IMyTerminalBlock reference;
@@ -306,7 +302,7 @@ namespace IngameScript
 
             thrusterManager.Clear();
 
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
             if (controller != null)
             {
@@ -323,7 +319,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+            if (Context.Reference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
                 controller = (IMyShipController)block;
@@ -365,7 +361,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             var flo = Parser.Get("Autopilot", "TP").ToDecimal();

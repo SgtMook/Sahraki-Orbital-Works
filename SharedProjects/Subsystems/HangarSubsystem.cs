@@ -377,16 +377,14 @@ namespace IngameScript
             return saveBuilder.ToString();
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             GetParts();
 
-            HangarChannelTag = ProgramReference.CubeGrid.EntityId.ToString() + "-HANGAR";
-            HangarListener = program.IGC.RegisterBroadcastListener(HangarChannelTag);
+            HangarChannelTag = Context.Reference.CubeGrid.EntityId.ToString() + "-HANGAR";
+            HangarListener = Context.IGC.RegisterBroadcastListener(HangarChannelTag);
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -423,7 +421,7 @@ namespace IngameScript
         }
         #endregion
 
-        MyGridProgram Program;
+        ExecutionContext Context;
         string Tag;
         string TagPrefix;
 
@@ -463,7 +461,7 @@ namespace IngameScript
             lastConnectorStatuses.Clear();
             SortedHangarsList.Clear();
 
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
             for (int i = 0; i < Hangars.Count(); i++)
                 if (Hangars[i] != null && Hangars[i].Connector != null)
@@ -475,7 +473,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!ProgramReference.IsSameConstructAs(block)) return false;
+            if (!Context.Reference.IsSameConstructAs(block)) return false;
 
             if (block is IMyShipController)
             {
@@ -519,7 +517,7 @@ namespace IngameScript
             hangar.Intel.ID = hangar.Connector.EntityId;
             if (string.IsNullOrEmpty(hangar.Intel.DisplayName))
             {
-                hangar.Intel.DisplayName = builder.Append(hangar.Connector.CustomName).Append(" - ").Append(ProgramReference.CubeGrid.CustomName).ToString();
+                hangar.Intel.DisplayName = builder.Append(hangar.Connector.CustomName).Append(" - ").Append(Context.Reference.CubeGrid.CustomName).ToString();
             }
 
             hangar.Intel.UndockNear = hangar.Connector.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 1.3f : 0.55f;

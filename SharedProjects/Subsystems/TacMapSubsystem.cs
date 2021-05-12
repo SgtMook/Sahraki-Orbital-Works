@@ -43,11 +43,10 @@ namespace IngameScript
             return "";
         }
 
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock reference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = reference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             GetParts();
 
             Turret.EnableIdleRotation = false;
@@ -476,10 +475,10 @@ namespace IngameScript
             }
         }
 
-        MyGridProgram Program;
+        ExecutionContext Context;
+
         StringBuilder DebugBuilder = new StringBuilder();
         StringBuilder TextMeasureBuilder = new StringBuilder();
-        IMyTerminalBlock ProgramReference;
 
         List<MyTuple<IntelItemType, long>> SelectedItems = new List<MyTuple<IntelItemType, long>>();
         List<MyTuple<IntelItemType, long>> SelectionCandidates = new List<MyTuple<IntelItemType, long>>();
@@ -544,12 +543,12 @@ namespace IngameScript
 
         void GetParts()
         {
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
+            if (block.CubeGrid.EntityId != Context.Reference.CubeGrid.EntityId) return false;
             if (block is IMyLargeTurretBase) Turret = (IMyLargeTurretBase)block;
             if (block is IMyShipController) Controller = (IMyShipController)block;
             if (block is IMyTextPanel)

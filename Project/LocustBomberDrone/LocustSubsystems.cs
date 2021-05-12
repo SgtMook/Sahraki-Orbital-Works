@@ -44,9 +44,9 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name)
+        public void Setup(ExecutionContext context, string name)
         {
-            Program = program;
+            Context = context;
             GetParts();
         }
 
@@ -66,7 +66,7 @@ namespace IngameScript
             }
         }
         #endregion
-        MyGridProgram Program;
+        ExecutionContext Context;
 
         List<IMySmallGatlingGun> Guns = new List<IMySmallGatlingGun>();
 
@@ -77,12 +77,12 @@ namespace IngameScript
         void GetParts()
         {
             Guns.Clear();
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!Program.Me.IsSameConstructAs(block)) return false;
+            if (!Context.Reference.IsSameConstructAs(block)) return false;
 
             if (block is IMySmallGatlingGun)
                 Guns.Add((IMySmallGatlingGun)block);

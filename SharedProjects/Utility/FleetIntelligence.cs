@@ -33,10 +33,10 @@ namespace IngameScript
     public interface IIGCIntelBinding
     {
         void JIT();
-        bool PackAndBroadcastFleetIntelligence(IMyIntergridCommunicationSystem IGC, IFleetIntelligence item, long masterID);
-        void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID);
-        MyTuple<IntelItemType, long>? ReceiveAndUpdateFleetIntelligence(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID);
-        void ReceiveAndUpdateFleetIntelligenceSyncPackage(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, ref List<MyTuple<IntelItemType, long>> updatedScratchpad, long masterID);
+        bool PackAndBroadcastFleetIntelligence(ExecutionContext context, IFleetIntelligence item, long masterID);
+        void PackAndBroadcastFleetIntelligenceSyncPackage(ExecutionContext context, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID);
+        MyTuple<IntelItemType, long>? ReceiveAndUpdateFleetIntelligence(ExecutionContext context, object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID);
+        void ReceiveAndUpdateFleetIntelligenceSyncPackage(ExecutionContext context, object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, ref List<MyTuple<IntelItemType, long>> updatedScratchpad, long masterID);
     }
     public static class FleetIntelligenceUtil
     {
@@ -66,16 +66,16 @@ namespace IngameScript
                 Proxy.TryIGCUnpack(Proxy.IGCPackGeneric(), null);
             }
 
-            public bool PackAndBroadcastFleetIntelligence(IMyIntergridCommunicationSystem IGC, IFleetIntelligence item, long masterID)
+            public bool PackAndBroadcastFleetIntelligence(ExecutionContext context, IFleetIntelligence item, long masterID)
             {
                 if (item is INTEL)
                 {
-                    IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, (DATA)item.IGCPackGeneric()));
+                    context.IGC.SendBroadcastMessage(IntelReportChannelTag, MyTuple.Create(masterID, (DATA)item.IGCPackGeneric()));
                     return true;
                 }
                 return false;
             }
-            public void PackAndBroadcastFleetIntelligenceSyncPackage(IMyIntergridCommunicationSystem IGC, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
+            public void PackAndBroadcastFleetIntelligenceSyncPackage(ExecutionContext context, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
             {
                 Builder.Clear();
                 foreach (var kvp in intelItems)
@@ -83,36 +83,39 @@ namespace IngameScript
                     if (Proxy.Type == kvp.Key.Item1)
                         Builder.Add(MyTuple.Create(masterID, (DATA)kvp.Value.IGCPackGeneric()));
                 }
-                IGC.SendBroadcastMessage(IntelSyncChannelTag, Builder.ToImmutable());
+//                 context.Log.Debug("SEND " + Proxy.Type.ToString() + " " + data.GetType().ToString());
+                context.IGC.SendBroadcastMessage(IntelSyncChannelTag, Builder.ToImmutable());
             }
             // returns true if handled, false otherwise
-            public MyTuple<IntelItemType, long>? ReceiveAndUpdateFleetIntelligence(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
+            public MyTuple<IntelItemType, long>? ReceiveAndUpdateFleetIntelligence(ExecutionContext context, object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, long masterID)
             {
                 if ( data is MyTuple<long, DATA> )
                 {
                     MyTuple<long, DATA> unpacked = (MyTuple<long, DATA>)data;
-                    if (unpacked.Item1 == masterID)
+                    if (unpacked.Item1 != masterID)
                         return null; 
 
-                    return Proxy.TryIGCUnpack(data, intelItems);
+                    return Proxy.TryIGCUnpack(unpacked.Item2, intelItems);
                 }
                 return null;
             }
 
-            public void ReceiveAndUpdateFleetIntelligenceSyncPackage(object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, ref List<MyTuple<IntelItemType, long>> updatedScratchpad, long masterID)
+            public void ReceiveAndUpdateFleetIntelligenceSyncPackage(ExecutionContext context, object data, Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelItems, ref List<MyTuple<IntelItemType, long>> updatedScratchpad, long masterID)
             {
-                // Waypoint
-                if ( data is ImmutableArray<MyTuple<long, DATA>>)
+
+                if ( data is ImmutableArray<MyTuple<long, DATA>> )
                 {
                     var array = (ImmutableArray<MyTuple<long, DATA>>)data;
+
                     foreach (var item in array)
                     {
-                        if (item.Item1 == masterID)
+                        if (item.Item1 != masterID)
                             continue;
 
                         // MINIFICATION DANGER HERE:
                         // Does not like the data.item2 term that gets fed into TryIGCUnpack
-                        object minifyWorkAround = item.Item2;
+                        DATA minifyWorkAround = item.Item2;
+                        context.Log.Debug(Proxy.Type.ToString());
                         var updatedIntel = Proxy.TryIGCUnpack(minifyWorkAround, intelItems);
                         if (updatedIntel != null)
                             updatedScratchpad.Add(updatedIntel.Value);

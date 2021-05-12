@@ -109,9 +109,9 @@ namespace IngameScript
 
         public bool FullAuto = true;
 
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock reference = null)
+        public void Setup( ExecutionContext context, string name )
         {
-            program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, AddComponent);
+            context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, AddComponent);
             // Set MaxDownThrust and MaxLateralThrust accordingly
             foreach (var kvp in Thrusters)
             {

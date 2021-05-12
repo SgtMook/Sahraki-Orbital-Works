@@ -35,7 +35,7 @@ namespace IngameScript
             public ProxyTube(MyGridProgram context)
             {
                 Context = context;
-                DummyTube = new TorpedoTube(1, Context, new TorpedoSubsystem(null));
+                DummyTube = new TorpedoTube(1, new TorpedoSubsystem(null));
                 DummyTube.LoadedTorpedo = new Torpedo();
             }
             public bool CollectParts(IMyTerminalBlock block)

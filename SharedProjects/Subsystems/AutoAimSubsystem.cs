@@ -43,11 +43,10 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             GetParts();
         }
 
@@ -57,8 +56,7 @@ namespace IngameScript
         }
         #endregion
 
-        IMyTerminalBlock ProgramReference;
-        MyGridProgram Program;
+        ExecutionContext Context;
 
         List<IMyGyro> Gyros = new List<IMyGyro>();
         IMyShipController Controller;
@@ -85,7 +83,7 @@ namespace IngameScript
 
         void GetParts()
         {
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         void AimAtTarget(TimeSpan localTime)

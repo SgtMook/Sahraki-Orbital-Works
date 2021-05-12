@@ -24,6 +24,8 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
+        ExecutionContext Context;
+
         public AutopilotSubsystem AutopilotSubsystem;
         public IntelSubsystem IntelSubsystem;
         public HoneybeeMiningSystem MiningSubsystem;
@@ -34,7 +36,9 @@ namespace IngameScript
 
         public Program()
         {
-            subsystemManager = new SubsystemManager(this);
+            Context = new ExecutionContext(this);
+
+            subsystemManager = new SubsystemManager(Context);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             AutopilotSubsystem = new AutopilotSubsystem();

@@ -46,13 +46,11 @@ namespace IngameScript
             return string.Empty;
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
-            if (!WCAPI.Activate(program.Me)) 
+            Context = context;
+
+            if (!WCAPI.Activate(Context.Program.Me)) 
                 WCAPI = null;
             GetParts();
             ParseConfigs();
@@ -70,13 +68,14 @@ namespace IngameScript
             if (WCAPI == null && runs % 120 == 0)
             {
                 WCAPI = new WcPbApi();
-                if (!WCAPI.Activate(Program.Me))
+                if (!WCAPI.Activate(Context.Program.Me))
                     WCAPI = null;
             }
         }
 
         #endregion
-        MyGridProgram Program;
+        ExecutionContext Context;
+
         IIntelProvider IntelProvider;
         List<EnemyShipIntel> EnemyIntelScratchpad = new List<EnemyShipIntel>();
         string TagPrefix = string.Empty;
@@ -89,9 +88,9 @@ namespace IngameScript
         IMyCameraBlock Designator;
 
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
-        List<IMyTerminalBlock> WCTurrets = new List<IMyTerminalBlock>();
 
         Dictionary<MyDetectedEntityInfo, float> GetThreatsScratchpad = new Dictionary<MyDetectedEntityInfo, float>();
+        Dictionary<long, MyTuple<MyDetectedEntityInfo, bool>> DetectedTargets = new Dictionary<long, MyTuple<MyDetectedEntityInfo, bool>>();
 
         StringBuilder debugBuilder = new StringBuilder();
 
@@ -120,15 +119,15 @@ namespace IngameScript
         {
             Cameras.Clear();
             Designator = null;
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetTurrets);
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, GetCameras);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, GetTurrets);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, GetCameras);
         }
 
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             var val = Parser.Get("Scanner", "RaycastDistMax").ToDouble();
@@ -137,14 +136,12 @@ namespace IngameScript
 
         bool GetTurrets(IMyTerminalBlock block)
         {
-            if (!ProgramReference.IsSameConstructAs(block)) 
+            if (!Context.Reference.IsSameConstructAs(block)) 
                 return false;
             
             if (block is IMyLargeTurretBase)
             {
-                if (WCAPI != null && WCAPI.HasCoreWeapon(block)) 
-                    WCTurrets.Add(block);
-                else 
+                if (WCAPI == null || !WCAPI.HasCoreWeapon(block)) 
                     Turrets.Add((IMyLargeTurretBase)block);
             }
 
@@ -167,7 +164,7 @@ namespace IngameScript
                 return false;
             }
 
-            if (camera.IsSameConstructAs(ProgramReference))
+            if (camera.IsSameConstructAs(Context.Reference))
             {
                 camera.EnableRaycast = true;
                 Cameras.Add(camera);
@@ -182,30 +179,40 @@ namespace IngameScript
             var intelItems = IntelProvider.GetFleetIntelligences(localTime);
             var canonicalTime = localTime + IntelProvider.CanonicalTimeDiff;
 
+            DetectedTargets.Clear();
             // WC only...
+//            Context.Log.Debug("A");
             if (WCAPI != null)
             {
                 GetThreatsScratchpad.Clear();
-                WCAPI.GetSortedThreats(ProgramReference, GetThreatsScratchpad);
+                WCAPI.GetSortedThreats(Context.Reference, GetThreatsScratchpad);
 
                 foreach (var target in GetThreatsScratchpad.Keys)
                 {
+                    DetectedTargets.Add(target.EntityId, MyTuple.Create( target, true) );
+
                     TryAddEnemyShipIntel(intelItems, localTime, canonicalTime, target, true);
                 }
             }
-            else
+//            Context.Log.Debug("B");
+            foreach (var turret in Turrets)
             {
-                foreach (var turret in Turrets)
+                if (!turret.HasTarget) 
+                    continue;
+
+                var target = turret.GetTargetedEntity();
+
+                if ( !target.IsEmpty() && !DetectedTargets.ContainsKey(target.EntityId) )
                 {
-                    if (!turret.HasTarget) 
-                        continue;
-
-                    var target = turret.GetTargetedEntity();
-
-                    TryAddEnemyShipIntel(intelItems, localTime, canonicalTime, target);
+                    DetectedTargets.Add(target.EntityId, MyTuple.Create(target, false));
                 }
             }
-
+//            Context.Log.Debug("C");
+            foreach (var target in DetectedTargets)
+            {
+                TryAddEnemyShipIntel(intelItems, localTime, canonicalTime, target.Value.Item1, target.Value.Item2);
+            }
+//            Context.Log.Debug("D");
             foreach (var kvp in intelItems)
             {
                 if (kvp.Key.Item1 != IntelItemType.Enemy)

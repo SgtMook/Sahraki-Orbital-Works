@@ -49,12 +49,10 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
+            Context = context;
 
-            Program = program;
             GetParts();
             ParseConfigs();
         }
@@ -71,8 +69,7 @@ namespace IngameScript
         public int OffsetDist = 10;
         public int CancelDist = 15000;
 
-        MyGridProgram Program;
-        IMyTerminalBlock ProgramReference;
+        ExecutionContext Context;
 
         public List<IMyShipDrill> Drills = new List<IMyShipDrill>();
         public List<IMySensorBlock> Sensors = new List<IMySensorBlock>();
@@ -89,12 +86,12 @@ namespace IngameScript
         {
             Drills.Clear();
             Sensors.Clear();
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+            if (Context.Reference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyShipDrill) Drills.Add((IMyShipDrill)block);
             if (block is IMySensorBlock)
@@ -115,7 +112,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             var dist = Parser.Get("Honeybee", "CloseDist").ToInt16();

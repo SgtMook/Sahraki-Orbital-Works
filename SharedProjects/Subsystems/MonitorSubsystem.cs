@@ -53,12 +53,10 @@ namespace IngameScript
             return string.Empty;
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name )
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             GetParts();
             ParseConfigs();
             IntelProvider.AddIntelMutator(this);
@@ -80,7 +78,7 @@ namespace IngameScript
         }
         #endregion
 
-        MyGridProgram Program;
+        ExecutionContext Context;
 
         List<IMyInventory> Inventories = new List<IMyInventory>();
         List<IMyGasTank> HydrogenTanks = new List<IMyGasTank>();
@@ -108,12 +106,12 @@ namespace IngameScript
             HydrogenTanks.Clear();
             Batteries.Clear();
             Beacon = null;
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
+            if (block.CubeGrid.EntityId != Context.Reference.CubeGrid.EntityId) return false;
 
             if (block.HasInventory && block.CustomName.Contains("<M>")) Inventories.Add(block.GetInventory(block.InventoryCount - 1));
             if (block is IMyGasTank && 
@@ -136,7 +134,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             var hFill = Parser.Get("Monitor", "HydrogenFillPercent").ToInt16();

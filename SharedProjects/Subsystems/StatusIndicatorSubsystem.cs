@@ -43,12 +43,10 @@ namespace IngameScript
             return string.Empty;
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             GetParts();
         }
 
@@ -58,7 +56,7 @@ namespace IngameScript
         }
         #endregion
 
-        MyGridProgram Program;
+        ExecutionContext Context;
 
         IMyInteriorLight IndicatorLight;
 
@@ -74,7 +72,7 @@ namespace IngameScript
         void GetParts()
         {
             IndicatorLight = null;
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
             if (IndicatorLight != null)
             {
                 IndicatorLight.Radius = 10;
@@ -83,7 +81,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+            if (Context.Reference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyInteriorLight)
                 IndicatorLight = (IMyInteriorLight)block;

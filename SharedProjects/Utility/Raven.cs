@@ -30,15 +30,15 @@ namespace IngameScript
 
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
 
-        MyGridProgram Program;
+        ExecutionContext Context;
         public AtmoDrive Drive;
 
         public Raven(IMyRemoteControl reference, MyGridProgram program)
         {
-            Program = program;
             Controller = reference;
+            Context = new ExecutionContext(program, reference);
 
-            SubsystemManager = new SubsystemManager(Program, reference);
+            SubsystemManager = new SubsystemManager(Context);
             Drive = new AtmoDrive(Controller);
             CombatLoaderSubsystem loaderSubsystem = new CombatLoaderSubsystem("Drone Cargo", "Drone Store");
             IntelSubsystem intelSubsystem = new IntelSubsystem();

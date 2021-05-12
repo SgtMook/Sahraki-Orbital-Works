@@ -27,7 +27,6 @@ namespace IngameScript
         Profile,
         None
     }
-    /*
     public class Logger
     {
         private const int LineCount = 20;
@@ -52,26 +51,43 @@ namespace IngameScript
 
         public void GetOutput(StringBuilder builder)
         {
-            for(int i = 0; i < LogLines.Length; ++i)
+            for (int i = 0; i < LogLines.Length; ++i)
             {
                 if (i == LogIndex)
-                    builder.AppendLine("================================");
+                    builder.AppendLine("==== WRAP ====");
                 else
                     builder.AppendLine(LogLines[i]);
             }
         }
     }
-   */
+
+    public class ExecutionContext
+    {
+        public MyGridProgram Program;
+        public IMyIntergridCommunicationSystem IGC;
+        public IMyGridTerminalSystem Terminal;
+        public Logger Log = new Logger();
+        public IMyTerminalBlock Reference;
+        public long Frame = 0;
+        public ExecutionContext(MyGridProgram program, IMyTerminalBlock reference = null)
+        { 
+            Program = program;
+            IGC = program.IGC;
+            Terminal = program.GridTerminalSystem;
+
+            Reference = (reference == null) ? program.Me : reference;
+        }
+    }
+
     public class SubsystemManager
     {
-        MyGridProgram Program;
+        ExecutionContext Context;
 
         public Dictionary<string, ISubsystem> Subsystems = new Dictionary<string, ISubsystem>(StringComparer.OrdinalIgnoreCase);
 
-        int UpdateCounter = 0;
-
         StringBuilder StatusBuilder = new StringBuilder();
         StringBuilder DebugBuilder = new StringBuilder();
+        StringBuilder ExceptionBuilder = new StringBuilder();
 
         public TimeSpan Timestamp = new TimeSpan();
 
@@ -85,23 +101,20 @@ namespace IngameScript
 
         string myName;
 
-        IMyTerminalBlock ProgramReference;
-
         IMyBroadcastListener GeneralListener;
         const string GeneralChannel = "[FLT-GNR]";
 
         MyCommandLine commandLine = new MyCommandLine();
 
-        public SubsystemManager(MyGridProgram program, IMyTerminalBlock reference = null)
+        public SubsystemManager(ExecutionContext context)
         {
-            ProgramReference = reference;
-            if (reference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             ParseConfigs();
             if (OutputMode == OutputMode.Profile) 
-                profiler = new Profiler(program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
+                profiler = new Profiler(Context.Program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
 
-            GeneralListener = program.IGC.RegisterBroadcastListener(GeneralChannel);
+            GeneralListener = Context.IGC.RegisterBroadcastListener(GeneralChannel);
         }
 
         // [Manager]
@@ -111,7 +124,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             OutputMode mode;
@@ -124,7 +137,7 @@ namespace IngameScript
         public void AddSubsystem(string name, ISubsystem subsystem)
         {
             Subsystems[name] = subsystem;
-            subsystem.Setup(Program, name, ProgramReference);
+            subsystem.Setup(Context, name);
         }
 
         public void Reset()
@@ -132,7 +145,7 @@ namespace IngameScript
             if (OutputMode == OutputMode.Profile) 
                 profiler.StartSectionWatch("Reset");
             foreach (var kvp in Subsystems) 
-                kvp.Value.Setup(Program, kvp.Key, ProgramReference);
+                kvp.Value.Setup(Context, kvp.Key);
             if (OutputMode == OutputMode.Profile) 
                 profiler.StopSectionWatch("Reset");
         }
@@ -145,12 +158,12 @@ namespace IngameScript
 
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             Parser.Delete("Manager", "StartActive");
-            ProgramReference.CustomData = Parser.ToString();
-            ProgramReference.CubeGrid.CustomName = myName;
+            Context.Reference.CustomData = Parser.ToString();
+            Context.Reference.CubeGrid.CustomName = myName;
         }
 
         public string SerializeManager()
@@ -211,7 +224,7 @@ namespace IngameScript
             }
             catch (Exception exc)
             {
-                DebugBuilder.AppendLine(exc.StackTrace);
+                ExceptionBuilder.AppendLine(exc.StackTrace);
             }
         }
 
@@ -232,7 +245,7 @@ namespace IngameScript
 
                 if (OutputMode == OutputMode.Profile) profiler.StartSectionWatch("Setup frequencies");
                 if (OutputMode == OutputMode.Profile) profiler.UpdateRuntime();
-                UpdateCounter++;
+                Context.Frame++;
 
                 UpdateFrequency updateFrequency = UpdateFrequency.None;
                 if ((updateSource & UpdateType.Update1) != 0) updateFrequency |= UpdateFrequency.Update1;
@@ -253,7 +266,7 @@ namespace IngameScript
                     if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch(subsystem.Key);
                 }
 
-                Program.Runtime.UpdateFrequency = targetFrequency;
+                Context.Program.Runtime.UpdateFrequency = targetFrequency;
             }
             else if (Activating)
             {
@@ -276,11 +289,11 @@ namespace IngameScript
             }
             else if (OutputMode == OutputMode.Debug)
             {
-                StatusBuilder.AppendLine(DebugBuilder.ToString());
+                StatusBuilder.AppendLine(ExceptionBuilder.ToString());
 
                 StatusBuilder.AppendLine("=====");
 
-                StatusBuilder.Append("Cycle ").AppendLine(UpdateCounter.ToString());
+                StatusBuilder.Append("Cycle ").AppendLine(Context.Frame.ToString());
                 StatusBuilder.Append(Subsystems.Count.ToString()).AppendLine("systems connected");
 
                 foreach (KeyValuePair<string, ISubsystem> kvp in Subsystems)
@@ -288,6 +301,10 @@ namespace IngameScript
                     StatusBuilder.AppendLine("["+kvp.Key+"]");
                     StatusBuilder.AppendLine(kvp.Value.GetStatus());
                 }
+
+                Context.Log.GetOutput(DebugBuilder);
+                StatusBuilder.AppendLine(DebugBuilder.ToString());
+                DebugBuilder.Clear();
             }
             else
             {
@@ -310,7 +327,7 @@ namespace IngameScript
                 }
                 if (command == "broadcast")
                 {
-                    Program.IGC.SendBroadcastMessage(GeneralChannel, argument);
+                    Context.IGC.SendBroadcastMessage(GeneralChannel, argument);
                 }
             }
             else if (Subsystems.ContainsKey(subsystem))
@@ -321,7 +338,7 @@ namespace IngameScript
 
         public void UpdateTime()
         {
-            Timestamp += Program.Runtime.TimeSinceLastRun;
+            Timestamp += Context.Program.Runtime.TimeSinceLastRun;
         }
     }
 }

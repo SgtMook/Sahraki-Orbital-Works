@@ -45,13 +45,13 @@ namespace IngameScript
             return string.Empty;
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
-            if (!WCAPI.Activate(program.Me)) WCAPI = null;
+            Context = context;
+
+            if (!WCAPI.Activate(Context.Program.Me)) 
+                WCAPI = null;
+
             IntelProvider.AddIntelMutator(this);
             GetParts();
             ParseConfigs();
@@ -63,7 +63,7 @@ namespace IngameScript
             if (WCAPI == null && runs % 12 == 0)
             {
                 WCAPI = new WcPbApi();
-                if (!WCAPI.Activate(Program.Me))
+                if (!WCAPI.Activate(Context.Program.Me))
                     WCAPI = null;
             }
 
@@ -96,7 +96,7 @@ namespace IngameScript
             if (engageCounter > 0) engageCounter--;
         }
         #endregion
-        MyGridProgram Program;
+        ExecutionContext Context;
 
         List<IMyUserControllableGun> Guns = new List<IMyUserControllableGun>();
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
@@ -137,15 +137,13 @@ namespace IngameScript
         {
             Guns.Clear();
             Turrets.Clear();
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
-
-            if (block is IMyUserControllableGun && UseGuns)
-                Guns.Add((IMyUserControllableGun)block);
+            if (Context.Reference.CubeGrid.EntityId != block.CubeGrid.EntityId) 
+                return false;
 
             if (block is IMyLargeTurretBase)
             {
@@ -154,6 +152,8 @@ namespace IngameScript
                 turret.EnableIdleRotation = false;
                 turret.SyncEnableIdleRotation();
             }
+            else if (block is IMyUserControllableGun && UseGuns)
+                Guns.Add((IMyUserControllableGun)block);
 
             return false;
         }
@@ -170,7 +170,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             var val = Parser.Get("Hornet", "FireDist").ToInt16();
@@ -200,8 +200,10 @@ namespace IngameScript
                 foreach (var gun in Guns)
                 {
                     gun.Enabled = true;
-                    TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
-                    if (WCAPI != null) WCAPI.ToggleWeaponFire(gun, true, true);
+                    if (WCAPI != null && WCAPI.HasCoreWeapon(gun))
+                        WCAPI.ToggleWeaponFire(gun, true, true);
+                    else
+                        TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
                 }
             }
             fireCounter = 3;
@@ -211,8 +213,10 @@ namespace IngameScript
         {
             foreach (var gun in Guns)
             {
-                TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
-                if (WCAPI != null) WCAPI.ToggleWeaponFire(gun, false, true);
+                if (WCAPI != null && WCAPI.HasCoreWeapon(gun))
+                    WCAPI.ToggleWeaponFire(gun, false, true);
+                else
+                    TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
             }
             fireCounter = -1;
         }
@@ -229,7 +233,7 @@ namespace IngameScript
         {
             if (engageCounter > 0)
             {
-                intel.Radius = (float)ProgramReference.CubeGrid.WorldAABB.Size.Length() * 10;
+                intel.Radius = (float)Context.Reference.CubeGrid.WorldAABB.Size.Length() * 10;
                 intel.AgentStatus |= AgentStatus.Engaged;
             }
         }

@@ -66,12 +66,10 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             GetParts();
             UpdateFrequency = UpdateFrequency.Update10;
             if (!OverrideThrusters && LookingGlasses.Count == 1)
@@ -109,7 +107,7 @@ namespace IngameScript
 
         public IIntelProvider IntelProvider;
 
-        public MyGridProgram Program;
+        public ExecutionContext Context;
 
         Dictionary<string, ILookingGlassPlugin> Plugins = new Dictionary<string, ILookingGlassPlugin>();
         List<ILookingGlassPlugin> PluginsList = new List<ILookingGlassPlugin>();
@@ -155,7 +153,7 @@ namespace IngameScript
                 LookingGlassArray[1] = new LookingGlass();
             //}
 
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
             for (int i = 0; i < LookingGlassArray.Length; i++)
             {
@@ -169,7 +167,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!ProgramReference.IsSameConstructAs(block)) return false;
+            if (!Context.Reference.IsSameConstructAs(block)) return false;
             if (block is IMyShipController && ((IMyShipController)block).CanControlShip)
                 Controller = (IMyShipController)block;
 
@@ -634,7 +632,7 @@ namespace IngameScript
         }
         public Vector2 FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
         {
-            if (intel.ID == Network.ProgramReference.CubeGrid.EntityId) return new Vector2(float.MaxValue, float.MaxValue);
+            if (intel.ID == Network.Context.Reference.CubeGrid.EntityId) return new Vector2(float.MaxValue, float.MaxValue);
 
             var worldDirection = intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff) - PrimaryCamera.WorldMatrix.Translation;
             var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(PrimaryCamera.WorldMatrix));

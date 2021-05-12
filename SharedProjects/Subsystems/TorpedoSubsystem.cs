@@ -26,7 +26,6 @@ namespace IngameScript
         #region ISubsystem
         public UpdateFrequency UpdateFrequency { get; set; }
 
-//        public static Logger Log = new Logger();
         public void Command(TimeSpan timestamp, string command, object argument)
         {
             if (command == "fire")
@@ -73,12 +72,10 @@ namespace IngameScript
             return string.Empty;
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup( ExecutionContext context, string name )
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             GetParts();
 
             ParseConfigs();
@@ -134,7 +131,7 @@ namespace IngameScript
 
                                     var isValidDumpTarget = targetSizeFlag != 0
                                         && target.Radius > group.AutoFireRadius
-                                        && (target.GetPositionFromCanonicalTime(canonicalTime) - ProgramReference.GetPosition()).Length() < group.AutoFireRange;
+                                        && (target.GetPositionFromCanonicalTime(canonicalTime) - Context.Reference.GetPosition()).Length() < group.AutoFireRange;
 
                                     if (isValidDumpTarget)
                                     {
@@ -268,10 +265,11 @@ namespace IngameScript
         List<MyDetectedEntityInfo> DetectedInfoScratchpad = new List<MyDetectedEntityInfo>();
         List<EnemyShipIntel> MissileDumpScratchpad = new List<EnemyShipIntel>();
 
-//         HashSet<long> AutofireTargetLog = new HashSet<long>();
-//         Queue<Torpedo> ReserveTorpedoes = new Queue<Torpedo>();
+        //         HashSet<long> AutofireTargetLog = new HashSet<long>();
+        //         Queue<Torpedo> ReserveTorpedoes = new Queue<Torpedo>();
 
-        MyGridProgram Program;
+        ExecutionContext Context;
+
         IIntelProvider IntelProvider;
         Random rand = new Random();
 
@@ -296,8 +294,28 @@ namespace IngameScript
             group.AutoFireSeconds = parser.Get(section, "AutoFireSeconds").ToInt16(2);
             group.AutoFireRadius = parser.Get(section, "AutoFireRadius").ToInt16(30);
             group.AutoFireSizeMask = parser.Get(section, "AutoFireSizeMask").ToInt16(1);
-    }
 
+            string partsSection = "Torpedo_Parts";
+            if (parser.ContainsSection(partsSection + "_" + groupName))
+            {
+                partsSection = partsSection + "_" + groupName;
+            }
+
+            List<MyIniKey> partKeys = new List<MyIniKey>();
+            parser.GetKeys(partsSection, partKeys);
+            foreach (var key in partKeys)
+            {
+                var count = parser.Get(key).ToInt32();
+                if (count == 0) 
+                    continue;
+                var type = MyItemType.Parse(key.Name);
+                group.TorpedoParts[type] = count;
+            }
+        }
+
+
+        // [Torpedo] 
+        // TorpedoTubeCount = 16
         // NOTE: [Torpedo_SM] & [Torpedo_LG] work for specific torpedo groups, otherwise it uses the default tag.
         // [Torpedo] 
         // GuidanceStartSeconds = 2
@@ -312,8 +330,18 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
+
+            string section = "Torpedo";
+            if (Parser.ContainsSection(section))
+            {
+                int TorpedoTubeCount = Parser.Get(section, "TorpedoTubeCount").ToInt16(16);
+                if ( TorpedoTubes.Length != TorpedoTubeCount)
+                {
+                    TorpedoTubes = new TorpedoTube[TorpedoTubeCount];
+                }
+            }
 
             foreach (var group in TorpedoTubeGroups)
             {
@@ -329,7 +357,7 @@ namespace IngameScript
             }
             TorpedoTubeGroups.Clear();
 
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
             for (int i = 0; i < TorpedoTubes.Count(); i++)
             {
@@ -344,12 +372,12 @@ namespace IngameScript
                 }
             }
 
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectLights);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectLights);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!ProgramReference.IsSameConstructAs(block)) return false; // Allow subgrid
+            if (!Context.Reference.IsSameConstructAs(block)) return false; // Allow subgrid
 
             var tagindex = block.CustomName.IndexOf("[TRP");
 
@@ -361,8 +389,12 @@ namespace IngameScript
             var numString = block.CustomName.Substring(tagindex + 4, indexTagEnd - tagindex - 4);
 
             int index;
-            if (!int.TryParse(numString, out index)) return false;
-            if (TorpedoTubes[index] == null) TorpedoTubes[index] = new TorpedoTube(index, Program, this);
+            if (!int.TryParse(numString, out index) || 
+                index >= TorpedoTubes.Length) 
+                return false;
+
+            if (TorpedoTubes[index] == null) 
+                TorpedoTubes[index] = new TorpedoTube(index, this);
             TorpedoTubes[index].AddPart(block);
 //             Log.Debug("Allocated Tube #" + index);
 //             Log.Debug(" Part " + block.CustomName);
@@ -371,7 +403,7 @@ namespace IngameScript
 
         bool CollectLights(IMyTerminalBlock block)
         {
-            if (!ProgramReference.IsSameConstructAs(block)) return false; // Allow subgrid
+            if (!Context.Reference.IsSameConstructAs(block)) return false; // Allow subgrid
 
             if (!block.CustomName.Contains("[TRP]")) return false;
 
@@ -428,6 +460,7 @@ namespace IngameScript
             return null;
         }
     }
+    
     // This is a refhax torpedo
     public class Torpedo
     {
@@ -441,7 +474,7 @@ namespace IngameScript
         public List<float> CameraExtends = new List<float>();
         public IMySensorBlock Sensor;
         public IMyShipController Controller;
-        public string Tag; // HE, CLST, MICRO, etc
+        public string Tag; // This is the number of the index of SubMissiles. Legacy: HE, CLST, MICRO, etc
         public HashSet<IMyShipMergeBlock> Splitters = new HashSet<IMyShipMergeBlock>();
 
         public HashSet<Torpedo> SubTorpedos = new HashSet<Torpedo>();
@@ -957,6 +990,7 @@ namespace IngameScript
         public float GuidanceStartSeconds = 2;
         public int PlungeDist = 1000;
         public double HitOffset = 0;
+        public Dictionary<MyItemType, int> TorpedoParts = new Dictionary<MyItemType, int>();
 
         public bool AutoFire = false;
         public int AutoFireRange = 15000;
@@ -1087,7 +1121,6 @@ namespace IngameScript
 
         public Torpedo LoadedTorpedo;
 
-        MyGridProgram Program;
         TorpedoSubsystem Host;
         Torpedo[] SubTorpedosScratchpad = new Torpedo[16];
 
@@ -1097,9 +1130,8 @@ namespace IngameScript
         public bool Ready => LoadedTorpedo != null;
         public List<ITorpedoControllable> Children { get; set; }
 
-        public TorpedoTube(int index, MyGridProgram program, TorpedoSubsystem host)
+        public TorpedoTube(int index, TorpedoSubsystem host)
         {
-            Program = program;
             Host = host;
             Children = new List<ITorpedoControllable>();
             Name = index.ToString("00");

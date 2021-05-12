@@ -60,13 +60,10 @@ namespace IngameScript
         {
             return "";
         }
-
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             GetParts();
             if (Connector.Status == MyShipConnectorStatus.Connected) HomeID = Connector.OtherConnector.EntityId;
             IntelProvider.AddIntelMutator(this);
@@ -86,7 +83,7 @@ namespace IngameScript
                     return;
                 }
                 var dock = (DockIntel)intelItems[intelKey];
-                if (dock.OwnerID != ProgramReference.CubeGrid.EntityId) HomeID = -1;
+                if (dock.OwnerID != Context.Reference.CubeGrid.EntityId) HomeID = -1;
             }
         }
         #endregion
@@ -122,7 +119,8 @@ namespace IngameScript
         }
         #endregion
 
-        MyGridProgram Program;
+        ExecutionContext Context;
+
         List<IMyFunctionalBlock> TurnOnOffList = new List<IMyFunctionalBlock>();
         List<IMyBatteryBlock> Batteries = new List<IMyBatteryBlock>();
         List<IMyGasTank> Tanks = new List<IMyGasTank>();
@@ -144,15 +142,15 @@ namespace IngameScript
             TurnOnOffList.Clear();
             Batteries.Clear();
             Tanks.Clear();
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
             if (block.CustomName.Contains("[X]")) return false;
-            if (!block.IsSameConstructAs(ProgramReference)) return false;
+            if (!block.IsSameConstructAs(Context.Reference)) return false;
 
-            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
+            if (block.CubeGrid.EntityId != Context.Reference.CubeGrid.EntityId) return false;
             if (block is IMyShipConnector && (Connector == null || block.CustomName.Contains("[D]"))) Connector = (IMyShipConnector)block;
             if (block is IMyShipMergeBlock && (Merge == null || block.CustomName.Contains("[D]"))) Merge = (IMyShipMergeBlock)block;
             if (block is IMyInteriorLight && (DirectionIndicator == null || block.CustomName.Contains("[D]"))) DirectionIndicator = (IMyInteriorLight)block;
@@ -177,7 +175,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             string tagString = Parser.Get("Docking", "Tags").ToString();
@@ -209,18 +207,18 @@ namespace IngameScript
 
         void SaveMainframePositionToMerge()
         {
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, SetupMerge);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, SetupMerge);
         }
 
         bool SetupMerge(IMyTerminalBlock block)
         {
-            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
+            if (block.CubeGrid.EntityId != Context.Reference.CubeGrid.EntityId) return false;
             if (!(block is IMyShipMergeBlock)) return false;
             if (!block.CustomName.StartsWith("[RL]")) return false;
 
             var merge = (IMyShipMergeBlock)block;
 
-            merge.CustomData = GridTerminalHelper.BlockBytePosToBase64(ProgramReference, merge);
+            merge.CustomData = GridTerminalHelper.BlockBytePosToBase64(Context.Reference, merge);
             return false;
         }
     }

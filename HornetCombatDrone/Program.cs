@@ -24,9 +24,12 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
+        ExecutionContext Context;
         public Program()
         {
-            hornet = new Hornet(Me, this);
+            Context = new ExecutionContext(this, Me);
+
+            hornet = new Hornet(Me, Context);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
         }
         Hornet hornet;

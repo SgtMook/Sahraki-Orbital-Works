@@ -85,12 +85,10 @@ namespace IngameScript
             return string.Empty;
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name )
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             ParseConfigs();
             GetParts();
             SortInventory(null);
@@ -115,7 +113,7 @@ namespace IngameScript
         #endregion
         string InventoryRequestSection = "InventoryRequest";
         const string kLoaderSection = "Loader";
-        MyGridProgram Program;
+        ExecutionContext Context;
 
         List<IMyTerminalBlock> StoreInventoryOwners = new List<IMyTerminalBlock>();
         Dictionary<long, Dictionary<MyItemType, int>> InventoryRequests = new Dictionary<long, Dictionary<MyItemType, int>>();
@@ -163,16 +161,16 @@ namespace IngameScript
             InventoryOwners.Clear();
             InventoryRequests.Clear();
 
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectBlocks);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectBlocks);
 
-            var cargoGroup = Program.GridTerminalSystem.GetBlockGroupWithName(CargoGroupName);
+            var cargoGroup = Context.Terminal.GetBlockGroupWithName(CargoGroupName);
             if (cargoGroup == null) return;
             cargoGroup.GetBlocks(null, CollectInventoryOwners);
         }
         
         bool CollectInventoryOwners(IMyTerminalBlock block)
         {
-            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
+            if (block.CubeGrid.EntityId != Context.Reference.CubeGrid.EntityId) return false;
             if (block.HasInventory)
             {
                 GetBlockRequestSettings(block);
@@ -184,7 +182,7 @@ namespace IngameScript
 
         bool CollectBlocks(IMyTerminalBlock block)
         {
-            if (block.CubeGrid.EntityId != ProgramReference.CubeGrid.EntityId) return false;
+            if (block.CubeGrid.EntityId != Context.Reference.CubeGrid.EntityId) return false;
             if (block.CustomName == ReportOutputName)
             {
                 if (block is IMyTextSurface)
@@ -207,7 +205,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             CargoGroupName = Parser.Get(kLoaderSection, "CargoGroupName").ToString(CargoGroupName);
@@ -223,6 +221,8 @@ namespace IngameScript
 
             if (iniParser.TryParse(block.CustomData) && iniParser.ContainsSection(InventoryRequestSection))
             {
+                // TODO: Replace with
+                //         public void GetKeys(string section, List<MyIniKey> keys);
                 iniParser.GetKeys(iniKeyScratchpad);
                 foreach (var key in iniKeyScratchpad)
                 {
@@ -417,7 +417,7 @@ namespace IngameScript
         {
             UpdateNum++;
             StoreInventoryOwners.Clear();
-            var storeGroup = Program.GridTerminalSystem.GetBlockGroupWithName(StoreGroupName);
+            var storeGroup = Context.Terminal.GetBlockGroupWithName(StoreGroupName);
             if (storeGroup != null)
             {
                 storeGroup.GetBlocksOfType<IMyTerminalBlock>(null, CollectStores);

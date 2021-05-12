@@ -49,12 +49,10 @@ namespace IngameScript
             return string.Empty;
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-            Program = program;
+            Context = context;
+
             ParseConfigs();
             GetParts();
         }
@@ -70,7 +68,7 @@ namespace IngameScript
             IntelProvider = intelProvider;
         }
 
-        MyGridProgram Program;
+        ExecutionContext Context;
         IIntelProvider IntelProvider;
 
         List<FriendlyShipIntel> FriendlyShipScratchpad = new List<FriendlyShipIntel>();
@@ -108,7 +106,7 @@ namespace IngameScript
         {
             MyIni Parser = new MyIni();
             MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
             AutoScramble = Parser.Get("Command", "AutoScramble").ToBoolean(false);
@@ -118,14 +116,14 @@ namespace IngameScript
         void GetParts()
         {
             AlarmLights.Clear();
-            Program.GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
             Alarm = true;
             Alarm = false;
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (!ProgramReference.IsSameConstructAs(block)) return false;
+            if (!Context.Reference.IsSameConstructAs(block)) return false;
 
             // Exclude types
             if (block is IMyInteriorLight && block.CustomName.Contains("Alarm"))

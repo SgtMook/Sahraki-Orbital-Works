@@ -24,9 +24,9 @@ namespace IngameScript
     {
         public SubsystemManager SubsystemManager;
 
-        public Hornet(IMyTerminalBlock reference, MyGridProgram program)
+        public Hornet(IMyTerminalBlock reference, ExecutionContext context)
         {
-            SubsystemManager = new SubsystemManager(program);
+            SubsystemManager = new SubsystemManager(context);
 
             AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
             IntelSubsystem intelSubsystem = new IntelSubsystem();
@@ -35,7 +35,7 @@ namespace IngameScript
             MonitorSubsystem monitorSubsystem = new MonitorSubsystem(intelSubsystem);
             StatusIndicatorSubsystem indicatorSubsystem = new StatusIndicatorSubsystem(dockingSubsystem, intelSubsystem);
             AgentSubsystem agentSubsystem = new AgentSubsystem(intelSubsystem, AgentClass.Fighter);
-            UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(program, autopilotSubsystem, dockingSubsystem);
+            UndockFirstTaskGenerator undockingTaskGenerator = new UndockFirstTaskGenerator(context.Program, autopilotSubsystem, dockingSubsystem);
             ScannerNetworkSubsystem scannerSubsystem = new ScannerNetworkSubsystem(intelSubsystem);
 
             SubsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
@@ -45,12 +45,12 @@ namespace IngameScript
             SubsystemManager.AddSubsystem("monitor", monitorSubsystem);
             SubsystemManager.AddSubsystem("indicator", indicatorSubsystem);
 
-            undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(program, autopilotSubsystem));
-            undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(program, autopilotSubsystem, dockingSubsystem));
-            undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(program, combatSubsystem, autopilotSubsystem, agentSubsystem, monitorSubsystem, intelSubsystem));
+            undockingTaskGenerator.AddTaskGenerator(new WaypointTaskGenerator(context.Program, autopilotSubsystem));
+            undockingTaskGenerator.AddTaskGenerator(new DockTaskGenerator(context.Program, autopilotSubsystem, dockingSubsystem));
+            undockingTaskGenerator.AddTaskGenerator(new HornetAttackTaskGenerator(context.Program, combatSubsystem, autopilotSubsystem, agentSubsystem, monitorSubsystem, intelSubsystem));
 
             agentSubsystem.AddTaskGenerator(undockingTaskGenerator);
-            agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(program, dockingSubsystem));
+            agentSubsystem.AddTaskGenerator(new SetHomeTaskGenerator(context.Program, dockingSubsystem));
 
             SubsystemManager.AddSubsystem("agent", agentSubsystem);
             SubsystemManager.AddSubsystem("scanner", new ScannerNetworkSubsystem(intelSubsystem));

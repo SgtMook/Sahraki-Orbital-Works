@@ -7,7 +7,7 @@ namespace IngameScript
 {
     public interface ISubsystem
     {
-        void Setup(MyGridProgram program, string name, IMyTerminalBlock reference = null);
+        void Setup(ExecutionContext context, string name);
         void Update(TimeSpan timestamp, UpdateFrequency updateFlags);
         void Command(TimeSpan timestamp, string command, object argument);
         string GetStatus();

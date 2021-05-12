@@ -24,9 +24,12 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
+        ExecutionContext Context;
         public Program()
         {
-            subsystemManager = new SubsystemManager(this);
+            Context = new ExecutionContext(this);
+            subsystemManager = new SubsystemManager(Context);
+
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             ParseConfigs();

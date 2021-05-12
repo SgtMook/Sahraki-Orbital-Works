@@ -91,15 +91,12 @@ namespace IngameScript
             return string.Empty;
         }
 
-        IMyTerminalBlock ProgramReference;
-        public void Setup(MyGridProgram program, string name, IMyTerminalBlock programReference = null)
+        public void Setup(ExecutionContext context, string name)
         {
-            ProgramReference = programReference;
-            if (ProgramReference == null) ProgramReference = program.Me;
-
-            Program = program;
-            CommandChannelTag = ProgramReference.CubeGrid.EntityId.ToString() + "-COMMAND";
-            CommandListener = program.IGC.RegisterBroadcastListener(CommandChannelTag);
+            Context = context;
+            
+            CommandChannelTag = Context.Reference.CubeGrid.EntityId.ToString() + "-COMMAND";
+            CommandListener = Context.IGC.RegisterBroadcastListener(CommandChannelTag);
             //profiler = new Profiler(Program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
             AddTask(TaskType.None, MyTuple.Create(IntelItemType.NONE, (long)0), CommandType.DoFirst, 2, TimeSpan.Zero);
             AddTaskFromCommand(TimeSpan.Zero, MyTuple.Create(-1, MyTuple.Create(0, (long)0), 0, 0));
@@ -150,7 +147,7 @@ namespace IngameScript
             }
             if (TaskGenerators.ContainsKey(taskType))
             {
-                ITask Task = TaskGenerators[taskType].GenerateTask(taskType, intelKey, IntelProvider.GetFleetIntelligences(canonicalTime - IntelProvider.CanonicalTimeDiff), canonicalTime, ProgramReference.CubeGrid.EntityId);
+                ITask Task = TaskGenerators[taskType].GenerateTask(taskType, intelKey, IntelProvider.GetFleetIntelligences(canonicalTime - IntelProvider.CanonicalTimeDiff), canonicalTime, Context.Reference.CubeGrid.EntityId);
                 if (Task is NullTask) return;
                 TaskQueue.Enqueue(Task);
             }
@@ -176,7 +173,7 @@ namespace IngameScript
         //const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
         //Profiler profiler;
 
-        MyGridProgram Program;
+        ExecutionContext Context;
         IMyBroadcastListener CommandListener;
 
         IIntelProvider IntelProvider;
