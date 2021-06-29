@@ -50,6 +50,23 @@ namespace IngameScript
     // Canvas
     // Motor
 
+    // Northwind
+    // R75ammo          - Railgun 75mm)
+    // R150ammo         - Railgun 150mm)
+    // R250ammo         - Railgun 250mm)
+    // H203Ammo         - 203mm HE)
+    // H203AmmoAP       - 203mm AP)
+    // C30Ammo          - 30mm Standard)
+    // C30DUammo        - 30mm Dep. Uranium)
+    // CRAM30mmAmmo     - C-RAM (CIWS?))
+    // C100mmAmmo       - 100mm HE)
+    // C300AmmoAP       - 300mm AP)
+    // C300AmmoHE       - 300mm HE)
+    // C300AmmoG        - 300mm Guided)
+    // C400AmmoAP       - 400mm AP)
+    // C400AmmoHE       - 400mm HE)
+    // C400AmmoCluster  - 400mm Cluster)
+
     public class CombatLoaderSubsystem : ISubsystem
     {
         #region ISubsystem

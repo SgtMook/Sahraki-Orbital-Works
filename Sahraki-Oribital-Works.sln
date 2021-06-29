@@ -63,12 +63,17 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HingeMissileDesignHelper", 
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "LegacyShared", "SharedProjects\LegacyShared\LegacyShared.shproj", "{DE00C4F2-C050-4B87-84C9-2D77D1E00064}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoaderUtility", "LoaderUtility\LoaderUtility.csproj", "{177FA318-FE0B-48B0-A018-F79472F9C224}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		SharedProjects\LegacyShared\LegacyShared.projitems*{1023a8cb-5d16-499e-9d7c-3f547e160d40}*SharedItemsImports = 4
 		SharedProjects\Subsystems\Subsystems.projitems*{1023a8cb-5d16-499e-9d7c-3f547e160d40}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{1023a8cb-5d16-499e-9d7c-3f547e160d40}*SharedItemsImports = 4
 		SharedProjects\Utility\Utility.projitems*{1023a8cb-5d16-499e-9d7c-3f547e160d40}*SharedItemsImports = 4
+		SharedProjects\Subsystems\Subsystems.projitems*{177fa318-fe0b-48b0-a018-f79472f9c224}*SharedItemsImports = 4
+		SharedProjects\Tasks\Tasks.projitems*{177fa318-fe0b-48b0-a018-f79472f9c224}*SharedItemsImports = 4
+		SharedProjects\Utility\Utility.projitems*{177fa318-fe0b-48b0-a018-f79472f9c224}*SharedItemsImports = 4
 		SharedProjects\Subsystems\Subsystems.projitems*{1952d777-ecb7-4db8-a07d-9a5d1d3752d0}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{1952d777-ecb7-4db8-a07d-9a5d1d3752d0}*SharedItemsImports = 4
 		SharedProjects\Utility\Utility.projitems*{1952d777-ecb7-4db8-a07d-9a5d1d3752d0}*SharedItemsImports = 4
@@ -154,6 +159,8 @@ Global
 		{F9259D26-1B48-4B6A-8CF3-0ECF31371884}.Debug|x64.Build.0 = Debug|x64
 		{F859A0B3-ADE3-4409-9529-C2AC20CD0E51}.Debug|x64.ActiveCfg = Debug|x64
 		{F859A0B3-ADE3-4409-9529-C2AC20CD0E51}.Debug|x64.Build.0 = Debug|x64
+		{177FA318-FE0B-48B0-A018-F79472F9C224}.Debug|x64.ActiveCfg = Debug|x64
+		{177FA318-FE0B-48B0-A018-F79472F9C224}.Debug|x64.Build.0 = Debug|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -181,6 +188,7 @@ Global
 		{C0F8A8EF-52C4-4691-939F-13AB878E433F} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
 		{F9259D26-1B48-4B6A-8CF3-0ECF31371884} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
 		{F859A0B3-ADE3-4409-9529-C2AC20CD0E51} = {5ED0EB74-ABB9-4505-A189-AD5B92260507}
+		{177FA318-FE0B-48B0-A018-F79472F9C224} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F3FB794D-D238-4AE1-AFFE-BA7BFCD452C3}

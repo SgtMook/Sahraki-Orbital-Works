@@ -143,13 +143,16 @@ namespace IngameScript
                 gravdir.Normalize();
             }
 
+            // No Target
             if (orbitIntel == null)
             {
+                // Plot Intercept
                 if (IntelKey.Item1 == IntelItemType.Enemy && IntelItems.ContainsKey(IntelKey) && EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)IntelItems[IntelKey]) && IntelProvider.GetPriority(IntelKey.Item2) >= 2)
                 {
                     var target = IntelItems[IntelKey];
                     LeadTask.Destination.Position = currentPosition + AttackHelpers.GetAttackPoint(target.GetVelocity(), target.GetPositionFromCanonicalTime(canonicalTime) + target.GetVelocity() * 0.08 - currentPosition, Autopilot.CruiseSpeed);
                 }
+                // Go to Position ( Scramble )
                 else if (TargetPosition != Vector3.Zero)
                 {
                     LeadTask.Destination.MaxSpeed = PatrolMaxSpeed;
@@ -183,6 +186,8 @@ namespace IngameScript
                 LastRelativeAttackPoint = Vector3D.Zero;
 //                targetLastPoweredRun = 0;
             }
+
+            // Orbiting a Target
             else
             {
                 CombatSystem.MarkEngaged();

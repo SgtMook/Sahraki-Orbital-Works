@@ -55,15 +55,18 @@ namespace IngameScript
         public string GetStatus()
         {
             debugBuilder.Clear();
-//            Log.GetOutput(debugBuilder);
-//             if (TorpedoTubes != null)
-//             {
-//                 debugBuilder.AppendLine("TRP#:" + TorpedoTubes.Length);
-//                 for (int i = 0; i < TorpedoTubes.Length; ++i)
-//                 {
-//                     debugBuilder.AppendLine("[" + i + "]=" + TorpedoTubes[i] != null ? TorpedoTubes[i].OK().ToString() : "null");
-//                 }
-//             }
+            foreach (var kvp in TorpedoTubeGroups)
+                debugBuilder.AppendLine("Grp [" + kvp.Key + "] #" + kvp.Value.Children.Count);
+
+            for (int i = 0; i < TorpedoTubes.Length; ++i)
+            {
+                var tube = TorpedoTubes[i];
+                if (tube == null)
+                    debugBuilder.AppendLine("[" + i + "]=null");
+                else if (!tube.OK() || !tube.Ready)
+                    debugBuilder.AppendLine("[" + i + "]= Rdy:" + tube.Ready + " Ok:" + tube.OK());
+            }
+
             return debugBuilder.ToString();
         }
 
@@ -76,9 +79,12 @@ namespace IngameScript
         {
             Context = context;
 
-            GetParts();
+            TorpedoTubeGroups["SM"] = new TorpedoTubeGroup("SM");
+            TorpedoTubeGroups["LG"] = new TorpedoTubeGroup("LG");
 
             ParseConfigs();
+
+            GetParts();
 
             foreach (var group in TorpedoTubeGroups.Values)
             {
@@ -351,11 +357,8 @@ namespace IngameScript
 
         void GetParts()
         {
-            for (int i = 0; i < TorpedoTubes.Count(); i++)
-            {
-                TorpedoTubes[i] = null;
-            }
-            TorpedoTubeGroups.Clear();
+            // This may be a problem at some future time, but I removed the clearing of lists on GetParts call.
+            // All grids I know of only collect on rebuild.
 
             Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
@@ -363,8 +366,8 @@ namespace IngameScript
             {
                 if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
                 {
-                    if (!TorpedoTubeGroups.ContainsKey(TorpedoTubes[i].GroupName))
-                        TorpedoTubeGroups[TorpedoTubes[i].GroupName] = new TorpedoTubeGroup(TorpedoTubes[i].GroupName);
+//                     if (!TorpedoTubeGroups.ContainsKey(TorpedoTubes[i].GroupName))
+//                         TorpedoTubeGroups[TorpedoTubes[i].GroupName] = new TorpedoTubeGroup(TorpedoTubes[i].GroupName);
                     
                     //Log.Debug("Add Tube#" + i + " to " + TorpedoTubes[i].GroupName);
                     
@@ -390,14 +393,16 @@ namespace IngameScript
 
             int index;
             if (!int.TryParse(numString, out index) || 
-                index >= TorpedoTubes.Length) 
+                index >= TorpedoTubes.Length)
                 return false;
+//                Context.Log.Debug("Out of Bounds Part " + block.CustomName + " Tube #" + index);
 
-            if (TorpedoTubes[index] == null) 
+            if (TorpedoTubes[index] == null)
                 TorpedoTubes[index] = new TorpedoTube(index, this);
+
             TorpedoTubes[index].AddPart(block);
-//             Log.Debug("Allocated Tube #" + index);
-//             Log.Debug(" Part " + block.CustomName);
+//            Context.Log.Debug("Added " + block.CustomName + " Tube #" + index);
+
             return false;
         }
 

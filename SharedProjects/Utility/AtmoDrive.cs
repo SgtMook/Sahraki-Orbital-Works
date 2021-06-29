@@ -103,6 +103,8 @@ namespace IngameScript
 
         public float CombatSpeed { get; set; }
 
+        double PrecisionThreshold = 10;
+
         float MaxSpeed = 150;
 
         int runs = 0;
@@ -266,18 +268,15 @@ namespace IngameScript
                         // Transform desired acceleration into remote control frame
                         var gridDesiredAccel = Vector3D.TransformNormal(desiredAccel, MatrixD.Transpose(Controller.WorldMatrix));
 
-                        double MinScale = 10;
-
-                        if (gridDesiredAccel.LengthSquared() < 3)
-                            gridDesiredAccel *= 0.1 * gridDesiredAccel.LengthSquared();
-
-                        if (gridDesiredAccel.Length() < 1)
-                            gridDesiredAccel.Normalize();
+                        double accelMagnitude = gridDesiredAccel.Length();
+                        if (accelMagnitude < PrecisionThreshold)                           
+                            gridDesiredAccel *= Math.Max(accelMagnitude / PrecisionThreshold, .1);
 
                         gridDesiredAccel.X = XPID.Control(gridDesiredAccel.X);
                         gridDesiredAccel.Y = YPID.Control(gridDesiredAccel.Y);
                         gridDesiredAccel.Z = ZPID.Control(gridDesiredAccel.Z);
 
+                        double MinScale = 10;
                         var gridGravDir = Vector3D.TransformNormal(gravDir, MatrixD.Transpose(Controller.WorldMatrix));
                         foreach (var kvp in ThrusterManagers)
                         {
@@ -320,34 +319,38 @@ namespace IngameScript
 
         void ParseConfigs()
         {
+            string AutopilotTag = "Autopilot";
+
             MyIni Parser = new MyIni();
             MyIniParseResult result;
             if (!Parser.TryParse(ProgramReference.CustomData, out result))
                 return;
 
-            var flo = Parser.Get("Autopilot", "TP").ToDecimal();
+            var flo = Parser.Get(AutopilotTag, "TP").ToDecimal();
             if (flo != 0) TP = (float)flo;
 
-            flo = Parser.Get("Autopilot", "TI").ToDecimal();
+            flo = Parser.Get(AutopilotTag, "TI").ToDecimal();
             if (flo != 0) TI = (float)flo;
 
-            flo = Parser.Get("Autopilot", "TD").ToDecimal();
+            flo = Parser.Get(AutopilotTag, "TD").ToDecimal();
             if (flo != 0) TD = (float)flo;
 
-            flo = Parser.Get("Autopilot", "RP").ToDecimal();
+            flo = Parser.Get(AutopilotTag, "RP").ToDecimal();
             if (flo != 0) RP = (float)flo;
 
-            flo = Parser.Get("Autopilot", "RI").ToDecimal();
+            flo = Parser.Get(AutopilotTag, "RI").ToDecimal();
             if (flo != 0) RI = (float)flo;
 
-            flo = Parser.Get("Autopilot", "RD").ToDecimal();
+            flo = Parser.Get(AutopilotTag, "RD").ToDecimal();
             if (flo != 0) RD = (float)flo;
 
-            flo = Parser.Get("Autopilot", "MaxCruiseSpeed").ToDecimal();
+            flo = Parser.Get(AutopilotTag, "MaxCruiseSpeed").ToDecimal();
             if (flo != 0) CruiseSpeed = (float)flo;
 
-            flo = Parser.Get("Autopilot", "MaxCombatSpeed").ToDecimal();
+            flo = Parser.Get(AutopilotTag, "MaxCombatSpeed").ToDecimal();
             if (flo != 0) CombatSpeed = (float)flo;
+
+            PrecisionThreshold = Parser.Get(AutopilotTag, "PrecisionThreshold").ToDouble(PrecisionThreshold);
         }
 
         public AtmoDrive(IMyShipController control, double TimeStep = 5, IMyTerminalBlock programReference = null)

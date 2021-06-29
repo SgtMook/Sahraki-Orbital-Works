@@ -1151,8 +1151,8 @@ namespace IngameScript
                 Host.AppendPaddedLine(kRowLength, TaskTypeToSpecialTargets[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]][TargetSelection_TargetIndex], Builder);
                 if (CurrentUIMode == UIMode.SelectTarget)
                 {
-                    Host.AppendPaddedLine(kRowLength, "[NUM 0] SELECT", Builder);
-                    Host.AppendPaddedLine(kRowLength, "[7] CANCLE CMD", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[NUM 3] SELECT", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[7] CANCEL CMD", Builder);
                 }
             }
             else if (specialCount <= TargetSelection_TargetIndex && TargetSelection_TargetIndex < TargetSelection_Targets.Count + specialCount)
@@ -1160,8 +1160,8 @@ namespace IngameScript
                 Host.AppendPaddedLine(kRowLength, TargetSelection_Targets[TargetSelection_TargetIndex - specialCount].ID.ToString(), Builder);
                 if (CurrentUIMode == UIMode.SelectTarget)
                 {
-                    Host.AppendPaddedLine(kRowLength, "[NUM 0] SEND CMD", Builder);
-                    Host.AppendPaddedLine(kRowLength, "[7] CANCLE CMD", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[NUM 3] SEND CMD", Builder);
+                    Host.AppendPaddedLine(kRowLength, "[7] CANCEL CMD", Builder);
                 }
             }
             else
@@ -1234,16 +1234,16 @@ namespace IngameScript
                         distIndicator.Position = new Vector2(0, 5) + screen.TextureSize / 2f;
                         frame.Add(distIndicator);
 
-                        var prompt = MySprite.CreateText("[W/S] +/- DIST", "Debug", Color.White, 0.4f);
+                        var prompt = MySprite.CreateText("[5|W/8|S] +/- DIST", "Debug", Color.White, 0.4f);
                         prompt.Position = new Vector2(0, 20) + screen.TextureSize / 2f;
                         frame.Add(prompt);
 
-                        var prompt2 = MySprite.CreateText("[SPACE] CONFIRM", "Debug", Color.White, 0.4f);
+                        var prompt2 = MySprite.CreateText("[3|SPACE] CONFIRM", "Debug", Color.White, 0.4f);
                         prompt2.Position = new Vector2(0, 34) + screen.TextureSize / 2f;
                         frame.Add(prompt2);
                     } else if (CurrentUIMode == UIMode.Designate)
                     {
-                        var prompt = MySprite.CreateText("[SPACE] CONFIRM", "Debug", Color.White, 0.4f);
+                        var prompt = MySprite.CreateText("[3|SPACE] CONFIRM", "Debug", Color.White, 0.4f);
                         prompt.Position = new Vector2(0, 5) + screen.TextureSize / 2f;
                         frame.Add(prompt);
                     }
