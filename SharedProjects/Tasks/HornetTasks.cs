@@ -285,7 +285,8 @@ namespace IngameScript
 
             if (Mode == 1)
             {
-                LeadTask.Destination.Position = Vector3D.Zero;
+                //TODO: Add support for disabling dampeners in this mode - let pilot have full control aside from aiming
+                LeadTask.Destination.Position = controller.GetPosition(); 
                 LeadTask.Destination.Velocity = Vector3D.Zero;
 
                 if (shootIntel == null)
