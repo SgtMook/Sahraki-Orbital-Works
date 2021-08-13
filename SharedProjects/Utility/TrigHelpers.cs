@@ -95,6 +95,34 @@ namespace IngameScript
             return plane.Normal.Dot(point) + plane.D;
         }
 
+        public static Vector3 GetRandomPerpendicularNormalToDirection(Random random, Vector3 direction)
+        {
+            direction.Normalize();
+            var perp = Vector3D.CalculatePerpendicularVector(direction);
+            perp.Normalize();
+            var coperp = perp.Cross(direction);
+
+            var theta = random.NextDouble() * Math.PI * 2;
+
+            return perp * Math.Sin(theta) + coperp * Math.Cos(theta);
+
+            // Original Trickshot code
+//             var perp = new Vector3D(1, 1, -(rangeVector.X + rangeVector.Y) / rangeVector.Z);
+//             var coperp = perp.Cross(rangeVector);
+//             perp.Normalize();
+//             coperp.Normalize();
+// 
+//             var rand = new Random();
+//             var theta = rand.NextDouble() * Math.PI * 2;
+// 
+//             //         var dist = -rangeVector;
+//             //         dist.Normalize();
+//             //         dist *= 1200;
+// 
+//             TrickshotOffset = perp * Math.Sin(theta) + coperp * Math.Cos(theta);
+ 
+        }
+
         public static bool PlaneIntersection(Plane plane, Vector3 rayPos, Vector3 rayNorm, out Vector3 result)
         {
             result = Vector3.Zero;

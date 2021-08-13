@@ -36,7 +36,6 @@ namespace IngameScript
         public TorpedoSubsystem TorpedoSubsystem;
         public IMyShipController Controller;
 
-        IMyCockpit Cockpit;
         ExecutionContext Context;
 
         bool ToolbarOutput = false;
@@ -109,7 +108,6 @@ namespace IngameScript
             if (Me.CubeGrid.EntityId != block.CubeGrid.EntityId)
                 return false;
             if (block is IMyShipController && (Controller == null || block.CustomName.Contains("[I]"))) Controller = (IMyShipController)block;
-            if (block is IMyCockpit) Cockpit = (IMyCockpit)block;
 //            if (block is IMyShipWelder) Welders.Add((IMyShipWelder)block);
 //             if (block is IMyShipConnector && block.CustomName.Contains("Docking"))
 //             {
@@ -226,11 +224,6 @@ namespace IngameScript
                 */
                 if (runs % 30 == 0)
                 {
-                    if (!Cockpit.IsUnderControl)
-                    {
-                        CombatAutopilot = false;
-                    }
-
                     if (CombatAutopilot)
                     {
                         var hadTarget = PriorityTarget != null;

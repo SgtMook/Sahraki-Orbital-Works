@@ -75,7 +75,7 @@ namespace IngameScript
             return string.Empty;
         }
 
-        public void Setup( ExecutionContext context, string name )
+        public void Setup( ExecutionContext context, string name )        
         {
             Context = context;
 
@@ -103,7 +103,7 @@ namespace IngameScript
                 {
                     if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
                     {
-//                        Log.Debug("Updating Tube " + i);
+                        //                        Log.Debug("Updating Tube " + i);
                         TorpedoTubes[i].Update(timestamp);
                     }
                 }
@@ -114,10 +114,10 @@ namespace IngameScript
                 runs++;
                 if (runs % 60 == 0)
                 {
-                    foreach(var group in TorpedoTubeGroups.Values)
+                    foreach (var group in TorpedoTubeGroups.Values)
                     {
                         group.seconds++;
-                        if ( group.AutoFire && group.NumReady > 0)
+                        if (group.AutoFire && group.NumReady > 0)
                         {
                             if (group.seconds % group.AutoFireSeconds == 0)
                             {
@@ -127,7 +127,7 @@ namespace IngameScript
                                 // NOTE: This may be slow in fleet engagement.
                                 foreach (var kvp in intelItems)
                                 {
-                                    if (kvp.Key.Item1 != IntelItemType.Enemy) 
+                                    if (kvp.Key.Item1 != IntelItemType.Enemy)
                                         continue;
 
                                     var target = (EnemyShipIntel)kvp.Value;
@@ -292,6 +292,10 @@ namespace IngameScript
                 section = section + "_" + groupName;
             }
             group.GuidanceStartSeconds = (float)parser.Get(section, "GuidanceStartSeconds").ToDouble(2.0);
+
+            group.CruiseDistSqMin = parser.Get(section, "CruiseDistMin").ToDouble(1000);
+            group.CruiseDistSqMin *= group.CruiseDistSqMin;
+
             group.PlungeDist = parser.Get(section, "PlungeDist").ToInt16(1000);
             group.HitOffset = parser.Get(section, "HitOffset").ToDouble(0.0);
 
@@ -300,6 +304,20 @@ namespace IngameScript
             group.AutoFireSeconds = parser.Get(section, "AutoFireSeconds").ToInt16(2);
             group.AutoFireRadius = parser.Get(section, "AutoFireRadius").ToInt16(30);
             group.AutoFireSizeMask = parser.Get(section, "AutoFireSizeMask").ToInt16(1);
+
+            group.Trickshot = parser.Get(section, "Trickshot").ToBoolean(false);
+            group.TrickshotDistance = parser.Get(section, "TrickshotDistance").ToInt32(1200);
+            group.TrickshotTerminalDistanceSq = parser.Get(section, "TrickshotTerminalDistance").ToInt32(1000);
+            group.TrickshotTerminalDistanceSq *= group.TrickshotTerminalDistanceSq;
+
+            group.Evasion = parser.Get(section, "Evasion").ToBoolean();
+            group.EvasionDistSqStart = parser.Get(section, "EvasionDistStart").ToInt32(2000);
+            group.EvasionDistSqStart *= group.EvasionDistSqStart;
+            group.EvasionDistSqEnd = parser.Get(section, "EvasionDistEnd").ToInt32(500);
+            group.EvasionDistSqEnd *= group.EvasionDistSqEnd;
+            group.EvasionOffsetAngle = parser.Get(section, "EvasionOffsetAngle").ToDouble(group.EvasionOffsetAngle);
+            group.EvasionAdjTimeMin = parser.Get(section, "EvasionAdjTimeMin").ToInt32(group.EvasionAdjTimeMin);
+            group.EvasionAdjTimeMax = parser.Get(section, "EvasionAdjTimeMax").ToInt32(group.EvasionAdjTimeMax);
 
             string partsSection = "Torpedo_Parts";
             if (parser.ContainsSection(partsSection + "_" + groupName))
@@ -312,7 +330,7 @@ namespace IngameScript
             foreach (var key in partKeys)
             {
                 var count = parser.Get(key).ToInt32();
-                if (count == 0) 
+                if (count == 0)
                     continue;
                 var type = MyItemType.Parse(key.Name);
                 group.TorpedoParts[type] = count;
@@ -327,11 +345,24 @@ namespace IngameScript
         // GuidanceStartSeconds = 2
         // PlungeDist = 1000
         // HitOffset = 0
+
         // AutoFire = False
         // AutoFireRange = 15000
         // AutoFireSeconds = 2;
         // AutoFireRadius = 30; In Meters
         // AutoFireSizeMask = 1; 1 = LG 2 = SM 3 = BOTH
+
+        // Trickshot = false
+        // TrickshotDistance = 1200
+        // TrickshotTerminalDistance = 1000
+
+        // Evasion = False
+        // EvasionDistStart = 2000
+        // EvasionDistEnd = 800
+        // EvasionAdjTimeMin = 500
+        // EvasionAdjTimeMax = 1000
+        // EvasionOffsetAngle = .26
+
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -343,7 +374,7 @@ namespace IngameScript
             if (Parser.ContainsSection(section))
             {
                 int TorpedoTubeCount = Parser.Get(section, "TorpedoTubeCount").ToInt16(16);
-                if ( TorpedoTubes.Length != TorpedoTubeCount)
+                if (TorpedoTubes.Length != TorpedoTubeCount)
                 {
                     TorpedoTubes = new TorpedoTube[TorpedoTubeCount];
                 }
@@ -366,11 +397,11 @@ namespace IngameScript
             {
                 if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
                 {
-//                     if (!TorpedoTubeGroups.ContainsKey(TorpedoTubes[i].GroupName))
-//                         TorpedoTubeGroups[TorpedoTubes[i].GroupName] = new TorpedoTubeGroup(TorpedoTubes[i].GroupName);
-                    
+                    //                     if (!TorpedoTubeGroups.ContainsKey(TorpedoTubes[i].GroupName))
+                    //                         TorpedoTubeGroups[TorpedoTubes[i].GroupName] = new TorpedoTubeGroup(TorpedoTubes[i].GroupName);
+
                     //Log.Debug("Add Tube#" + i + " to " + TorpedoTubes[i].GroupName);
-                    
+
                     TorpedoTubeGroups[TorpedoTubes[i].GroupName].AddTube(TorpedoTubes[i]);
                 }
             }
@@ -392,16 +423,16 @@ namespace IngameScript
             var numString = block.CustomName.Substring(tagindex + 4, indexTagEnd - tagindex - 4);
 
             int index;
-            if (!int.TryParse(numString, out index) || 
+            if (!int.TryParse(numString, out index) ||
                 index >= TorpedoTubes.Length)
                 return false;
-//                Context.Log.Debug("Out of Bounds Part " + block.CustomName + " Tube #" + index);
+            //                Context.Log.Debug("Out of Bounds Part " + block.CustomName + " Tube #" + index);
 
             if (TorpedoTubes[index] == null)
                 TorpedoTubes[index] = new TorpedoTube(index, this);
 
             TorpedoTubes[index].AddPart(block);
-//            Context.Log.Debug("Added " + block.CustomName + " Tube #" + index);
+            //            Context.Log.Debug("Added " + block.CustomName + " Tube #" + index);
 
             return false;
         }
@@ -465,10 +496,18 @@ namespace IngameScript
             return null;
         }
     }
-    
+
     // This is a refhax torpedo
     public class Torpedo
     {
+        public enum AltModeStage
+        {
+            Off,
+            Setup,
+            Active,
+            Terminal,
+        }
+
         public TorpedoTubeGroup Group;
         public List<IMyGyro> Gyros = new List<IMyGyro>();
         public HashSet<IMyWarhead> Warheads = new HashSet<IMyWarhead>();
@@ -505,13 +544,20 @@ namespace IngameScript
 
         bool initialized = false;
         bool plunging = true;
+        bool cruising = false;
+        bool canCruise = false;
         public bool canInitialize = true;
         int runs = 0;
 
-        Vector3D RandomOffset;
+        Vector3D RandomHitboxOffset;
 
-        public bool UseTrickshot = false;
+        public AltModeStage TrickshotMode = AltModeStage.Off;
         Vector3D TrickshotOffset = Vector3D.Zero;
+
+        AltModeStage EvasionMode = AltModeStage.Off;
+        Vector3D EvasionOffset = Vector3D.Zero;
+        TimeSpan LastCourseAdjustTime;
+
         public bool proxArmed = false;
         public TorpedoSubsystem HostSubsystem = null;
 
@@ -521,14 +567,15 @@ namespace IngameScript
             if (block.CustomName.Contains("[F]")) { Fuse = block; part = true; }
             if (block is IMyShipController) { Controller = (IMyShipController)block; part = true; }
             if (block is IMyGyro) { Gyros.Add((IMyGyro)block); part = true; }
-            if (block is IMyCameraBlock) {
-                var camera = (IMyCameraBlock)block; 
-                Cameras.Add(camera); 
+            if (block is IMyCameraBlock)
+            {
+                var camera = (IMyCameraBlock)block;
+                Cameras.Add(camera);
                 camera.EnableRaycast = true;
                 float extents;
                 float.TryParse(camera.CustomData, out extents);
                 CameraExtends.Add(extents);
-                part = true; 
+                part = true;
             }
             if (block is IMySensorBlock) { Sensor = (IMySensorBlock)block; part = true; }
             if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); ((IMyThrust)block).Enabled = false; part = true; }
@@ -543,6 +590,7 @@ namespace IngameScript
         {
             initialized = true;
             Group = group;
+            EvasionMode = group.Evasion ? AltModeStage.Setup : AltModeStage.Off;
             gyroControl = new GyroControl(Gyros);
             var refWorldMatrix = Controller.WorldMatrix;
             gyroControl.Init(ref refWorldMatrix);
@@ -557,7 +605,7 @@ namespace IngameScript
             launchTime = CanonicalTime;
 
             var rand = new Random();
-            RandomOffset = new Vector3D(rand.NextDouble() - 0.5, rand.NextDouble() - 0.5, rand.NextDouble() - 0.5);
+            RandomHitboxOffset = new Vector3D(rand.NextDouble() - 0.5, rand.NextDouble() - 0.5, rand.NextDouble() - 0.5);
         }
 
         void Split()
@@ -597,6 +645,15 @@ namespace IngameScript
             if (CanonicalTime - launchTime > TimeSpan.FromSeconds(Group.GuidanceStartSeconds + 1) && SubTorpedos.Count > 0) Split();
 
             this.Target = Target;
+
+            Vector3D normalAccelerationVector = RefreshNavigation(CanonicalTime);
+
+            canCruise = canCruise && normalAccelerationVector.Dot(Vector3D.Normalize(Controller.GetShipVelocities().LinearVelocity)) > .98;
+            if ( cruising != canCruise )
+            {
+                cruising = canCruise;
+                foreach (var thruster in Thrusters) thruster.ThrustOverridePercentage = canCruise ? .25f : 1f;
+            }
 
             AimAtTarget(RefreshNavigation(CanonicalTime));
         }
@@ -693,82 +750,126 @@ namespace IngameScript
 
         Vector3D RefreshNavigation(TimeSpan CanonicalTime)
         {
-            Vector3D rangeVector = Target.GetPositionFromCanonicalTime(CanonicalTime) + (RandomOffset * Target.Radius * Group.HitOffset) - Controller.WorldMatrix.Translation;
-            var distTarget = rangeVector.Length();
+            var targetPosition = Target.GetPositionFromCanonicalTime(CanonicalTime);
+            targetPosition += (RandomHitboxOffset * Target.Radius * Group.HitOffset);
+            var rangeVector = targetPosition - Controller.WorldMatrix.Translation;
+            var waypointVector = rangeVector;
+            var distTargetSq = rangeVector.LengthSquared();
 
-            if (rangeVector.LengthSquared() < 120 * 120) proxArmed = true;
-
-            rangeVector += TrickshotOffset;
+            var rand = new Random();
+            proxArmed = proxArmed ? proxArmed : distTargetSq < 120 * 120;
 
             var grav = Controller.GetNaturalGravity();
+            bool inGrav = grav != Vector3D.Zero;
+            // plunging makes no sense in space;
+            plunging = inGrav && plunging;
+            // Trickshot a bad idea in gravity
+            TrickshotMode = inGrav ? AltModeStage.Off : TrickshotMode;
+            // Can't cruise in gravity or too close to target
+            canCruise = !inGrav && (distTargetSq > Group.CruiseDistSqMin);
+
+            // TRICKSHOT - SETUP
+            if (TrickshotMode == AltModeStage.Setup)
+            {
+                TrickshotOffset = TrigHelpers.GetRandomPerpendicularNormalToDirection(rand, rangeVector);
+                TrickshotOffset *= Group.TrickshotDistance;
+
+                TrickshotMode = AltModeStage.Active;
+            }
+
+            // EVASION - SETUP
+            if (EvasionMode == AltModeStage.Setup)
+            {
+                EvasionMode = AltModeStage.Active;
+            }
+
+            // EVASION - ACTIVE
+            if (EvasionMode == AltModeStage.Active)
+            {
+                if (distTargetSq <= Group.EvasionDistSqStart &&
+                    distTargetSq >= Group.EvasionDistSqEnd)
+                {
+                    if (LastCourseAdjustTime - CanonicalTime < TimeSpan.Zero)
+                    {
+                        var invlerp = (distTargetSq - Group.EvasionDistSqStart) / (Group.EvasionDistSqEnd - Group.EvasionDistSqStart);
+                        var nextCourseTime = (1f - invlerp) * Group.EvasionAdjTimeMax + invlerp * Group.EvasionAdjTimeMin + rand.Next(-100, 100);
+
+                        LastCourseAdjustTime = CanonicalTime + TimeSpan.FromMilliseconds(nextCourseTime);
+
+                        EvasionOffset = TrigHelpers.GetRandomPerpendicularNormalToDirection(rand, rangeVector);
+                        var offsetMag = Math.Tan(Group.EvasionOffsetAngle) * Math.Sqrt(distTargetSq);
+                        EvasionOffset *= offsetMag;
+
+                        // Whip did this but less cool:
+                        // _maxRandomAccelRatio = 0.25
+                        // double angle = RNGesus.NextDouble() * Math.PI * 2.0;
+                        // _randomizedHeadingVector = Math.Sin(angle) * _missileReference.WorldMatrix.Up + Math.Cos(angle) * _missileReference.WorldMatrix.Right;
+                        // _randomizedHeadingVector *= _maxRandomAccelRatio;
+                    }
+                }
+                else
+                {
+                    EvasionOffset = Vector3D.Zero;
+                }
+            }
+
+            // TRICKSHOT - ACTIVE
+            if (TrickshotMode == AltModeStage.Active)
+            {
+                waypointVector += TrickshotOffset;
+                if ( waypointVector.LengthSquared() < 100 * 100 ||
+                    distTargetSq < Group.TrickshotTerminalDistanceSq ) 
+                {
+                    TrickshotOffset = Vector3D.Zero;
+                    TrickshotMode = AltModeStage.Off;
+                }
+            }
+
+            // PLUNGING 
             if (plunging)
             {
-
-                if (grav == Vector3D.Zero)
-                {
-                    plunging = false;
-                }
-
                 var gravDir = grav;
                 gravDir.Normalize();
 
                 var targetHeightDiff = rangeVector.Dot(-gravDir); // Positive if target is higher than missile
 
-                if (rangeVector.LengthSquared() < Group.PlungeDist * Group.PlungeDist && targetHeightDiff > 0)
+                if ( (rangeVector.LengthSquared() < Group.PlungeDist * Group.PlungeDist)
+                   && targetHeightDiff > 0 )
                 {
                     plunging = false;
                 }
 
                 if (plunging)
                 {
-                    rangeVector -= gravDir * Group.PlungeDist;
-                    if (rangeVector.LengthSquared() < 300 * 300)
+                    waypointVector -= gravDir * Group.PlungeDist;
+                    if (waypointVector.LengthSquared() < 300 * 300)
                         plunging = false;
                 }
             }
 
-            if (TrickshotOffset == Vector3D.Zero && UseTrickshot)
-            {
-                var perp = new Vector3D(1, 1, -(rangeVector.X + rangeVector.Y) / rangeVector.Z);
-
-                var coperp = perp.Cross(rangeVector);
-                perp.Normalize();
-                coperp.Normalize();
-
-                var rand = new Random();
-                var theta = rand.NextDouble() * Math.PI * 2;
-
-//                 var dist = -rangeVector;
-//                 dist.Normalize();
-//                 dist *= 1200;
-
-                TrickshotOffset = perp * Math.Sin(theta) + coperp * Math.Cos(theta);
-
-                TrickshotOffset *= 1200;
-                // TrickshotOffset += dist;
-                UseTrickshot = false;
-            }
-            if (TrickshotOffset != Vector3D.Zero && rangeVector.LengthSquared() < 100 * 100)
-            {
-                TrickshotOffset = Vector3D.Zero;
-            }
+            // EVASION - We apply the evasion effect last as it can
+            // interfere with plunge & trickshot detecting that they are complete.
+            waypointVector += EvasionOffset;
 
             var linearVelocity = Controller.GetShipVelocities().LinearVelocity;
             Vector3D velocityVector = Target.GetVelocity() - linearVelocity;
             var speed = Controller.GetShipSpeed();
 
-            if (linearVelocity.Dot(ref rangeVector) > 0)
+            double alignment = linearVelocity.Dot(ref waypointVector);
+            if (alignment > 0)
             {
-                Vector3D rangeDivSqVector = rangeVector / rangeVector.LengthSquared();
-                Vector3D compensateVector = velocityVector - (velocityVector.Dot(ref rangeVector) * rangeDivSqVector);
+                Vector3D rangeDivSqVector = waypointVector / waypointVector.LengthSquared();
+                Vector3D compensateVector = velocityVector - (velocityVector.Dot(ref waypointVector) * rangeDivSqVector);
 
                 Vector3D targetANVector;
                 var targetAccel = (lastTargetVelocity - Target.GetVelocity()) * 0.16667;
 
-                targetANVector = targetAccel - grav - (targetAccel.Dot(ref rangeVector) * rangeDivSqVector);
+                targetANVector = targetAccel - grav - (targetAccel.Dot(ref waypointVector) * rangeDivSqVector);
 
-                if (speed > lastSpeed + 1)
+                bool accelerating = speed > lastSpeed + 1;
+                if (accelerating)
                 {
+                    canCruise = false;
                     AccelerationVector = linearVelocity + (3.5 * 1.5 * (compensateVector + (0.5 * targetANVector)));
                 }
                 else
@@ -776,9 +877,10 @@ namespace IngameScript
                     AccelerationVector = linearVelocity + (3.5 * (compensateVector + (0.5 * targetANVector)));
                 }
             }
+            // going backwards or perpendicular
             else
             {
-                AccelerationVector = (rangeVector * 0.1) + velocityVector;
+                AccelerationVector = (waypointVector * 0.1) + velocityVector;
             }
 
             lastTargetVelocity = Target.GetVelocity();
@@ -993,6 +1095,7 @@ namespace IngameScript
         }
 
         public float GuidanceStartSeconds = 2;
+        public double CruiseDistSqMin = 10000;
         public int PlungeDist = 1000;
         public double HitOffset = 0;
         public Dictionary<MyItemType, int> TorpedoParts = new Dictionary<MyItemType, int>();
@@ -1005,6 +1108,17 @@ namespace IngameScript
         public List<IMyInteriorLight> AutofireIndicator = new List<IMyInteriorLight>();
 
         public int seconds = 0;
+
+        public bool Trickshot = false;
+        public float TrickshotDistance = 1200;
+        public float TrickshotTerminalDistanceSq = 1000;
+
+        public bool Evasion = false;
+        public float EvasionDistSqStart = 2000 * 2000;
+        public float EvasionDistSqEnd = 800 * 800;
+        public int EvasionAdjTimeMin = 500;
+        public int EvasionAdjTimeMax = 1000;
+        public double EvasionOffsetAngle = 0.261799; // 15 deg
 
 
         public List<ITorpedoControllable> Children { get; set; }
@@ -1057,15 +1171,15 @@ namespace IngameScript
             {
                 release = new TorpedoTubeRelease();
                 release.Merge = merge;
-//                TorpedoSubsystem.Log.Debug("Merge Release "+ block.CustomName);
+                //                TorpedoSubsystem.Log.Debug("Merge Release "+ block.CustomName);
             }
-            
+
             IMyMechanicalConnectionBlock mechanical = block as IMyMechanicalConnectionBlock;
             if (mechanical != null)
             {
                 release = new TorpedoTubeRelease();
                 release.Mech = mechanical;
-//                TorpedoSubsystem.Log.Debug("Mechanical Release " + block.CustomName);
+                //                TorpedoSubsystem.Log.Debug("Mechanical Release " + block.CustomName);
             }
 
             return release;
@@ -1150,13 +1264,13 @@ namespace IngameScript
 
         public void AddPart(IMyTerminalBlock block)
         {
-            if ( Release == null)
+            if (Release == null)
             {
                 Release = TorpedoTubeRelease.TryConstruct(block);
 
                 if (Release != null)
                 {
-//                    TorpedoSubsystem.Log.Debug("Testing Size " + Name);
+                    //                    TorpedoSubsystem.Log.Debug("Testing Size " + Name);
                     Size = Release.Size();
                     GroupName = Size == MyCubeSize.Small ? "SM" : "LG";
                 }
@@ -1217,12 +1331,12 @@ namespace IngameScript
             Host.PartsScratchpad.Clear();
             if (!LoadTorpedoParts(ref Host.PartsScratchpad))
             {
-//                TorpedoSubsystem.Log.Debug("LoadTorpedoParts FAILURE");
+                //                TorpedoSubsystem.Log.Debug("LoadTorpedoParts FAILURE");
                 LoadedTorpedo = null;
                 return;
             }
 
-//            TorpedoSubsystem.Log.Debug("LoadTorpedoParts SUCCESS");
+            //            TorpedoSubsystem.Log.Debug("LoadTorpedoParts SUCCESS");
             foreach (var part in Host.PartsScratchpad)
             {
                 AddTorpedoPart(part);
@@ -1268,19 +1382,21 @@ namespace IngameScript
             if (!Release.Detach())
                 return null;
 
-            if (Connector != null 
-                && Connector.Status == MyShipConnectorStatus.Connected) 
+            if (Connector != null
+                && Connector.Status == MyShipConnectorStatus.Connected)
                 Connector.OtherConnector.Enabled = false;
 
+            TorpedoTubeGroup group = Host.TorpedoTubeGroups[GroupName];
+
             var torp = LoadedTorpedo;
-            torp.UseTrickshot = trickshot;
+            torp.TrickshotMode = group.Trickshot || trickshot ? Torpedo.AltModeStage.Setup : Torpedo.AltModeStage.Off;
             foreach (var sub in torp.SubTorpedos)
             {
                 sub.HostSubsystem = Host;
-                sub.UseTrickshot = trickshot;
+                sub.TrickshotMode = torp.TrickshotMode;
                 sub.canInitialize = false;
             }
-            torp.Init(canonicalTime, Host.TorpedoTubeGroups[GroupName]);
+            torp.Init(canonicalTime, group);
             LoadedTorpedo = null;
             torp.Target = target;
             torp.HostSubsystem = Host;

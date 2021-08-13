@@ -115,7 +115,7 @@ namespace IngameScript
                         // MINIFICATION DANGER HERE:
                         // Does not like the data.item2 term that gets fed into TryIGCUnpack
                         DATA minifyWorkAround = item.Item2;
-                        context.Log.Debug(Proxy.Type.ToString());
+                        //context.Log.Debug(Proxy.Type.ToString());
                         var updatedIntel = Proxy.TryIGCUnpack(minifyWorkAround, intelItems);
                         if (updatedIntel != null)
                             updatedScratchpad.Add(updatedIntel.Value);

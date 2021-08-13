@@ -67,6 +67,11 @@ namespace IngameScript
     // C400AmmoHE       - 400mm HE)
     // C400AmmoCluster  - 400mm Cluster)
 
+    // MWI Homing 
+    // TorpedoMk1           - M-1 Launcher
+    // DestroyerMissileX    - M-8 Launcher
+
+
     public class CombatLoaderSubsystem : ISubsystem
     {
         #region ISubsystem

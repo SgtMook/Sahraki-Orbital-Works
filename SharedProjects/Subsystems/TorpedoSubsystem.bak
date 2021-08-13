@@ -1,0 +1,1346 @@
+﻿using Sandbox.Game.EntityComponents;
+using Sandbox.ModAPI.Ingame;
+using Sandbox.ModAPI.Interfaces;
+using SpaceEngineers.Game.ModAPI.Ingame;
+using System.Collections.Generic;
+using System.Collections;
+using System.Linq;
+using System.Text;
+using System;
+using VRage.Collections;
+using VRage.Game.Components;
+using VRage.Game.GUI.TextPanel;
+using VRage.Game.ModAPI.Ingame.Utilities;
+using VRage.Game.ModAPI.Ingame;
+using VRage.Game.ObjectBuilders.Definitions;
+using VRage.Game;
+using VRage;
+using VRageMath;
+
+
+
+namespace IngameScript
+{
+    public class TorpedoSubsystem : ISubsystem
+    {
+        #region ISubsystem
+        public UpdateFrequency UpdateFrequency { get; set; }
+
+        public void Command(TimeSpan timestamp, string command, object argument)
+        {
+            if (command == "fire")
+            {
+                Fire(argument, timestamp);
+            }
+            if (command == "firetrick")
+            {
+                Fire(argument, timestamp, true);
+            }
+            if (command == "toggleauto")
+            {
+                TorpedoTubeGroup group;
+                if (TorpedoTubeGroups.TryGetValue((string)argument, out group))
+                {
+                    group.AutoFire = !group.AutoFire;
+                    // Update Indicators
+                    foreach (var light in group.AutofireIndicator) light.Color = group.AutoFire ? Color.LightPink : Color.LightGreen;
+                }
+            }
+        }
+
+        public void DeserializeSubsystem(string serialized)
+        {
+        }
+
+        public string GetStatus()
+        {
+            debugBuilder.Clear();
+            foreach (var kvp in TorpedoTubeGroups)
+                debugBuilder.AppendLine("Grp [" + kvp.Key + "] #" + kvp.Value.Children.Count);
+
+            for (int i = 0; i < TorpedoTubes.Length; ++i)
+            {
+                var tube = TorpedoTubes[i];
+                if (tube == null)
+                    debugBuilder.AppendLine("[" + i + "]=null");
+                else if (!tube.OK() || !tube.Ready)
+                    debugBuilder.AppendLine("[" + i + "]= Rdy:" + tube.Ready + " Ok:" + tube.OK());
+            }
+
+            return debugBuilder.ToString();
+        }
+
+        public string SerializeSubsystem()
+        {
+            return string.Empty;
+        }
+
+        public void Setup( ExecutionContext context, string name )
+        {
+            Context = context;
+
+            TorpedoTubeGroups["SM"] = new TorpedoTubeGroup("SM");
+            TorpedoTubeGroups["LG"] = new TorpedoTubeGroup("LG");
+
+            ParseConfigs();
+
+            GetParts();
+
+            foreach (var group in TorpedoTubeGroups.Values)
+            {
+                foreach (var light in group.AutofireIndicator) light.Color = group.AutoFire ? Color.LightPink : Color.LightGreen;
+            }
+
+            // JIT
+            Fire(null, TimeSpan.Zero);
+        }
+
+        public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
+        {
+            if ((updateFlags & UpdateFrequency.Update100) != 0)
+            {
+                for (int i = 0; i < TorpedoTubes.Count(); i++)
+                {
+                    if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
+                    {
+//                        Log.Debug("Updating Tube " + i);
+                        TorpedoTubes[i].Update(timestamp);
+                    }
+                }
+            }
+            if ((updateFlags & UpdateFrequency.Update1) != 0)
+            {
+                var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
+                runs++;
+                if (runs % 60 == 0)
+                {
+                    foreach(var group in TorpedoTubeGroups.Values)
+                    {
+                        group.seconds++;
+                        if ( group.AutoFire && group.NumReady > 0)
+                        {
+                            if (group.seconds % group.AutoFireSeconds == 0)
+                            {
+                                var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+                                MissileDumpScratchpad.Clear();
+
+                                // NOTE: This may be slow in fleet engagement.
+                                foreach (var kvp in intelItems)
+                                {
+                                    if (kvp.Key.Item1 != IntelItemType.Enemy) 
+                                        continue;
+
+                                    var target = (EnemyShipIntel)kvp.Value;
+
+                                    int targetSizeFlag = (1 << (int)(target.CubeSize));
+                                    targetSizeFlag &= group.AutoFireSizeMask;
+
+                                    var isValidDumpTarget = targetSizeFlag != 0
+                                        && target.Radius > group.AutoFireRadius
+                                        && (target.GetPositionFromCanonicalTime(canonicalTime) - Context.Reference.GetPosition()).Length() < group.AutoFireRange;
+
+                                    if (isValidDumpTarget)
+                                    {
+                                        MissileDumpScratchpad.Add(target);
+                                    }
+                                }
+                                if (MissileDumpScratchpad.Count > 0)
+                                {
+                                    Fire(timestamp, group, MissileDumpScratchpad[rand.Next(MissileDumpScratchpad.Count)], false);
+                                }
+                            }
+                        }
+                    }
+                }
+                if (runs % 6 == 0)
+                {
+                    // Update Torpedos
+                    TorpedoScratchpad.Clear();
+
+                    var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
+
+                    foreach (var torp in Torpedos)
+                    {
+                        if (torp.Target != null)
+                        {
+                            var intelKey = MyTuple.Create(IntelItemType.Enemy, torp.Target.ID);
+                            if (!intelItems.ContainsKey(intelKey))
+                            {
+                                torp.Target = null;
+                            }
+                            else
+                            {
+                                torp.Update((EnemyShipIntel)intelItems[intelKey], canonicalTime);
+                            }
+                        }
+
+                        if (torp.Target == null)
+                        {
+                            EnemyShipIntel combatIntel = null;
+                            double closestIntelDist = double.MaxValue;
+                            foreach (var intel in intelItems)
+                            {
+                                if (intel.Key.Item1 != IntelItemType.Enemy) continue;
+                                var enemyIntel = (EnemyShipIntel)intel.Value;
+
+                                if (!EnemyShipIntel.PrioritizeTarget(enemyIntel)) continue;
+
+                                if (IntelProvider.GetPriority(enemyIntel.ID) < 2) continue;
+
+                                if (enemyIntel.Radius < 30 || enemyIntel.CubeSize != MyCubeSize.Large) continue;
+
+                                double dist = (enemyIntel.GetPositionFromCanonicalTime(canonicalTime) - torp.Controller.WorldMatrix.Translation).Length();
+                                if (IntelProvider.GetPriority(enemyIntel.ID) == 3) dist -= 1000;
+                                if (IntelProvider.GetPriority(enemyIntel.ID) == 4) dist -= 1000;
+                                if (dist < closestIntelDist)
+                                {
+                                    closestIntelDist = dist;
+                                    combatIntel = enemyIntel;
+                                }
+                            }
+                            torp.Update(combatIntel, canonicalTime);
+                        }
+                        if (torp.Disabled) TorpedoScratchpad.Add(torp);
+                    }
+
+                    foreach (var torp in TorpedoScratchpad) Torpedos.Remove(torp);
+                }
+
+                TorpedoScratchpad.Clear();
+                foreach (var torp in Torpedos)
+                {
+                    var extend = torp.Controller.GetShipSpeed() * 0.017 + (torp.Controller.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 11.5 : 3);
+                    torp.FastUpdate();
+                    if (torp.proxArmed && torp.Target != null)
+                    {
+                        if ((torp.Controller.GetPosition() - torp.Target.GetPositionFromCanonicalTime(canonicalTime)).LengthSquared() < extend)
+                        {
+                            TorpedoScratchpad.Add(torp);
+                            torp.Detonate();
+                        }
+                        else if (torp.Fuse != null)
+                        {
+                            if (torp.Fuse.CubeGrid == null || !torp.Fuse.CubeGrid.CubeExists(torp.Fuse.Position))
+                            {
+                                TorpedoScratchpad.Add(torp);
+                                torp.Detonate();
+                            }
+                        }
+                        else if (torp.Cameras.Count > 0)
+                        {
+                            for (int i = 0; i < torp.Cameras.Count; i++)
+                            {
+                                if (!torp.Cameras[i].IsWorking) continue;
+                                MyDetectedEntityInfo detected = torp.Cameras[i].Raycast(extend + torp.CameraExtends[i]);
+                                if (detected.EntityId != 0 && (detected.Relationship == MyRelationsBetweenPlayerAndBlock.Enemies || detected.Relationship == MyRelationsBetweenPlayerAndBlock.Neutral || detected.Relationship == MyRelationsBetweenPlayerAndBlock.NoOwnership))
+                                {
+                                    TorpedoScratchpad.Add(torp);
+                                    torp.Detonate();
+                                }
+                            }
+                        }
+                        else if (torp.Sensor != null && torp.Sensor.IsWorking)
+                        {
+                            torp.Sensor.DetectedEntities(DetectedInfoScratchpad);
+                            if (DetectedInfoScratchpad.Count > 0)
+                            {
+                                DetectedInfoScratchpad.Clear();
+                                TorpedoScratchpad.Add(torp);
+                                torp.Detonate();
+                            }
+                        }
+                    }
+                }
+                foreach (var torp in TorpedoScratchpad) Torpedos.Remove(torp);
+            }
+        }
+        #endregion
+
+        public TorpedoSubsystem(IIntelProvider intelProvider)
+        {
+            UpdateFrequency = UpdateFrequency.Update1 | UpdateFrequency.Update10 | UpdateFrequency.Update100;
+            IntelProvider = intelProvider;
+        }
+
+        public TorpedoTube[] TorpedoTubes = new TorpedoTube[16];
+        public Dictionary<string, TorpedoTubeGroup> TorpedoTubeGroups = new Dictionary<string, TorpedoTubeGroup>();
+
+        public HashSet<Torpedo> Torpedos = new HashSet<Torpedo>();
+        public List<Torpedo> TorpedoScratchpad = new List<Torpedo>();
+        public List<IMyTerminalBlock> PartsScratchpad = new List<IMyTerminalBlock>();
+        List<MyDetectedEntityInfo> DetectedInfoScratchpad = new List<MyDetectedEntityInfo>();
+        List<EnemyShipIntel> MissileDumpScratchpad = new List<EnemyShipIntel>();
+
+        //         HashSet<long> AutofireTargetLog = new HashSet<long>();
+        //         Queue<Torpedo> ReserveTorpedoes = new Queue<Torpedo>();
+
+        ExecutionContext Context;
+
+        IIntelProvider IntelProvider;
+        Random rand = new Random();
+
+        StringBuilder debugBuilder = new StringBuilder();
+
+        public MyIni IniParser = new MyIni();
+
+        long runs;
+        void ParseTubeGroupConfig(MyIni parser, string groupName, TorpedoTubeGroup group)
+        {
+            string section = "Torpedo";
+            if (parser.ContainsSection(section + "_" + groupName))
+            {
+                section = section + "_" + groupName;
+            }
+            group.GuidanceStartSeconds = (float)parser.Get(section, "GuidanceStartSeconds").ToDouble(2.0);
+            group.PlungeDist = parser.Get(section, "PlungeDist").ToInt16(1000);
+            group.HitOffset = parser.Get(section, "HitOffset").ToDouble(0.0);
+
+            group.AutoFire = parser.Get(section, "AutoFire").ToBoolean();
+            group.AutoFireRange = parser.Get(section, "AutoFireRange").ToInt16(15000);
+            group.AutoFireSeconds = parser.Get(section, "AutoFireSeconds").ToInt16(2);
+            group.AutoFireRadius = parser.Get(section, "AutoFireRadius").ToInt16(30);
+            group.AutoFireSizeMask = parser.Get(section, "AutoFireSizeMask").ToInt16(1);
+
+            string partsSection = "Torpedo_Parts";
+            if (parser.ContainsSection(partsSection + "_" + groupName))
+            {
+                partsSection = partsSection + "_" + groupName;
+            }
+
+            List<MyIniKey> partKeys = new List<MyIniKey>();
+            parser.GetKeys(partsSection, partKeys);
+            foreach (var key in partKeys)
+            {
+                var count = parser.Get(key).ToInt32();
+                if (count == 0) 
+                    continue;
+                var type = MyItemType.Parse(key.Name);
+                group.TorpedoParts[type] = count;
+            }
+        }
+
+
+        // [Torpedo] 
+        // TorpedoTubeCount = 16
+        // NOTE: [Torpedo_SM] & [Torpedo_LG] work for specific torpedo groups, otherwise it uses the default tag.
+        // [Torpedo] 
+        // GuidanceStartSeconds = 2
+        // PlungeDist = 1000
+        // HitOffset = 0
+        // AutoFire = False
+        // AutoFireRange = 15000
+        // AutoFireSeconds = 2;
+        // AutoFireRadius = 30; In Meters
+        // AutoFireSizeMask = 1; 1 = LG 2 = SM 3 = BOTH
+        void ParseConfigs()
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(Context.Reference.CustomData, out result))
+                return;
+
+            string section = "Torpedo";
+            if (Parser.ContainsSection(section))
+            {
+                int TorpedoTubeCount = Parser.Get(section, "TorpedoTubeCount").ToInt16(16);
+                if ( TorpedoTubes.Length != TorpedoTubeCount)
+                {
+                    TorpedoTubes = new TorpedoTube[TorpedoTubeCount];
+                }
+            }
+
+            foreach (var group in TorpedoTubeGroups)
+            {
+                ParseTubeGroupConfig(Parser, group.Key, group.Value);
+            }
+        }
+
+        void GetParts()
+        {
+            // This may be a problem at some future time, but I removed the clearing of lists on GetParts call.
+            // All grids I know of only collect on rebuild.
+
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+
+            for (int i = 0; i < TorpedoTubes.Count(); i++)
+            {
+                if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
+                {
+//                     if (!TorpedoTubeGroups.ContainsKey(TorpedoTubes[i].GroupName))
+//                         TorpedoTubeGroups[TorpedoTubes[i].GroupName] = new TorpedoTubeGroup(TorpedoTubes[i].GroupName);
+                    
+                    //Log.Debug("Add Tube#" + i + " to " + TorpedoTubes[i].GroupName);
+                    
+                    TorpedoTubeGroups[TorpedoTubes[i].GroupName].AddTube(TorpedoTubes[i]);
+                }
+            }
+
+            Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectLights);
+        }
+
+        bool CollectParts(IMyTerminalBlock block)
+        {
+            if (!Context.Reference.IsSameConstructAs(block)) return false; // Allow subgrid
+
+            var tagindex = block.CustomName.IndexOf("[TRP");
+
+            if (tagindex == -1) return false;
+
+            var indexTagEnd = block.CustomName.IndexOf(']', tagindex);
+            if (indexTagEnd == -1) return false;
+
+            var numString = block.CustomName.Substring(tagindex + 4, indexTagEnd - tagindex - 4);
+
+            int index;
+            if (!int.TryParse(numString, out index) || 
+                index >= TorpedoTubes.Length)
+                return false;
+//                Context.Log.Debug("Out of Bounds Part " + block.CustomName + " Tube #" + index);
+
+            if (TorpedoTubes[index] == null)
+                TorpedoTubes[index] = new TorpedoTube(index, this);
+
+            TorpedoTubes[index].AddPart(block);
+//            Context.Log.Debug("Added " + block.CustomName + " Tube #" + index);
+
+            return false;
+        }
+
+        bool CollectLights(IMyTerminalBlock block)
+        {
+            if (!Context.Reference.IsSameConstructAs(block)) return false; // Allow subgrid
+
+            if (!block.CustomName.Contains("[TRP]")) return false;
+
+            if (!(block is IMyInteriorLight)) return false;
+
+            var groupName = block.CubeGrid.GridSizeEnum == MyCubeSize.Small ? "SM" : "LG";
+            if (block.CustomName.Contains("LG")) groupName = "LG";
+            if (block.CustomName.Contains("SM")) groupName = "SM";
+            TorpedoTubeGroup group;
+            if (TorpedoTubeGroups.TryGetValue(groupName, out group))
+            {
+                var light = (IMyInteriorLight)block;
+                group.AutofireIndicator.Add(light);
+            }
+
+            return false;
+        }
+
+        void Fire(object argument, TimeSpan localTime, bool trickshot = false)
+        {
+            if (argument == null) return;
+
+            int index;
+
+            if ((string)argument == "all")
+            {
+                for (int i = 0; i < TorpedoTubes.Count(); i++)
+                {
+                    Fire(localTime, TorpedoTubes[i], null, trickshot);
+                }
+            }
+            else if (TorpedoTubeGroups.ContainsKey((string)argument))
+            {
+                Fire(localTime, TorpedoTubeGroups[(string)argument], null, trickshot);
+            }
+            else
+            {
+                if (!(argument is string)) return;
+                if (!int.TryParse((string)argument, out index)) return;
+                Fire(localTime, TorpedoTubes[index], null, trickshot);
+            }
+        }
+
+        public Torpedo Fire(TimeSpan localTime, ITorpedoControllable unit, EnemyShipIntel target = null, bool trickshot = true)
+        {
+            if (unit == null || !unit.Ready) return null;
+            var torp = unit.Fire(localTime + IntelProvider.CanonicalTimeDiff, target, trickshot);
+            if (torp != null)
+            {
+                Torpedos.Add(torp);
+                foreach (var subtorp in torp.SubTorpedos) Torpedos.Add(subtorp);
+                return torp;
+            }
+            return null;
+        }
+    }
+    
+    // This is a refhax torpedo
+    public class Torpedo
+    {
+        public enum AltModeStage
+        {
+            Off,
+            Setup,
+            Active,
+            Terminal,
+        }
+
+        public TorpedoTubeGroup Group;
+        public List<IMyGyro> Gyros = new List<IMyGyro>();
+        public HashSet<IMyWarhead> Warheads = new HashSet<IMyWarhead>();
+        public HashSet<IMyThrust> Thrusters = new HashSet<IMyThrust>();
+        public HashSet<IMyBatteryBlock> Batteries = new HashSet<IMyBatteryBlock>();
+        public HashSet<IMyGasTank> Tanks = new HashSet<IMyGasTank>();
+        public List<IMyCameraBlock> Cameras = new List<IMyCameraBlock>();
+        public List<float> CameraExtends = new List<float>();
+        public IMySensorBlock Sensor;
+        public IMyShipController Controller;
+        public string Tag; // This is the number of the index of SubMissiles. Legacy: HE, CLST, MICRO, etc
+        public HashSet<IMyShipMergeBlock> Splitters = new HashSet<IMyShipMergeBlock>();
+
+        public HashSet<Torpedo> SubTorpedos = new HashSet<Torpedo>();
+
+        public IMyTerminalBlock Fuse;
+
+        GyroControl gyroControl;
+
+        PDController yawController = new PDController(DEF_PD_P_GAIN, DEF_PD_D_GAIN, 10);
+        PDController pitchController = new PDController(DEF_PD_P_GAIN, DEF_PD_D_GAIN, 10);
+
+        TimeSpan launchTime = TimeSpan.Zero;
+
+        public bool Reserve = false;
+        public TimeSpan ReserveTime;
+        public bool Disabled = false;
+        public IFleetIntelligence Target = null;
+
+        double lastSpeed;
+        Vector3D lastTargetVelocity;
+
+        public Vector3D AccelerationVector;
+
+        bool initialized = false;
+        bool plunging = true;
+        public bool canInitialize = true;
+        int runs = 0;
+
+        Vector3D RandomHitboxOffset;
+
+        public AltModeStage TrickshotMode = AltModeStage.Off;
+        Vector3D TrickshotOffset = Vector3D.Zero;
+
+        AltModeStage DrunkenMode = AltModeStage.Off;
+        Vector3D DrunkenOffset = Vector3D.Zero;
+        TimeSpan LastCourseAdjustTime;
+
+        public bool proxArmed = false;
+        public TorpedoSubsystem HostSubsystem = null;
+
+        public bool AddPart(IMyTerminalBlock block)
+        {
+            bool part = false;
+            if (block.CustomName.Contains("[F]")) { Fuse = block; part = true; }
+            if (block is IMyShipController) { Controller = (IMyShipController)block; part = true; }
+            if (block is IMyGyro) { Gyros.Add((IMyGyro)block); part = true; }
+            if (block is IMyCameraBlock) {
+                var camera = (IMyCameraBlock)block; 
+                Cameras.Add(camera); 
+                camera.EnableRaycast = true;
+                float extents;
+                float.TryParse(camera.CustomData, out extents);
+                CameraExtends.Add(extents);
+                part = true; 
+            }
+            if (block is IMySensorBlock) { Sensor = (IMySensorBlock)block; part = true; }
+            if (block is IMyThrust) { Thrusters.Add((IMyThrust)block); ((IMyThrust)block).Enabled = false; part = true; }
+            if (block is IMyWarhead) { Warheads.Add((IMyWarhead)block); part = true; }
+            if (block is IMyShipMergeBlock) { Splitters.Add((IMyShipMergeBlock)block); part = true; }
+            if (block is IMyBatteryBlock) { Batteries.Add((IMyBatteryBlock)block); ((IMyBatteryBlock)block).Enabled = false; part = true; }
+            if (block is IMyGasTank) { Tanks.Add((IMyGasTank)block); ((IMyGasTank)block).Enabled = true; part = true; }
+            return part;
+        }
+
+        public void Init(TimeSpan CanonicalTime, TorpedoTubeGroup group)
+        {
+            initialized = true;
+            Group = group;
+            gyroControl = new GyroControl(Gyros);
+            var refWorldMatrix = Controller.WorldMatrix;
+            gyroControl.Init(ref refWorldMatrix);
+            foreach (var tank in Tanks) tank.Stockpile = false;
+
+            foreach (var Gyro in Gyros)
+            {
+                Gyro.GyroOverride = true;
+                Gyro.Enabled = true;
+            }
+
+            launchTime = CanonicalTime;
+
+            var rand = new Random();
+            RandomHitboxOffset = new Vector3D(rand.NextDouble() - 0.5, rand.NextDouble() - 0.5, rand.NextDouble() - 0.5);
+        }
+
+        void Split()
+        {
+            foreach (var merge in Splitters)
+            {
+                merge.Enabled = false;
+            }
+            foreach (var torp in SubTorpedos)
+            {
+                torp.canInitialize = true;
+                if (!torp.Reserve)
+                {
+                    torp.Init(launchTime, Group);
+                    if (torp.Target == null) torp.Target = Target;
+                }
+            }
+            SubTorpedos.Clear();
+        }
+
+        public void Update(EnemyShipIntel Target, TimeSpan CanonicalTime)
+        {
+            if (!initialized) return;
+            if (!OK())
+            {
+                foreach (var Gyro in Gyros)
+                {
+                    Gyro.Enabled = false;
+                }
+                Arm();
+                Disabled = true;
+            }
+            if (Disabled) return;
+            if (CanonicalTime - launchTime < TimeSpan.FromSeconds(Group.GuidanceStartSeconds)) return;
+            if (Target == null) return;
+
+            if (CanonicalTime - launchTime > TimeSpan.FromSeconds(Group.GuidanceStartSeconds + 1) && SubTorpedos.Count > 0) Split();
+
+            this.Target = Target;
+
+            AimAtTarget(RefreshNavigation(CanonicalTime));
+        }
+
+        public void FastUpdate()
+        {
+            if (initialized)
+            {
+                runs++;
+                if (runs == 2)
+                {
+                    foreach (var thruster in Thrusters)
+                    {
+                        thruster.Enabled = true;
+                        thruster.ThrustOverridePercentage = 1;
+                    }
+                    foreach (var battery in Batteries)
+                    {
+                        battery.Enabled = true;
+                    }
+                }
+            }
+        }
+
+        public bool OK()
+        {
+            return Gyros.Count > 0 && Controller != null && Controller.IsFunctional && Thrusters.Count > 0;
+        }
+
+        void AimAtTarget(Vector3D TargetVector)
+        {
+            //TargetVector.Normalize();
+            //TargetVector += Controller.WorldMatrix.Up * 0.1;
+
+            //---------- Activate Gyroscopes To Turn Towards Target ----------
+
+            double absX = Math.Abs(TargetVector.X);
+            double absY = Math.Abs(TargetVector.Y);
+            double absZ = Math.Abs(TargetVector.Z);
+
+            double yawInput, pitchInput;
+            if (absZ < 0.00001)
+            {
+                yawInput = pitchInput = MathHelperD.PiOver2;
+            }
+            else
+            {
+                bool flipYaw = absX > absZ;
+                bool flipPitch = absY > absZ;
+
+                yawInput = FastAT(Math.Max(flipYaw ? (absZ / absX) : (absX / absZ), 0.00001));
+                pitchInput = FastAT(Math.Max(flipPitch ? (absZ / absY) : (absY / absZ), 0.00001));
+
+                if (flipYaw) yawInput = MathHelperD.PiOver2 - yawInput;
+                if (flipPitch) pitchInput = MathHelperD.PiOver2 - pitchInput;
+
+                if (TargetVector.Z > 0)
+                {
+                    yawInput = (Math.PI - yawInput);
+                    pitchInput = (Math.PI - pitchInput);
+                }
+            }
+
+            //---------- PID Controller Adjustment ----------
+
+            if (double.IsNaN(yawInput)) yawInput = 0;
+            if (double.IsNaN(pitchInput)) pitchInput = 0;
+
+            yawInput *= GetSign(TargetVector.X);
+            pitchInput *= GetSign(TargetVector.Y);
+
+            yawInput = yawController.Filter(yawInput, 2);
+            pitchInput = pitchController.Filter(pitchInput, 2);
+
+            if (Math.Abs(yawInput) + Math.Abs(pitchInput) > DEF_PD_AIM_LIMIT)
+            {
+                double adjust = DEF_PD_AIM_LIMIT / (Math.Abs(yawInput) + Math.Abs(pitchInput));
+                yawInput *= adjust;
+                pitchInput *= adjust;
+            }
+
+            //---------- Set Gyroscope Parameters ----------
+
+            gyroControl.SetGyroYaw((float)yawInput);
+            gyroControl.SetGyroPitch((float)pitchInput);
+            gyroControl.SetGyroRoll(ROLL_THETA);
+        }
+
+        const double DEF_PD_P_GAIN = 10;
+        const double DEF_PD_D_GAIN = 5;
+        const double DEF_PD_AIM_LIMIT = 6.3;
+
+        float ROLL_THETA = 0;
+
+        Vector3D RefreshNavigation(TimeSpan CanonicalTime)
+        {
+            var targetPosition = Target.GetPositionFromCanonicalTime(CanonicalTime);
+            targetPosition += (RandomHitboxOffset * Target.Radius * Group.HitOffset);
+            var rangeVector = targetPosition - Controller.WorldMatrix.Translation;
+            var distTargetSq = rangeVector.LengthSquared();
+
+            proxArmed = proxArmed ? proxArmed : distTargetSq < 120 * 120;
+
+            var grav = Controller.GetNaturalGravity();
+            bool inGrav = grav != Vector3D.Zero;
+            if (!inGrav)
+            {
+                plunging = false;
+            }
+            else
+            {
+                if ( TrickshotMode != AltModeStage.Off )
+                {
+                    if (TrickshotMode == AltModeStage.Setup)
+                    {
+                        var direction = -rangeVector;
+                        direction.Normalize();
+                        var perp = Vector3D.CalculatePerpendicularVector(direction);
+                        var coperp = perp.Cross(rangeVector);
+
+                        var rand = new Random();
+                        var theta = rand.NextDouble() * Math.PI * 2;
+
+                        TrickshotOffset = perp * Math.Sin(theta) + coperp * Math.Cos(theta);
+                        TrickshotOffset *= 1200;
+
+                        TrickshotMode = AltModeStage.Active;
+                    }
+
+                    if (TrickshotMode == AltModeStage.Active)
+                    {
+                        rangeVector += TrickshotOffset;
+
+                        if ( rangeVector.LengthSquared() < 100 * 100)
+                        {
+                            TrickshotOffset = Vector3D.Zero;
+                            TrickshotMode = AltModeStage.Off;
+                        }
+                    }
+                }
+                if (DrunkenMode != AltModeStage.Off)
+                {
+                    distTargetSq = rangeVector.LengthSquared();
+
+                    if ( distTargetSq <= Group.DrunkenDistSqEnd )
+                    {
+                        if ( LastCourseAdjustTime - CanonicalTime < TimeSpan.Zero )
+                        {
+                            var rand = new Random();
+                            LastCourseAdjustTime = CanonicalTime + TimeSpan.FromMilliseconds(rand.Next(Group.DrunkenAdjTimeMin, Group.DrunkenAdjTimeMax));
+
+
+                        }
+                    }
+                    else if ( distTargetSq <= Group.DrunkenDistSqStart )
+                    {
+
+                    }
+
+                    if ( rangeVector.LengthSquared() < Group.DrunkenTerminal * 100 )
+                    {
+
+                    }
+                    if ( DateTime.Now )
+                    rangeVector += DrunkenOffset;
+                }
+
+
+
+
+            if (plunging)
+            {
+                var gravDir = grav;
+                gravDir.Normalize();
+
+                var targetHeightDiff = rangeVector.Dot(-gravDir); // Positive if target is higher than missile
+
+                if (rangeVector.LengthSquared() < Group.PlungeDist * Group.PlungeDist && targetHeightDiff > 0)
+                {
+                    plunging = false;
+                }
+
+                if (plunging)
+                {
+                    rangeVector -= gravDir * Group.PlungeDist;
+                    if (rangeVector.LengthSquared() < 300 * 300)
+                        plunging = false;
+                }
+            }
+
+
+
+
+            var linearVelocity = Controller.GetShipVelocities().LinearVelocity;
+            Vector3D velocityVector = Target.GetVelocity() - linearVelocity;
+            var speed = Controller.GetShipSpeed();
+
+            if (linearVelocity.Dot(ref rangeVector) > 0)
+            {
+                Vector3D rangeDivSqVector = rangeVector / rangeVector.LengthSquared();
+                Vector3D compensateVector = velocityVector - (velocityVector.Dot(ref rangeVector) * rangeDivSqVector);
+
+                Vector3D targetANVector;
+                var targetAccel = (lastTargetVelocity - Target.GetVelocity()) * 0.16667;
+
+                targetANVector = targetAccel - grav - (targetAccel.Dot(ref rangeVector) * rangeDivSqVector);
+
+                if (speed > lastSpeed + 1)
+                {
+                    AccelerationVector = linearVelocity + (3.5 * 1.5 * (compensateVector + (0.5 * targetANVector)));
+                }
+                else
+                {
+                    AccelerationVector = linearVelocity + (3.5 * (compensateVector + (0.5 * targetANVector)));
+                }
+            }
+            else
+            {
+                AccelerationVector = (rangeVector * 0.1) + velocityVector;
+            }
+
+            lastTargetVelocity = Target.GetVelocity();
+            lastSpeed = speed;
+
+            return Vector3D.TransformNormal(AccelerationVector, MatrixD.Transpose(Controller.WorldMatrix));
+        }
+
+        void Arm()
+        {
+            foreach (var warhead in Warheads) warhead.IsArmed = true;
+        }
+
+        public void Detonate()
+        {
+            foreach (var warhead in Warheads)
+            {
+                warhead.IsArmed = true;
+                warhead.Detonate();
+            }
+        }
+
+        double FastAT(double x)
+        {
+            return 0.785375 * x - x * (x - 1.0) * (0.2447 + 0.0663 * x);
+        }
+
+        double GetSign(double value)
+        {
+            return value < 0 ? -1 : 1;
+        }
+
+    }
+
+    public class GyroControl
+    {
+        Action<IMyGyro, float>[] profiles =
+        {
+            (g, v) => { g.Yaw = -v; },
+            (g, v) => { g.Yaw = v; },
+            (g, v) => { g.Pitch = -v; },
+            (g, v) => { g.Pitch = v; },
+            (g, v) => { g.Roll = -v; },
+            (g, v) => { g.Roll = v; }
+        };
+
+        List<IMyGyro> gyros;
+
+        byte[] gyroYaw;
+        byte[] gyroPitch;
+        byte[] gyroRoll;
+
+        int activeGyro = 0;
+
+        public GyroControl(List<IMyGyro> newGyros)
+        {
+            gyros = newGyros;
+        }
+
+        public void Init(ref MatrixD refWorldMatrix)
+        {
+            if (gyros == null)
+            {
+                gyros = new List<IMyGyro>();
+            }
+
+            gyroYaw = new byte[gyros.Count];
+            gyroPitch = new byte[gyros.Count];
+            gyroRoll = new byte[gyros.Count];
+
+            for (int i = 0; i < gyros.Count; i++)
+            {
+                gyroYaw[i] = SetRelativeDirection(gyros[i].WorldMatrix.GetClosestDirection(refWorldMatrix.Up));
+                gyroPitch[i] = SetRelativeDirection(gyros[i].WorldMatrix.GetClosestDirection(refWorldMatrix.Left));
+                gyroRoll[i] = SetRelativeDirection(gyros[i].WorldMatrix.GetClosestDirection(refWorldMatrix.Forward));
+            }
+
+            activeGyro = 0;
+        }
+
+        public byte SetRelativeDirection(Base6Directions.Direction dir)
+        {
+            switch (dir)
+            {
+                case Base6Directions.Direction.Up:
+                    return 1;
+                case Base6Directions.Direction.Down:
+                    return 0;
+                case Base6Directions.Direction.Left:
+                    return 2;
+                case Base6Directions.Direction.Right:
+                    return 3;
+                case Base6Directions.Direction.Forward:
+                    return 4;
+                case Base6Directions.Direction.Backward:
+                    return 5;
+            }
+            return 0;
+        }
+
+        public void SetGyroOverride(bool bOverride)
+        {
+            CheckGyro();
+
+            for (int i = 0; i < gyros.Count; i++)
+            {
+                if (i == activeGyro) gyros[i].GyroOverride = bOverride;
+                else gyros[i].GyroOverride = false;
+            }
+        }
+
+        public void SetGyroYaw(float yawRate)
+        {
+            CheckGyro();
+
+            if (activeGyro < gyros.Count)
+            {
+                profiles[gyroYaw[activeGyro]](gyros[activeGyro], yawRate);
+            }
+        }
+
+        public void SetGyroPitch(float pitchRate)
+        {
+            if (activeGyro < gyros.Count)
+            {
+                profiles[gyroPitch[activeGyro]](gyros[activeGyro], pitchRate);
+            }
+        }
+
+        public void SetGyroRoll(float rollRate)
+        {
+            if (activeGyro < gyros.Count)
+            {
+                profiles[gyroRoll[activeGyro]](gyros[activeGyro], rollRate);
+            }
+        }
+
+        void CheckGyro()
+        {
+            while (activeGyro < gyros.Count)
+            {
+                if (gyros[activeGyro].IsFunctional)
+                {
+                    break;
+                }
+                else
+                {
+                    IMyGyro gyro = gyros[activeGyro];
+
+                    gyro.Enabled = gyro.GyroOverride = false;
+                    gyro.Yaw = gyro.Pitch = gyro.Roll = 0f;
+
+                    activeGyro++;
+                }
+            }
+        }
+    }
+
+    public class PDController
+    {
+        double lastInput;
+
+        public double gain_p;
+        public double gain_d;
+
+        double second;
+
+        public PDController(double pGain, double dGain, float stepsPerSecond = 60f)
+        {
+            gain_p = pGain;
+            gain_d = dGain;
+            second = stepsPerSecond;
+        }
+
+        public double Filter(double input, int round_d_digits)
+        {
+            double roundedInput = Math.Round(input, round_d_digits);
+
+            double derivative = (roundedInput - lastInput) * second;
+            lastInput = roundedInput;
+
+            return (gain_p * input) + (gain_d * derivative);
+        }
+
+        public void Reset()
+        {
+            lastInput = 0;
+        }
+    }
+
+    public interface ITorpedoControllable
+    {
+        string Name { get; }
+        bool Ready { get; }
+        Torpedo Fire(TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true);
+    }
+
+    public class TorpedoTubeGroup : ITorpedoControllable
+    {
+        public string Name { get; set; }
+
+        public bool Ready
+        {
+            get
+            {
+                foreach (ITorpedoControllable tube in Children)
+                {
+                    if (tube.Ready) return true;
+                }
+                return false;
+            }
+        }
+
+        public float GuidanceStartSeconds = 2;
+        public int PlungeDist = 1000;
+        public double HitOffset = 0;
+        public Dictionary<MyItemType, int> TorpedoParts = new Dictionary<MyItemType, int>();
+
+        public bool AutoFire = false;
+        public int AutoFireRange = 15000;
+        public int AutoFireSeconds = 2;
+        public int AutoFireRadius = 30;
+        public int AutoFireSizeMask = 1;
+        public List<IMyInteriorLight> AutofireIndicator = new List<IMyInteriorLight>();
+
+        public int seconds = 0;
+
+        public float DrunkenDistSqStart = 2000*2000;
+        public float DrunkenDistSqEnd = 800*800;
+        public int DrunkenAdjTimeMin = 500;
+        public int DrunkenAdjTimeMax = 2000;
+
+
+        public List<ITorpedoControllable> Children { get; set; }
+
+        public Torpedo Fire(TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true)
+        {
+            foreach (ITorpedoControllable tube in Children)
+            {
+                if (tube.Ready) return tube.Fire(canonicalTime, target, trickshot);
+            }
+            return null;
+        }
+
+        public TorpedoTubeGroup(string name)
+        {
+            Name = name;
+            Children = new List<ITorpedoControllable>();
+        }
+
+        public void AddTube(TorpedoTube tube)
+        {
+            Children.Add(tube);
+        }
+
+        public int NumReady
+        {
+            get
+            {
+                int count = 0;
+
+                foreach (ITorpedoControllable tube in Children)
+                {
+                    if (tube.Ready) count++;
+                }
+                return count;
+            }
+        }
+    }
+
+    public class TorpedoTubeRelease
+    {
+        private IMyShipMergeBlock Merge;
+        private IMyMechanicalConnectionBlock Mech;
+        public static TorpedoTubeRelease TryConstruct(IMyTerminalBlock block)
+        {
+            TorpedoTubeRelease release = null;
+
+            IMyShipMergeBlock merge = block as IMyShipMergeBlock;
+            if (merge != null)
+            {
+                release = new TorpedoTubeRelease();
+                release.Merge = merge;
+//                TorpedoSubsystem.Log.Debug("Merge Release "+ block.CustomName);
+            }
+            
+            IMyMechanicalConnectionBlock mechanical = block as IMyMechanicalConnectionBlock;
+            if (mechanical != null)
+            {
+                release = new TorpedoTubeRelease();
+                release.Mech = mechanical;
+//                TorpedoSubsystem.Log.Debug("Mechanical Release " + block.CustomName);
+            }
+
+            return release;
+        }
+
+        public bool Detach()
+        {
+            if (Merge != null)
+            {
+                var releaseOther = GridTerminalHelper.OtherMergeBlock(Merge);
+                if (releaseOther == null)
+                    return false;
+                releaseOther.Enabled = false;
+            }
+            else
+            if (Mech != null)
+            {
+                if (Mech.Top == null)
+                    return false;
+                Mech.Detach();
+            }
+            return true;
+        }
+        public MyCubeSize Size()
+        {
+            if (Merge != null)
+                return Merge.CubeGrid.GridSizeEnum;
+            if (Mech != null)
+                return Mech.CubeGrid.GridSizeEnum;
+
+            return MyCubeSize.Small;
+        }
+
+        public bool LoadTorpedoParts(ref List<IMyTerminalBlock> results)
+        {
+            if (Merge != null)
+            {
+                var releaseOther = GridTerminalHelper.OtherMergeBlock(Merge);
+                if (releaseOther == null || !releaseOther.IsFunctional || !releaseOther.Enabled)
+                    return false;
+
+                return GridTerminalHelper.Base64BytePosToBlockList(releaseOther.CustomData, releaseOther, ref results);
+            }
+            else if (Mech != null)
+            {
+                if (Mech.Top == null)
+                    return false;
+
+                return GridTerminalHelper.Base64BytePosToBlockList(Mech.CustomData, Mech.Top, ref results);
+            }
+            return false;
+        }
+    }
+    public class TorpedoTube : ITorpedoControllable
+    {
+        public TorpedoTubeRelease Release;
+        public IMyShipConnector Connector;
+
+        public Torpedo LoadedTorpedo;
+
+        TorpedoSubsystem Host;
+        Torpedo[] SubTorpedosScratchpad = new Torpedo[16];
+
+        public MyCubeSize Size;
+        public string Name { get; set; }
+        public string GroupName;
+        public bool Ready => LoadedTorpedo != null;
+        public List<ITorpedoControllable> Children { get; set; }
+
+        public TorpedoTube(int index, TorpedoSubsystem host)
+        {
+            Host = host;
+            Children = new List<ITorpedoControllable>();
+            Name = index.ToString("00");
+            Fire(TimeSpan.Zero, null);
+        }
+
+        public bool OK()
+        {
+            return Release != null;
+        }
+
+        public void AddPart(IMyTerminalBlock block)
+        {
+            if ( Release == null)
+            {
+                Release = TorpedoTubeRelease.TryConstruct(block);
+
+                if (Release != null)
+                {
+//                    TorpedoSubsystem.Log.Debug("Testing Size " + Name);
+                    Size = Release.Size();
+                    GroupName = Size == MyCubeSize.Small ? "SM" : "LG";
+                }
+            }
+
+            if (block is IMyShipConnector)
+                Connector = (IMyShipConnector)block;
+        }
+
+        public void Update(TimeSpan LocalTime)
+        {
+            if (LoadedTorpedo == null)
+            {
+                GetTorpedo();
+            }
+        }
+
+        public bool AddTorpedoPart(IMyTerminalBlock part)
+        {
+            if (part.CustomName.StartsWith("<SUB"))
+            {
+                var indexTagEnd = part.CustomName.IndexOf('>');
+                if (indexTagEnd == -1) return false;
+
+                var numString = part.CustomName.Substring(4, indexTagEnd - 4);
+
+                int index;
+                if (!int.TryParse(numString, out index)) return false;
+                if (SubTorpedosScratchpad[index] == null)
+                {
+                    SubTorpedosScratchpad[index] = new Torpedo();
+                    SubTorpedosScratchpad[index].Tag = index.ToString();
+
+                    LoadedTorpedo.SubTorpedos.Add(SubTorpedosScratchpad[index]);
+                }
+                return SubTorpedosScratchpad[index].AddPart(part);
+            }
+            else
+            {
+                return LoadedTorpedo.AddPart(part);
+            }
+        }
+
+        bool LoadTorpedoParts(ref List<IMyTerminalBlock> results)
+        {
+            return Release.LoadTorpedoParts(ref results);
+        }
+
+        void GetTorpedo()
+        {
+            LoadedTorpedo = new Torpedo();
+
+            for (int i = 0; i < SubTorpedosScratchpad.Length; i++)
+            {
+                SubTorpedosScratchpad[i] = null;
+            }
+
+            Host.PartsScratchpad.Clear();
+            if (!LoadTorpedoParts(ref Host.PartsScratchpad))
+            {
+//                TorpedoSubsystem.Log.Debug("LoadTorpedoParts FAILURE");
+                LoadedTorpedo = null;
+                return;
+            }
+
+//            TorpedoSubsystem.Log.Debug("LoadTorpedoParts SUCCESS");
+            foreach (var part in Host.PartsScratchpad)
+            {
+                AddTorpedoPart(part);
+            }
+
+            if (!LoadedTorpedo.OK())
+            {
+                LoadedTorpedo = null;
+                return;
+            }
+
+            for (int i = 0; i < SubTorpedosScratchpad.Length; i++)
+            {
+                if (SubTorpedosScratchpad[i] != null)
+                {
+                    if (!SubTorpedosScratchpad[i].OK())
+                    {
+                        LoadedTorpedo = null;
+                        return;
+                    }
+                }
+            }
+
+            if (Connector != null)
+            {
+                if (Connector.Status == MyShipConnectorStatus.Connectable) Connector.Connect();
+                if (Connector.Status != MyShipConnectorStatus.Connected)
+                {
+                    LoadedTorpedo = null;
+                    return;
+                }
+            }
+
+            foreach (var tank in LoadedTorpedo.Tanks) tank.Stockpile = true;
+        }
+
+        public Torpedo Fire(TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true)
+        {
+            if (canonicalTime == TimeSpan.Zero)
+                return null;
+            if (LoadedTorpedo == null)
+                return null;
+            if (!Release.Detach())
+                return null;
+
+            if (Connector != null 
+                && Connector.Status == MyShipConnectorStatus.Connected) 
+                Connector.OtherConnector.Enabled = false;
+
+            var torp = LoadedTorpedo;
+            torp.TrickshotMode = trickshot ? Torpedo.AltModeStage.Setup : Torpedo.AltModeStage.Off;
+            foreach (var sub in torp.SubTorpedos)
+            {
+                sub.HostSubsystem = Host;
+                sub.TrickshotMode = torp.TrickshotMode;
+                sub.canInitialize = false;
+            }
+            torp.Init(canonicalTime, Host.TorpedoTubeGroups[GroupName]);
+            LoadedTorpedo = null;
+            torp.Target = target;
+            torp.HostSubsystem = Host;
+            return torp;
+        }
+    }
+
+}

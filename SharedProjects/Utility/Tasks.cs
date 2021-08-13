@@ -786,6 +786,8 @@ namespace IngameScript
 
             if (Indicator != null && dock.IndicatorDir != Vector3D.Zero)
             {
+                //Matrix.CreateWorld(Connector.WorldMatrix.Translation, Connector.WorldMatrix.Forward, Indicator.WorldMatrix.Forward);
+
                 var tDir = Vector3D.TransformNormal(Vector3D.TransformNormal(dock.IndicatorDir, MatrixD.Transpose(MatrixD.CreateFromDir(Connector.WorldMatrix.Forward, Indicator.WorldMatrix.Forward))), Connector.WorldMatrix);
                 ApproachEntrance.Destination.DirectionUp = tDir;
                 ApproachDock.Destination.DirectionUp = tDir;
