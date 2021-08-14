@@ -60,6 +60,42 @@ namespace IngameScript
             }
         }
     }
+    
+    // Wrapping for functionality & minification
+    public class CommandLine
+    {
+        public string Subsystem;
+//        string[] myArgument;
+
+        MyCommandLine myCommandLine;
+//        public CommandLine();
+        public bool TryParse(string line, bool updated = false)
+        {
+            bool success = myCommandLine.TryParse(line);
+            if ( success && updated )
+            {
+                Subsystem = myCommandLine.Argument(0);
+                int index = line.IndexOf(Subsystem);
+                line.Remove(index, Subsystem.Length);
+
+                success = myCommandLine.TryParse(line);
+//                 if ( success )
+//                 {
+//                     Argument = new string[myCommandLine.ArgumentCount];
+//                     for (int i = 0; i < myCommandLine.ArgumentCount; ++i)
+//                     {
+//                         Argument[i] = myCommandLine.Argument(i);
+//                     }
+//                 }
+            }
+            return success;
+        }
+        public string Argument(int index)
+        {
+            return myCommandLine.Argument(index);
+        }
+        public int ArgumentCount => myCommandLine.ArgumentCount;
+    }
 
     public class ExecutionContext
     {
@@ -334,6 +370,17 @@ namespace IngameScript
             {
                 Subsystems[subsystem].Command(Timestamp, command, argument);
             }
+        }
+        public void CommandV2(CommandLine command)
+        {
+//             if ( command.Argument(0) == "manager" )
+//             {
+//                 Command(command.Argument(0), command.Argument(1), null);
+//             }
+//             else if (Subsystems.ContainsKey(command.Argument(0)))
+//            {
+                Subsystems[command.Argument(0)].CommandV2(Timestamp, command);
+//            }
         }
 
         public void UpdateTime()

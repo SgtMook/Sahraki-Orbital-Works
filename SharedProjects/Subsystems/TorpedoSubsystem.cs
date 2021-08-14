@@ -47,6 +47,14 @@ namespace IngameScript
                 }
             }
         }
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+            if ( command.Argument(0) == "firesequence" )
+            {
+                FireSequence()
+            }
+
+        }
 
         public void DeserializeSubsystem(string serialized)
         {
