@@ -344,7 +344,10 @@ namespace IngameScript
         {
             if (command == "clear") ClearOwners(argument);
         }
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
 
+        }
         public void DeserializeSubsystem(string serialized)
         {
             var reader = new MyStringReader(serialized);

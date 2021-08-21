@@ -127,7 +127,7 @@ namespace IngameScript
             ToolbarOutput = Parser.Get("SetUp", "ToolbarOutput").ToBoolean(false);
         }
 
-        MyCommandLine commandLine = new MyCommandLine();
+        CommandLine commandLine = new CommandLine();
 
         SubsystemManager subsystemManager;
 
@@ -182,7 +182,7 @@ namespace IngameScript
             }
             else if (commandLine.TryParse(argument))
             {
-                subsystemManager.Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
+                subsystemManager.CommandV2(commandLine);
             }
             else
             {

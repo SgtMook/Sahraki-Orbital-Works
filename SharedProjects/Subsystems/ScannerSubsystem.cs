@@ -31,7 +31,10 @@ namespace IngameScript
         {
             if (command == "designate") Designate(timestamp);
         }
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
 
+        }
         public void DeserializeSubsystem(string serialized)
         {
         }
@@ -288,7 +291,7 @@ namespace IngameScript
         {
             var scanned = false;
             double offsetDist = 0.0d;
-            var random = new Random();
+            var random = Context.Random;
             if (enemy == null) 
                 enemy = new EnemyShipIntel();
             else 

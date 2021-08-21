@@ -65,28 +65,30 @@ namespace IngameScript
     public class CommandLine
     {
         public string Subsystem;
-//        string[] myArgument;
+        MyCommandLine myCommandLine = new MyCommandLine();
 
-        MyCommandLine myCommandLine;
-//        public CommandLine();
-        public bool TryParse(string line, bool updated = false)
+        public string JoinArguments(StringBuilder builder, int start, int end)
+        {
+            builder.Clear();
+            int termination = Math.Max(ArgumentCount-1, end);
+            for ( int i = start; i <= termination; ++i )
+            {
+                builder.Append(myCommandLine.Items[i]);
+                if ( i != termination)
+                    builder.Append(' ');
+            }
+            return builder.ToString();
+        }
+        public bool TryParse(string line)
         {
             bool success = myCommandLine.TryParse(line);
-            if ( success && updated )
+            if ( success )
             {
                 Subsystem = myCommandLine.Argument(0);
                 int index = line.IndexOf(Subsystem);
-                line.Remove(index, Subsystem.Length);
+                line = line.Remove(index, Subsystem.Length);
 
                 success = myCommandLine.TryParse(line);
-//                 if ( success )
-//                 {
-//                     Argument = new string[myCommandLine.ArgumentCount];
-//                     for (int i = 0; i < myCommandLine.ArgumentCount; ++i)
-//                     {
-//                         Argument[i] = myCommandLine.Argument(i);
-//                     }
-//                 }
             }
             return success;
         }
@@ -104,6 +106,8 @@ namespace IngameScript
         public IMyGridTerminalSystem Terminal;
         public Logger Log = new Logger();
         public IMyTerminalBlock Reference;
+        public StringBuilder StringBuilder= new StringBuilder();
+        public Random Random = new Random();
         public long Frame = 0;
         public ExecutionContext(MyGridProgram program, IMyTerminalBlock reference = null)
         { 
@@ -140,7 +144,7 @@ namespace IngameScript
         IMyBroadcastListener GeneralListener;
         const string GeneralChannel = "[FLT-GNR]";
 
-        MyCommandLine commandLine = new MyCommandLine();
+        CommandLine commandLine = new CommandLine();
 
         public SubsystemManager(ExecutionContext context)
         {
@@ -274,7 +278,7 @@ namespace IngameScript
                     var data = msg.Data.ToString();
                     if (commandLine.TryParse(data))
                     {
-                        Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
+                        CommandV2(commandLine);
                     }
                 }
 
@@ -350,7 +354,7 @@ namespace IngameScript
             return StatusBuilder.ToString();
         }
 
-        public void Command(string subsystem, string command, string argument)
+        public void CommandLegacy(string subsystem, string command, string argument)
         {
             if (subsystem == "manager")
             {
@@ -373,14 +377,30 @@ namespace IngameScript
         }
         public void CommandV2(CommandLine command)
         {
-//             if ( command.Argument(0) == "manager" )
-//             {
-//                 Command(command.Argument(0), command.Argument(1), null);
-//             }
-//             else if (Subsystems.ContainsKey(command.Argument(0)))
-//            {
-                Subsystems[command.Argument(0)].CommandV2(Timestamp, command);
-//            }
+            if ( command.Subsystem == "manager" )
+            {
+                if (command.Argument(0) == "reset")
+                    Reset();
+                if (command.Argument(0) == "activate")
+                {
+                    myName = command.Argument(1);
+                    Activating = true;
+                }
+                if (command.Argument(0) == "broadcast")
+                {
+                    Context.IGC.SendBroadcastMessage(GeneralChannel, command.JoinArguments(Context.StringBuilder, 1, command.ArgumentCount - 1));
+                }
+            }
+            else if( command.Subsystem != null )
+            {
+                ISubsystem subsystem;
+                if ( Subsystems.TryGetValue(command.Subsystem, out subsystem) )
+                {
+                    subsystem.Command(Timestamp, command.Argument(0), command.Argument(1));
+                    subsystem.CommandV2(Timestamp, command);
+                }
+
+            }
         }
 
         public void UpdateTime()

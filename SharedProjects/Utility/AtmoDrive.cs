@@ -303,6 +303,11 @@ namespace IngameScript
             if (command == "spin") Spin(ParseGPS((string)argument) - Reference.WorldMatrix.Translation);
         }
 
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+
+        }
+
         public string GetStatus()
         {
             return StatusBuilder.ToString();

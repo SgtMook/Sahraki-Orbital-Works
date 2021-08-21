@@ -119,7 +119,7 @@ namespace IngameScript
                         group.seconds++;
                         if ( group.AutoFire && group.NumReady > 0)
                         {
-                            if (group.seconds % group.AutoFireSeconds == 0)
+                            if (group.seconds % group.AutoFireTimeMS == 0)
                             {
                                 var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
                                 MissileDumpScratchpad.Clear();
@@ -297,7 +297,7 @@ namespace IngameScript
 
             group.AutoFire = parser.Get(section, "AutoFire").ToBoolean();
             group.AutoFireRange = parser.Get(section, "AutoFireRange").ToInt16(15000);
-            group.AutoFireSeconds = parser.Get(section, "AutoFireSeconds").ToInt16(2);
+            group.AutoFireTimeMS = parser.Get(section, "AutoFireTimeMS").ToInt16(2000);
             group.AutoFireRadius = parser.Get(section, "AutoFireRadius").ToInt16(30);
             group.AutoFireSizeMask = parser.Get(section, "AutoFireSizeMask").ToInt16(1);
 
@@ -329,7 +329,7 @@ namespace IngameScript
         // HitOffset = 0
         // AutoFire = False
         // AutoFireRange = 15000
-        // AutoFireSeconds = 2;
+        // AutoFireTimeMS = 2.0;
         // AutoFireRadius = 30; In Meters
         // AutoFireSizeMask = 1; 1 = LG 2 = SM 3 = BOTH
         void ParseConfigs()
@@ -1049,7 +1049,7 @@ namespace IngameScript
 
         public bool AutoFire = false;
         public int AutoFireRange = 15000;
-        public int AutoFireSeconds = 2;
+        public int AutoFireTimeMS = 2000f;
         public int AutoFireRadius = 30;
         public int AutoFireSizeMask = 1;
         public List<IMyInteriorLight> AutofireIndicator = new List<IMyInteriorLight>();

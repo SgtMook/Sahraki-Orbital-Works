@@ -35,6 +35,11 @@ namespace IngameScript
             if (command == "recall") Recalling = 2;
         }
 
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+
+        }
+
         public void DeserializeSubsystem(string serialized)
         {
         }

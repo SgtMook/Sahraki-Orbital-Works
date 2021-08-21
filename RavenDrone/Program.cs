@@ -45,7 +45,7 @@ namespace IngameScript
         public void Save()
         {
         }
-        MyCommandLine commandLine = new MyCommandLine();
+        CommandLine commandLine = new CommandLine();
         public void Main(string argument, UpdateType updateSource)
         {
             Echo(MyRaven.GetStatus());
@@ -53,7 +53,7 @@ namespace IngameScript
             {
                 if (commandLine.TryParse(argument))
                 {
-                    MyRaven.SubsystemManager.Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
+                    MyRaven.SubsystemManager.CommandV2(commandLine);
                 }
             }
             try

@@ -59,6 +59,11 @@ namespace IngameScript
             if (command == "spin") Spin(ParseGPS((string)argument) - reference.WorldMatrix.Translation);
         }
 
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+
+        }
+
         public void Setup(ExecutionContext context, string name)
         {
             Context = context;

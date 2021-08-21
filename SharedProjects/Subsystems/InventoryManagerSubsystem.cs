@@ -35,7 +35,12 @@ namespace IngameScript
         {
             if (command == "refreshparts") GetParts();
         }
-        
+
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+
+        }
+
         public void DeserializeSubsystem(string serialized)
         {
         }

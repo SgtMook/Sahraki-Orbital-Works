@@ -44,6 +44,9 @@ namespace IngameScript
             if (command == "savetemplate") SaveMainframePositionToMerge();
         }
 
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+        }
         public void DeserializeSubsystem(string serialized)
         {
         }

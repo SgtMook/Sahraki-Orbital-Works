@@ -52,6 +52,11 @@ namespace IngameScript
             if (command == "cancel" || command == "7") DoC(timestamp);
         }
 
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+
+        }
+
         public void DeserializeSubsystem(string serialized)
         {
         }

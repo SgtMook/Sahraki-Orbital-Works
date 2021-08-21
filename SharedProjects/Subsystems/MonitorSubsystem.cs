@@ -39,6 +39,11 @@ namespace IngameScript
         {
         }
 
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+
+        }
+
         public void DeserializeSubsystem(string serialized)
         {
         }

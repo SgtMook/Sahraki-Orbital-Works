@@ -32,6 +32,11 @@ namespace IngameScript
             if (command == "togglescramble") { AutoScramble = !AutoScramble; };
         }
 
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+
+        }
+
         public void DeserializeSubsystem(string serialized)
         {
         }

@@ -65,6 +65,11 @@ namespace IngameScript
             }
         }
 
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+
+        }
+
         public string GetStatus()
         {
             debugBuilder.Clear();
@@ -416,6 +421,13 @@ namespace IngameScript
 
             KeyScratchpad.Clear();
         }
+
+//         public bool IsIntelTimedOut(TimeSpan timestamp, IntelItemType type, long id)
+//         {
+//             TimeSpan lastUpdate;
+//             return !Timestamps.TryGetValue(MyTuple.Create(type, id), out lastUpdate) ||
+//                 (timestamp - lastUpdate).TotalSeconds < 2;
+//         }
 
         void TimeoutIntelItems(TimeSpan timestamp)
         {
