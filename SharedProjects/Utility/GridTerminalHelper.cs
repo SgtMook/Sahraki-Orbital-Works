@@ -35,11 +35,19 @@ namespace IngameScript
         public static IMyShipMergeBlock OtherMergeBlock(IMyShipMergeBlock merge)
         {
             if (merge == null) { return null; }
-            Vector3I vec1 = Base6Directions.GetIntVector(Base6Directions.GetOppositeDirection(merge.Orientation.Left));
-            Vector3I vec2 = merge.Position + vec1;
-            IMyShipMergeBlock m2 = merge.CubeGrid.GetCubeBlock(vec2)?.FatBlock as IMyShipMergeBlock;
-            if (m2 == merge) { return null; }
-            return m2;
+
+            // This is a massive hack. Keen fucked up when they made the Small Grid 1x1x1 merge and it is oriented so the connection
+            // is Base6Directions.Direction.Up, not Base6Directions.Direction.Right like the previous merges. This uses the length
+            // of the subtype name (24 characters) of the 1x1x1 small grid merge to do the exception, where as the older two are 19
+            // characters. If you ever have a mod merge block that is 24 characters, you'll need to do something else here.
+            Vector3I otherPosition = merge.Position + Base6Directions.GetIntVector(merge.Orientation.TransformDirection(
+                merge.BlockDefinition.SubtypeName.Length == 24? Base6Directions.Direction.Up : Base6Directions.Direction.Right));
+            
+//            Vector3I vec1 = Base6Directions.GetIntVector(Base6Directions.GetOppositeDirection(merge.Orientation.Left));
+//            Vector3I vec2 = merge.Position + vec1;
+            IMyShipMergeBlock otherMerge = merge.CubeGrid.GetCubeBlock(otherPosition)?.FatBlock as IMyShipMergeBlock;
+            if (otherMerge == merge) { return null; }
+            return otherMerge;
         }
 
         public static string BlockListBytePosToBase64<T>(List<T> blocks, IMyCubeBlock origin) where T : class, IMyTerminalBlock

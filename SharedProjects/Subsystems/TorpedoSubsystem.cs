@@ -409,7 +409,6 @@ namespace IngameScript
 
         public List<Torpedo> TorpedoScratchpad = new List<Torpedo>();
         public List<IMyTerminalBlock> PartsScratchpad = new List<IMyTerminalBlock>();
-        public List<ITorpedoControllable> LaunchScratchpad = new List<ITorpedoControllable>();
         List<MyDetectedEntityInfo> DetectedInfoScratchpad = new List<MyDetectedEntityInfo>();
 
 
@@ -605,19 +604,13 @@ namespace IngameScript
 
 //            Context.Log.Debug("CommandFire "+ commandLine.Argument(1));
 
-            LaunchScratchpad.Clear();
-
             TorpedoTubeGroup group = null;
-            int LaunchIntervalMS = 100;
-            if (commandLine.Argument(1) == "all")
-            {
-                LaunchScratchpad.AddRange(TorpedoTubes);
-            }
-            else if (TorpedoTubeGroups.TryGetValue(commandLine.Argument(1), out group))
-            {
-                LaunchScratchpad.AddRange(group.Children);
+            int LaunchIntervalMS = 500;
+
+            if (TorpedoTubeGroups.TryGetValue(commandLine.Argument(1), out group))
                 LaunchIntervalMS = group.AutoFireTubeMS;
-            }
+            else
+                return;
 
             int LaunchCount = 1;
             if (commandLine.Argument(2) != null)
@@ -637,7 +630,6 @@ namespace IngameScript
 
                 var canonicalTime = localTime + IntelProvider.CanonicalTimeDiff;
                 TimeSpan LaunchInterval = TimeSpan.FromMilliseconds(LaunchIntervalMS);
-
                 CollectTargets(localTime, group, canonicalTime, LaunchInterval, FilterNormalTarget);
 
                 if ( group.EngagedTargets.Count > 0 )
