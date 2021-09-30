@@ -24,9 +24,12 @@ namespace IngameScript
     // Emu compatible
     partial class Program : MyGridProgram
     {
+        ExecutionContext Context;
         public Program()
         {
-            subsystemManager = new SubsystemManager(this);
+            Context = new ExecutionContext(this);
+
+            subsystemManager = new SubsystemManager(Context);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             // Add subsystems
@@ -59,7 +62,7 @@ namespace IngameScript
             subsystemManager.DeserializeManager(Storage);
         }
 
-        MyCommandLine commandLine = new MyCommandLine();
+        CommandLine commandLine = new CommandLine();
 
         SubsystemManager subsystemManager;
 
@@ -74,7 +77,8 @@ namespace IngameScript
             subsystemManager.UpdateTime();
             if (commandLine.TryParse(argument))
             {
-                subsystemManager.Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
+                subsystemManager.CommandV2(commandLine);
+                //subsystemManager.Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
             }
             else
             {
