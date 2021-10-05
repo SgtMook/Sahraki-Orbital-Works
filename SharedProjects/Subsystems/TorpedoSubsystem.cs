@@ -94,8 +94,8 @@ namespace IngameScript
                 var tube = TorpedoTubes[i];
                 if (tube == null)
                     debugBuilder.AppendLine("[" + i + "]=null");
-                else if (!tube.OK() || !tube.Ready)
-                    debugBuilder.AppendLine("[" + i + "]= Rdy:" + tube.Ready + " Ok:" + tube.OK());
+                else if (!tube.HasRelease() || !tube.Ready)
+                    debugBuilder.AppendLine("[" + i + "]= Rdy:" + tube.Ready + " Rls:" + tube.HasRelease());
             }
 
             return debugBuilder.ToString();
@@ -110,8 +110,8 @@ namespace IngameScript
         {
             Context = context;
 
-            TorpedoTubeGroups["SM"] = new TorpedoTubeGroup("SM");
-            TorpedoTubeGroups["LG"] = new TorpedoTubeGroup("LG");
+            TorpedoTubeGroups["SM"] = new TorpedoTubeGroup(this, "SM");
+            TorpedoTubeGroups["LG"] = new TorpedoTubeGroup(this, "LG");
 
             ParseConfigs();
 
@@ -187,13 +187,26 @@ namespace IngameScript
             {
                 for (int i = 0; i < TorpedoTubes.Count(); i++)
                 {
-                    if (TorpedoTubes[i] != null && TorpedoTubes[i].OK())
+                    var tube = TorpedoTubes[i];
+                    if (tube != null)
                     {
-                        //                        Log.Debug("Updating Tube " + i);
-                        TorpedoTubes[i].Update(timestamp);
+                        if (tube.HasRelease())
+                            tube.Update(timestamp);
+
+                        if (tube.Ready)
+                            tube.Group.LoadingMask &= ~(1L << tube.Index);
+                        else
+                            tube.Group.LoadingMask |= 1L << tube.Index;
                     }
                 }
+
+                var welder = TorpedoWeldersRR.GetAndAdvance();
+                if (welder != null)
+                {
+                    welder.UpdateWelder(timestamp, this);
+                }
             }
+
             if ((updateFlags & UpdateFrequency.Update1) != 0)
             {
                 var canonicalTime = timestamp + IntelProvider.CanonicalTimeDiff;
@@ -411,13 +424,91 @@ namespace IngameScript
         public List<IMyTerminalBlock> PartsScratchpad = new List<IMyTerminalBlock>();
         List<MyDetectedEntityInfo> DetectedInfoScratchpad = new List<MyDetectedEntityInfo>();
 
+        public class TorpedoWelder
+        {
+            IMyShipWelder Welder;
+            TimeSpan WelderWake;
+            Dictionary<TorpedoTubeGroup, long> Tubes = new Dictionary<TorpedoTubeGroup, long>();
+            public TorpedoWelder(TorpedoSubsystem Host, IMyShipWelder welder)
+            {
+                Welder = welder;
+                
+//                Host.Context.Log.Debug("WELDER INIT " + Welder.CustomName);
+                
+                Host.IniParser.TryParse(welder.CustomData);
+                var tubeProperty = Host.IniParser.Get("Torpedo", "Tubes").ToString();
+
+                if (tubeProperty != string.Empty)
+                {
+                    var tubeList = tubeProperty.Split(',');
+                    foreach (var token in tubeList)
+                    {
+                        var tubePair = token.Split('^');
+                        TorpedoTubeGroup group = Host.TorpedoTubeGroups[tubePair[0]];
+
+                        long mask;
+                        if (!Tubes.TryGetValue(group, out mask))
+                            Tubes.Add(group, 0);
+
+                        Tubes[group] = mask | 1L << int.Parse(tubePair[1]);
+                    }
+//                     foreach (var pair in Tubes)
+//                     {
+//                         Host.Context.Log.Debug(pair.Key.Name + " " + pair.Value);
+//                     }
+                }
+            }
+            public void SupressWelder(TimeSpan localTime, TorpedoTubeGroup group, int index)
+            {
+                long mask;
+                if (Tubes.TryGetValue(group, out mask))
+                {
+                    if ((mask & (1L << index)) == 0)
+                        return;
+
+                    Welder.Enabled = false;
+                    WelderWake = localTime + TimeSpan.FromMilliseconds(group.ReloadCooldownMS);
+                    
+//                     group.Host.Context.Log.Debug("SUPRESSED WELDER VIA TUBE "+ index );
+                }
+            }
+
+            public void UpdateWelder(TimeSpan localTime, TorpedoSubsystem host)
+            {
+//                host.Context.Log.Debug("Supressed: " + (localTime < WelderWake).ToString());
+                if (localTime < WelderWake)
+                    return;
+
+                foreach( var group in host.TorpedoTubeGroups)
+                {
+                    long mask;
+                    if (Tubes.TryGetValue(group.Value, out mask))
+                    {
+                        if ((group.Value.LoadingMask & mask) != 0)
+                        {
+                            Welder.Enabled = true;
+                            return;
+                        }
+                    }
+//                     else
+//                     {
+//                         host.Context.Log.Debug("Missing: "+ group.Key); 
+//                     }
+                }
+
+                Welder.Enabled = false;
+            }
+        }
+
+        public RoundRobin<TorpedoWelder> TorpedoWeldersRR = new RoundRobin<TorpedoWelder>();
+
 
         //         HashSet<long> AutofireTargetLog = new HashSet<long>();
         //         Queue<Torpedo> ReserveTorpedoes = new Queue<Torpedo>();
 
         public ExecutionContext Context;
 
-        IIntelProvider IntelProvider;
+        public IIntelProvider IntelProvider;
 
         StringBuilder debugBuilder = new StringBuilder();
 
@@ -438,6 +529,7 @@ namespace IngameScript
 
             group.PlungeDist = parser.Get(section, "PlungeDist").ToInt16(1000);
             group.HitOffset = parser.Get(section, "HitOffset").ToDouble(0.0);
+            group.ReloadCooldownMS = parser.Get(section, "ReloadCooldownMS").ToInt32(group.ReloadCooldownMS);
 
             group.AutoFire = parser.Get(section, "AutoFire").ToBoolean();
             group.AutoFireRange = parser.Get(section, "AutoFireRange").ToInt16(15000);
@@ -487,6 +579,7 @@ namespace IngameScript
         // GuidanceStartSeconds = 2
         // PlungeDist = 1000
         // HitOffset = 0
+        // ReloadCooldownMS = 3500
 
         // AutoFire = True
         // AutoFireRange = 3000
@@ -538,6 +631,26 @@ namespace IngameScript
             Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectLights);
         }
 
+
+        TorpedoTube GetOrCreateTubeAtIndex(int index, MyCubeSize size)
+        {
+            if (index >= TorpedoTubes.Length)
+                return null;
+
+            var tube = TorpedoTubes[index];
+            if ( tube == null )
+            {
+                tube = new TorpedoTube(index, this);
+                tube.Size = size;                
+                TorpedoTubes[index] = tube;
+                var group = TorpedoTubeGroups[size == MyCubeSize.Small ? "SM" : "LG"];
+                group.AddTube(tube);
+                tube.Group = group;
+            }
+
+            return tube;
+        }
+
         bool CollectParts(IMyTerminalBlock block)
         {
             if (!Context.Reference.IsSameConstructAs(block)) return false; // Allow subgrid
@@ -546,22 +659,60 @@ namespace IngameScript
 
             if (tagindex == -1) return false;
 
-            var indexTagEnd = block.CustomName.IndexOf(']', tagindex);
-            if (indexTagEnd == -1) return false;
+            var size = block.CubeGrid.GridSizeEnum;
+            var torpedoWelder = block.CustomName.IndexOf("[TRPW]");
 
-            var numString = block.CustomName.Substring(tagindex + 4, indexTagEnd - tagindex - 4);
+            if (torpedoWelder != -1)
+                TorpedoWeldersRR.Items.Add(new TorpedoWelder(this, block as IMyShipWelder));
 
-            int index;
-            if (!int.TryParse(numString, out index) ||
-                index >= TorpedoTubes.Length)
-                return false;
-            //                Context.Log.Debug("Out of Bounds Part " + block.CustomName + " Tube #" + index);
+            var thrusterDetach = block.CustomName.IndexOf("[TRPT]");
+            if ( thrusterDetach != -1 )
+            {
+                IniParser.TryParse(block.CustomData);
+                var releasesProperty = IniParser.Get("Torpedo", "ThrusterReleases").ToString();
 
-            if (TorpedoTubes[index] == null)
-                TorpedoTubes[index] = new TorpedoTube(index, this);
+                var releases = releasesProperty.Split(',');
 
-            TorpedoTubes[index].AddPart(this, block);
-            //            Context.Log.Debug("Added " + block.CustomName + " Tube #" + index);
+                foreach (var release in releases )
+                {
+                    var tuple = release.Split('^');
+                    
+                    var tube = GetOrCreateTubeAtIndex(int.Parse(tuple[0]), size);
+                    if (tube == null) return false;
+
+                    if (tube.Release == null)
+                        tube.Release = new ThrusterRelease(block, tuple[1]);
+                }
+            }
+            else
+            {
+                var indexTagEnd = block.CustomName.IndexOf(']', tagindex);
+                if (indexTagEnd == -1) return false;
+
+                var numString = block.CustomName.Substring(tagindex + 4, indexTagEnd - tagindex - 4);
+
+                int index;
+                if (!int.TryParse(numString, out index))
+                    return false;
+
+                var tube = GetOrCreateTubeAtIndex(index, size);
+                if (tube == null) 
+                    return false;
+
+                if ( tube.Release == null )
+                {
+                    var mech = block as IMyMechanicalConnectionBlock;
+                    if (mech != null)
+                        tube.Release = new MechanicalRelease(mech);
+
+                    var merge = block as IMyShipMergeBlock;
+                    if (merge != null)
+                        tube.Release = new MergeRelease(merge);
+                }
+
+                if (block is IMyShipConnector)
+                    tube.Connector = (IMyShipConnector)block;
+            }
 
             return false;
         }
@@ -677,7 +828,7 @@ namespace IngameScript
         public Torpedo Fire(TimeSpan localTime, ITorpedoControllable unit, EnemyShipIntel target = null, bool trickshot = false)
         {
             if (unit == null || !unit.Ready) return null;
-            var torp = unit.Fire(localTime + IntelProvider.CanonicalTimeDiff, target, trickshot);
+            var torp = unit.Fire(localTime, localTime + IntelProvider.CanonicalTimeDiff, target, trickshot);
             if (torp != null)
             {
                 Torpedos.Add(torp);
@@ -785,7 +936,8 @@ namespace IngameScript
             gyroControl = new GyroControl(Gyros);
             var refWorldMatrix = Controller.WorldMatrix;
             gyroControl.Init(ref refWorldMatrix);
-            foreach (var tank in Tanks) tank.Stockpile = false;
+            foreach (var tank in Tanks) 
+                tank.Stockpile = false;
 
             foreach (var Gyro in Gyros)
             {
@@ -1264,9 +1416,9 @@ namespace IngameScript
 
     public interface ITorpedoControllable
     {
-        string Name { get; }
+ //       string Name { get; }
         bool Ready { get; }
-        Torpedo Fire(TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true);
+        Torpedo Fire(TimeSpan localTime, TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true);
     }
     public class TargetInfo
     {
@@ -1277,6 +1429,7 @@ namespace IngameScript
     public class TorpedoTubeGroup : ITorpedoControllable
     {
         public string Name { get; set; }
+        public TorpedoSubsystem Host;
 
         public bool Ready
         {
@@ -1294,6 +1447,7 @@ namespace IngameScript
         public double CruiseDistSqMin = 10000;
         public int PlungeDist = 1000;
         public double HitOffset = 0;
+        public int ReloadCooldownMS = 3500;
         public Dictionary<MyItemType, int> TorpedoParts = new Dictionary<MyItemType, int>();
 
         public bool AutoFire = false;
@@ -1321,21 +1475,24 @@ namespace IngameScript
 
         public Dictionary<EnemyShipIntel, TargetInfo> EngagedTargets = new Dictionary<EnemyShipIntel, TargetInfo>();
         public TimeSpan LastLaunch;
+        public long LoadingMask;
+        public long SuppressMask;
 
         public HashSet<ITorpedoControllable> Children { get; set; }
 
-        public Torpedo Fire(TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true)
+        public Torpedo Fire(TimeSpan localTime, TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true)
         {
             foreach (ITorpedoControllable tube in Children)
             {
-                if (tube.Ready) return tube.Fire(canonicalTime, target, trickshot);
+                if (tube.Ready) return tube.Fire( localTime, canonicalTime, target, trickshot);
             }
             return null;
         }
 
-        public TorpedoTubeGroup(string name)
+        public TorpedoTubeGroup(TorpedoSubsystem host, string name)
         {
             Name = name;
+            Host = host;
             Children = new HashSet<ITorpedoControllable>();
         }
 
@@ -1359,85 +1516,103 @@ namespace IngameScript
         }
     }
 
-    public class TorpedoTubeRelease
+    public interface ITorpedoTubeRelease
     {
-        private IMyShipMergeBlock Merge;
+        bool NeedWelderSupress { get; }
+
+        bool Detach();
+        bool LoadTorpedoParts(ref List<IMyTerminalBlock> results);
+    }
+
+    public class MechanicalRelease : ITorpedoTubeRelease
+    {
+        public bool NeedWelderSupress => false;
+
         private IMyMechanicalConnectionBlock Mech;
-        public static TorpedoTubeRelease TryConstruct(IMyTerminalBlock block)
+        public MechanicalRelease(IMyMechanicalConnectionBlock mech)
         {
-            TorpedoTubeRelease release = null;
-
-            IMyShipMergeBlock merge = block as IMyShipMergeBlock;
-            if (merge != null)
-            {
-                release = new TorpedoTubeRelease();
-                release.Merge = merge;
-                //                TorpedoSubsystem.Log.Debug("Merge Release "+ block.CustomName);
-            }
-
-            IMyMechanicalConnectionBlock mechanical = block as IMyMechanicalConnectionBlock;
-            if (mechanical != null)
-            {
-                release = new TorpedoTubeRelease();
-                release.Mech = mechanical;
-                //                TorpedoSubsystem.Log.Debug("Mechanical Release " + block.CustomName);
-            }
-
-            return release;
+            Mech = mech;
         }
 
         public bool Detach()
         {
-            if (Merge != null)
-            {
-                var releaseOther = GridTerminalHelper.OtherMergeBlock(Merge);
-                if (releaseOther == null)
-                    return false;
-                releaseOther.Enabled = false;
-            }
-            else
-            if (Mech != null)
-            {
-                if (Mech.Top == null)
-                    return false;
-                Mech.Detach();
-            }
+            if (Mech.Top == null)
+                return false;
+            Mech.Detach();
             return true;
         }
-        public MyCubeSize Size()
-        {
-            if (Merge != null)
-                return Merge.CubeGrid.GridSizeEnum;
-            if (Mech != null)
-                return Mech.CubeGrid.GridSizeEnum;
-
-            return MyCubeSize.Small;
-        }
-
         public bool LoadTorpedoParts(ref List<IMyTerminalBlock> results)
         {
-            if (Merge != null)
-            {
-                var releaseOther = GridTerminalHelper.OtherMergeBlock(Merge);
-                if (releaseOther == null || !releaseOther.IsFunctional || !releaseOther.Enabled)
-                    return false;
+            if (Mech.Top == null)
+                return false;
 
-                return GridTerminalHelper.Base64BytePosToBlockList(releaseOther.CustomData, releaseOther, ref results);
-            }
-            else if (Mech != null)
-            {
-                if (Mech.Top == null)
-                    return false;
-
-                return GridTerminalHelper.Base64BytePosToBlockList(Mech.CustomData, Mech.Top, ref results);
-            }
-            return false;
+            return GridTerminalHelper.Base64BytePosToBlockList(Mech.CustomData, Mech.Top, ref results);
         }
     }
+
+    public class MergeRelease : ITorpedoTubeRelease
+    {
+        public bool NeedWelderSupress => false;
+
+        private IMyShipMergeBlock Merge;
+        public MergeRelease(IMyShipMergeBlock merge)
+        {
+            Merge = merge;
+        }
+        public bool Detach()
+        {
+            var releaseOther = GridTerminalHelper.OtherMergeBlock(Merge);
+            if (releaseOther == null)
+                return false;
+            releaseOther.Enabled = false;
+            return true;
+        }
+        public bool LoadTorpedoParts(ref List<IMyTerminalBlock> results)
+        {
+            var releaseOther = GridTerminalHelper.OtherMergeBlock(Merge);
+            if (releaseOther == null || !releaseOther.IsFunctional || !releaseOther.Enabled)
+                return false;
+
+            return GridTerminalHelper.Base64BytePosToBlockList(releaseOther.CustomData, releaseOther, ref results);
+        }
+    }
+
+    public class ThrusterRelease : ITorpedoTubeRelease
+    {
+        public bool NeedWelderSupress => true;
+
+        IMyTerminalBlock Reference;
+        Vector3I Offset;
+
+        public ThrusterRelease(IMyTerminalBlock reference, string offset)
+        {
+            Reference = reference;
+            Offset = GridTerminalHelper.Base64ByteToVector3I(offset, reference);
+        }
+        public bool Detach()
+        {
+            var thruster = Reference.CubeGrid.GetCubeBlock(Offset)?.FatBlock as IMyThrust;
+            if (thruster == null)
+                return false;
+            thruster.Enabled = true;
+            thruster.ThrustOverridePercentage = 1;
+            return true;
+        }
+        public bool LoadTorpedoParts(ref List<IMyTerminalBlock> results)
+        {
+            var thruster = Reference.CubeGrid.GetCubeBlock(Offset)?.FatBlock as IMyThrust;
+            if ( thruster == null || !thruster.IsFunctional )
+                return false;
+
+            return GridTerminalHelper.Base64BytePosToBlockList(thruster.CustomData, thruster, ref results);
+        }
+    }
+
     public class TorpedoTube : ITorpedoControllable
     {
-        public TorpedoTubeRelease Release;
+        public ITorpedoTubeRelease Release;
         public IMyShipConnector Connector;
+        public TimeSpan ReloadCooldown;
 
         public Torpedo LoadedTorpedo;
 
@@ -1445,7 +1620,8 @@ namespace IngameScript
         Torpedo[] SubTorpedosScratchpad = new Torpedo[16];
 
         public MyCubeSize Size;
-        public string Name { get; set; }
+        public int Index;
+//        public string Name { get; set; }
         public TorpedoTubeGroup Group;
         public bool Ready => LoadedTorpedo != null;
         public List<ITorpedoControllable> Children { get; set; }
@@ -1454,41 +1630,22 @@ namespace IngameScript
         {
             Host = host;
             Children = new List<ITorpedoControllable>();
-            Name = index.ToString("00");
-            Fire(TimeSpan.Zero, null);
+            Index = index;
+//            Name = index.ToString("00");
+            Fire(TimeSpan.Zero, TimeSpan.Zero, null);
         }
 
-        public bool OK()
+        public bool HasRelease()
         {
             return Release != null;
         }
 
-        public void AddPart(TorpedoSubsystem host, IMyTerminalBlock block)
-        {
-            if (Release == null)
-            {
-                Release = TorpedoTubeRelease.TryConstruct(block);
-
-                if (Release != null)
-                {
-                    //                    TorpedoSubsystem.Log.Debug("Testing Size " + Name);
-                    Size = Release.Size();                   
-                    var groupName = Size == MyCubeSize.Small ? "SM" : "LG";
-                    Group = host.TorpedoTubeGroups[groupName];
-                    Group.AddTube(this);
-                }
-            }
-
-            if (block is IMyShipConnector)
-                Connector = (IMyShipConnector)block;
-        }
-
         public void Update(TimeSpan LocalTime)
         {
+            if (ReloadCooldown > LocalTime)
+                return;
             if (LoadedTorpedo == null)
-            {
                 GetTorpedo();
-            }
         }
 
         public bool AddTorpedoPart(IMyTerminalBlock part)
@@ -1517,11 +1674,6 @@ namespace IngameScript
             }
         }
 
-        bool LoadTorpedoParts(ref List<IMyTerminalBlock> results)
-        {
-            return Release.LoadTorpedoParts(ref results);
-        }
-
         void GetTorpedo()
         {
             LoadedTorpedo = new Torpedo();
@@ -1532,14 +1684,14 @@ namespace IngameScript
             }
 
             Host.PartsScratchpad.Clear();
-            if (!LoadTorpedoParts(ref Host.PartsScratchpad))
+            if (!Release.LoadTorpedoParts(ref Host.PartsScratchpad))
             {
-                //                TorpedoSubsystem.Log.Debug("LoadTorpedoParts FAILURE");
+//                Host.Context.Log.Debug("LoadTorpedoParts FAILURE #" + Host.PartsScratchpad.Count());
                 LoadedTorpedo = null;
                 return;
             }
 
-            //            TorpedoSubsystem.Log.Debug("LoadTorpedoParts SUCCESS");
+//            Host.Context.Log.Debug("LoadTorpedoParts SUCCESS");
             foreach (var part in Host.PartsScratchpad)
             {
                 AddTorpedoPart(part);
@@ -1576,7 +1728,7 @@ namespace IngameScript
             foreach (var tank in LoadedTorpedo.Tanks) tank.Stockpile = true;
         }
 
-        public Torpedo Fire(TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true)
+        public Torpedo Fire(TimeSpan localTime, TimeSpan canonicalTime, EnemyShipIntel target = null, bool trickshot = true)
         {
             if (canonicalTime == TimeSpan.Zero)
                 return null;
@@ -1584,6 +1736,20 @@ namespace IngameScript
                 return null;
             if (!Release.Detach())
                 return null;
+
+            ReloadCooldown = localTime + TimeSpan.FromMilliseconds(Group.ReloadCooldownMS);
+            // Torpedo Welder Control
+            // Thruster Release Torpedoes need to temporarily disable welders to fire.
+            if ( Release.NeedWelderSupress )
+            {
+                foreach( var welder in Host.TorpedoWeldersRR.Items)
+                {
+                    welder.SupressWelder(localTime, Group, Index);
+                }
+            }
+            
+            // The missile has fired, it will need to reload.
+            Group.LoadingMask |= 1L << Index;
 
             if (Connector != null
                 && Connector.Status == MyShipConnectorStatus.Connected)

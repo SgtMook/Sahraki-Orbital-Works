@@ -21,72 +21,28 @@ namespace IngameScript
 {
     public class RoundRobin<T>
     {
-        private List<T> items;
-        private Func<T, bool> isReady;
+        public List<T> Items;
 
-        private int start;
         private int current;
-        private bool available;
 
-        public RoundRobin(List<T> dispatchItems, Func<T, bool> isReadyFunc = null)
+        public RoundRobin(List<T> dispatchItems = null)
         {
-            items = dispatchItems;
-            isReady = isReadyFunc;
+            Items = dispatchItems;
 
-            start = current = 0;
-            available = false;
-
-            if (items == null) items = new List<T>();
+            if (Items == null)
+                Items = new List<T>();
         }
 
-        public void Reset()
+        public T GetAndAdvance()
         {
-            start = current = 0;
-        }
-
-        public void Begin()
-        {
-            start = current;
-            available = (items.Count > 0);
-        }
-
-        public T GetNext()
-        {
-            if (start >= items.Count) start = 0;
-            if (current >= items.Count)
+            if (current >= Items.Count)
             {
                 current = 0;
-                available = (items.Count > 0);
+                if ( Items.Count == 0 )
+                    return default(T);
             }
 
-            T result = default(T);
-
-            while (available)
-            {
-                T item = items[current++];
-
-                if (current >= items.Count) current = 0;
-                if (current == start) available = false;
-
-                if (isReady == null || isReady(item))
-                {
-                    result = item;
-                    break;
-                }
-            }
-
-            return result;
-        }
-
-        public void ReloadList(List<T> dispatchItems)
-        {
-            items = dispatchItems;
-            if (items == null) items = new List<T>();
-
-            if (start >= items.Count) start = 0;
-            if (current >= items.Count) current = 0;
-
-            available = false;
+            return Items[current++];
         }
     }
 }

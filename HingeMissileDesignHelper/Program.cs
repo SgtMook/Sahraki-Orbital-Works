@@ -30,7 +30,7 @@ namespace IngameScript
             MyGridProgram Context;
             public TorpedoTube DummyTube;
             public List<IMyTerminalBlock> PartsOfInterest = new List<IMyTerminalBlock>();
-            public IMyTerminalBlock Base; // Merge OR Sprue Hinge 
+            public IMyTerminalBlock Base; // Merge OR Sprue Hinge OR Thruster
 
             public ProxyTube(MyGridProgram context)
             {
@@ -41,7 +41,7 @@ namespace IngameScript
             public bool CollectParts(IMyTerminalBlock block)
             {
                 IMyMechanicalConnectionBlock mech = Base as IMyMechanicalConnectionBlock;
-                if (mech != null )
+                if (mech != null)
                 {
                     if (mech.TopGrid != null)
                     {
@@ -55,8 +55,8 @@ namespace IngameScript
                         Context.Me.GetSurface(0).ContentType = ContentType.TEXT_AND_IMAGE;
                         Context.Me.GetSurface(0).FontSize = 10;
                         Context.Me.GetSurface(0).FontColor = Color.Red;
-                        Context.Me.GetSurface(0).WriteText("ERR NO MECH TOP");
-                        
+                        Context.Me.GetSurface(0).WriteText("ERR NO MECH TOP" + mech.CustomName);
+
                         return false;
                     }
                 }
@@ -72,8 +72,11 @@ namespace IngameScript
                 if (block is IMyRadioAntenna)
                     PartsOfInterest.Add(block);
 
-                if (block is IMyShipMergeBlock && block.CustomName.Contains("<BASE>")) 
-                    Base = (IMyShipMergeBlock)block;
+                if (block.CustomName.Contains("<BASE>") &&
+                     (block is IMyShipMergeBlock || block is IMyThrust ))
+                {
+                    Base = block;
+                }
 
                 return false;
             }
@@ -130,7 +133,7 @@ namespace IngameScript
             }
         }
 
-        List<IMyMechanicalConnectionBlock > Mechanicals = new List<IMyMechanicalConnectionBlock>();
+        
         List<ProxyTube> ProxyTubes = null;
 
         public Program()
@@ -138,11 +141,49 @@ namespace IngameScript
             Runtime.UpdateFrequency = UpdateFrequency.None;
         }
 
-        public void Main(string argument, UpdateType updateSource)
-        {
-            GridTerminalSystem.GetBlocksOfType<IMyMechanicalConnectionBlock>(Mechanicals, t => t.CubeGrid == Me.CubeGrid);
 
-            if ( Mechanicals.Count > 0 )
+
+        public void Info(string echoInfo)
+        {
+            Output(false, echoInfo);
+        }
+        public void Error(string echoInfo)
+        {
+            Output(true, echoInfo);
+        }
+        public void Output(bool error, string echoInfo)
+        {
+            Me.GetSurface(0).ContentType = ContentType.TEXT_AND_IMAGE;
+            Me.GetSurface(0).FontSize = 10;
+            Me.GetSurface(0).FontColor = error ? Color.Red : Color.Green;
+
+            if ( error )
+                Me.GetSurface(0).WriteText("ERR");
+            else
+                Me.GetSurface(0).WriteText("AOK");
+
+            Echo(echoInfo);
+        }
+
+        public void BuildProxyTubes()
+        {
+            int ThrusterDetach = 0;
+            List<IMyThrust> Thrusters = new List<IMyThrust>();
+            GridTerminalSystem.GetBlocksOfType<IMyThrust>(Thrusters, t => t.CubeGrid == Me.CubeGrid);
+            foreach( var thruster in Thrusters)
+            {
+                if (thruster.CustomName.Contains("[TRP"))
+                    ThrusterDetach++;
+            }
+            if (ThrusterDetach > 1)
+            {
+                Error("Multiple Detach Thrusters Detected\nProbably wanted THRUSTERDETACH argument.");
+                return;
+            }
+
+            List<IMyMechanicalConnectionBlock> Mechanicals = new List<IMyMechanicalConnectionBlock>();
+            GridTerminalSystem.GetBlocksOfType<IMyMechanicalConnectionBlock>(Mechanicals, t => t.CubeGrid == Me.CubeGrid);
+            if (Mechanicals.Count > 0)
             {
                 ProxyTubes = new List<ProxyTube>(Mechanicals.Count);
                 for (int i = 0; i < Mechanicals.Count; ++i)
@@ -150,12 +191,76 @@ namespace IngameScript
                     ProxyTubes.Add(new ProxyTube(this));
                     ProxyTubes[i].Base = Mechanicals[i];
                 }
+                return;
             }
             else
             {
                 ProxyTubes = new List<ProxyTube>(1);
                 ProxyTubes.Add(new ProxyTube(this));
             }
+        }
+
+        public void Main(string argument, UpdateType updateSource)
+        {
+            if (argument == "THRUSTERDETACH")
+            {
+                IMyTerminalBlock ThrusterControl = null;
+                List<MyTuple<IMyThrust, int>> DetachThrusters = new List<MyTuple<IMyThrust, int>>();
+
+                List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
+                GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(blocks, t => t.CubeGrid == Me.CubeGrid);
+
+                foreach ( var block in blocks )
+                {
+                    if (block.CustomName.Contains("[TRPT]"))
+                        ThrusterControl = block;
+
+                    IMyThrust thrust = block as IMyThrust;
+                    if ( thrust != null)
+                    {
+                        var tagindex = block.CustomName.IndexOf("[TRP");
+                        if (tagindex == -1)
+                            continue;
+
+                        var indexTagEnd = block.CustomName.IndexOf(']', tagindex);
+                        if (indexTagEnd == -1)
+                            continue;
+
+                        int index;
+                        var numString = block.CustomName.Substring(tagindex + 4, indexTagEnd - tagindex - 4);
+                        if (!int.TryParse(numString, out index))
+                            continue;
+
+                        DetachThrusters.Add(MyTuple.Create(thrust, index));
+                    }
+                }
+
+                if ( ThrusterControl == null )
+                {
+                    Error("No [TRPT] tagged block for ThrusterDetachControl");
+                    return;
+                }
+
+                MyIni IniParser = new MyIni();
+                IniParser.TryParse(ThrusterControl.CustomData);
+                IniParser.DeleteSection("Torpedo");
+
+                StringBuilder thrusterData = new StringBuilder();
+                
+                for( int i = 0; i < DetachThrusters.Count; ++i )
+                {
+                    var position = GridTerminalHelper.BlockBytePosToBase64(DetachThrusters[i].Item1, ThrusterControl);
+                    thrusterData.Append(DetachThrusters[i].Item2 + "^" + position + ((i != DetachThrusters.Count-1) ? "," : ""));
+                }
+
+                IniParser.Set("Torpedo", "ThrusterReleases", thrusterData.ToString());
+                ThrusterControl.CustomData = IniParser.ToString();
+
+                Info("Thruster Control: " + thrusterData.ToString());
+                return;
+            }
+
+            BuildProxyTubes();
 
             foreach ( var tube in ProxyTubes)
             {
@@ -206,23 +311,14 @@ namespace IngameScript
                 }
                 if ( aok )
                 {
-                    Me.GetSurface(0).ContentType = ContentType.TEXT_AND_IMAGE;
-                    Me.GetSurface(0).FontSize = 10;
-                    Me.GetSurface(0).FontColor = Color.Green;
-                    Me.GetSurface(0).WriteText("AOK");
+                    Info(builder.ToString());
                 }
                 else
                 {
-                    Me.GetSurface(0).ContentType = ContentType.TEXT_AND_IMAGE;
-                    Me.GetSurface(0).FontSize = 10;
-                    Me.GetSurface(0).FontColor = Color.Red;
-                    Me.GetSurface(0).WriteText("ERR");
+                    Error(builder.ToString());
                 }
 
-                Echo(builder.ToString());
             }
-
-            Mechanicals.Clear();
             ProxyTubes.Clear();
 
         }
