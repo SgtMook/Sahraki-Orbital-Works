@@ -192,22 +192,32 @@ namespace IngameScript
 
                 foreach (var target in GetThreatsScratchpad.Keys)
                 {
-                    DetectedTargets.Add(target.EntityId, MyTuple.Create( target, true) );
+                    DetectedTargets[target.EntityId] =  MyTuple.Create( target, true);
+                }
 
-                    TryAddEnemyShipIntel(intelItems, localTime, canonicalTime, target, true);
+                int priority = 0;
+                while (true)
+                {
+                    var selectedTarget = WCAPI.GetAiFocus(Context.Reference.CubeGrid.EntityId, priority);
+                    if (selectedTarget == null) break;
+                    DetectedTargets[selectedTarget.Value.EntityId] = MyTuple.Create(selectedTarget.Value, true);
+                    break;
                 }
             }
 //            Context.Log.Debug("B");
-            foreach (var turret in Turrets)
+            else
             {
-                if (!turret.HasTarget) 
-                    continue;
-
-                var target = turret.GetTargetedEntity();
-
-                if ( !target.IsEmpty() && !DetectedTargets.ContainsKey(target.EntityId) )
+                foreach (var turret in Turrets)
                 {
-                    DetectedTargets.Add(target.EntityId, MyTuple.Create(target, false));
+                    if (!turret.HasTarget) 
+                        continue;
+
+                    var target = turret.GetTargetedEntity();
+
+                    if ( !target.IsEmpty() && !DetectedTargets.ContainsKey(target.EntityId) )
+                    {
+                        DetectedTargets[target.EntityId] = MyTuple.Create(target, false);
+                    }
                 }
             }
 //            Context.Log.Debug("C");
