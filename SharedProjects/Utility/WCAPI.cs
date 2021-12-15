@@ -24,8 +24,8 @@ namespace IngameScript
         private Action<ICollection<MyDefinitionId>> _getCoreWeapons;
         private Action<ICollection<MyDefinitionId>> _getCoreTurrets;
         private Action<IMyTerminalBlock, bool, bool, int> _toggleWeaponFire;
-        private Func<Sandbox.ModAPI.Ingame.IMyTerminalBlock, int, Sandbox.ModAPI.Ingame.MyDetectedEntityInfo> _getWeaponTarget;
-        private Func<Sandbox.ModAPI.Ingame.IMyTerminalBlock, bool> _hasCoreWeapon;
+        private Func<IMyTerminalBlock, int, MyDetectedEntityInfo> _getWeaponTarget;
+        private Func<IMyTerminalBlock, bool> _hasCoreWeapon;
         private Action<Sandbox.ModAPI.Ingame.IMyTerminalBlock, IDictionary<Sandbox.ModAPI.Ingame.MyDetectedEntityInfo, float>> _getSortedThreats;
         private Func<long, int, MyDetectedEntityInfo> _getAiFocus;
 

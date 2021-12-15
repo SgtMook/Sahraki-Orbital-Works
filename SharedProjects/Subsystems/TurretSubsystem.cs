@@ -225,7 +225,6 @@ namespace IngameScript
         public void Setup(ExecutionContext context, string name )
         {
             Context = context;
-            WCAPI.Activate(Context.Program.Me);
 
             ParseConfigs();
             GetParts();
@@ -237,8 +236,9 @@ namespace IngameScript
 
             if (runs % RotorHingeTurret.TURRET_TIMESTEP == 0 && runs > 60)
             {
+                if (Context.WCAPI == null) return;
                 statusBuilder.Clear();
-                var target = WCAPI.GetAiFocus(Context.Reference.CubeGrid.EntityId);
+                var target = Context.WCAPI.GetAiFocus(Context.Reference.CubeGrid.EntityId);
                 statusBuilder.AppendLine(target == null ? "NULL" : target.Value.Name);
 
                 // Get ordered list of targets
@@ -312,7 +312,6 @@ namespace IngameScript
         int MaxEngagementDist = 0;
         int MinEngagementSize = 0;
 
-        WcPbApi WCAPI = new WcPbApi();
 
         public TurretSubsystem(IIntelProvider intelProvider, string turretGroupName = "[LG-TURRET]")
         {
@@ -323,7 +322,9 @@ namespace IngameScript
         void GetParts()
         {
             GetBlocksScratchpad.Clear();
-            Context.Terminal.GetBlockGroupWithName(TurretGroupName).GetBlocksOfType<IMyTerminalBlock>(GetBlocksScratchpad);
+            var group = Context.Terminal.GetBlockGroupWithName(TurretGroupName);
+            if (group == null) return;
+            group.GetBlocksOfType<IMyTerminalBlock>(GetBlocksScratchpad);
 
             TopIDsToTurret.Clear();
             TopTopIDsToTurret.Clear();

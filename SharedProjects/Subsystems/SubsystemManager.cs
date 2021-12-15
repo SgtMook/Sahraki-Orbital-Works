@@ -109,6 +109,7 @@ namespace IngameScript
         public StringBuilder StringBuilder= new StringBuilder();
         public Random Random = new Random();
         public long Frame = 0;
+        public WcPbApi WCAPI = null;
         public ExecutionContext(MyGridProgram program, IMyTerminalBlock reference = null)
         { 
             Program = program;
@@ -155,6 +156,10 @@ namespace IngameScript
                 profiler = new Profiler(Context.Program.Runtime, PROFILER_HISTORY_COUNT, PROFILER_NEW_VALUE_FACTOR);
 
             GeneralListener = Context.IGC.RegisterBroadcastListener(GeneralChannel);
+
+            Context.WCAPI = new WcPbApi();
+            if (!Context.WCAPI.Activate(context.Program.Me))
+                Context.WCAPI = null;
         }
 
         // [Manager]
@@ -272,6 +277,13 @@ namespace IngameScript
         {
             if (Active)
             {
+                if (Context.Frame % 100 == 0 && Context.WCAPI == null)
+                {
+                    Context.WCAPI = new WcPbApi();
+                    if (!Context.WCAPI.Activate(Context.Program.Me))
+                        Context.WCAPI = null;
+                }
+
                 while (GeneralListener.HasPendingMessage)
                 {
                     var msg = GeneralListener.AcceptMessage();
