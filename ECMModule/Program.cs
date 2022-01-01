@@ -32,6 +32,8 @@ namespace IngameScript
             // Add subsystems
             // AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
             IntelSubsystem intelSubsystem = new IntelSubsystem();
+            Context.IntelSystem = intelSubsystem;
+
             TacMapSubsystem tacMapSubsystem = new TacMapSubsystem(intelSubsystem);
 
             // subsystemManager.AddSubsystem("autopilot", autopilotSubsystem);
@@ -53,7 +55,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            subsystemManager.UpdateTime();
+            Context.UpdateTime();
             if (commandLine.TryParse(argument))
             {
                 subsystemManager.CommandV2(commandLine);

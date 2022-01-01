@@ -74,7 +74,10 @@ namespace IngameScript
             GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectBlocks);
             AutopilotSubsystem = new AtmoDrive(Controller, 5, Me);
             AutopilotSubsystem.FullAuto = false;
+
             IntelSubsystem = new IntelSubsystem();
+            Context.IntelSystem = IntelSubsystem;
+
             CombatSubsystem = new HornetCombatSubsystem(IntelSubsystem, false);
             LookingGlassNetwork = new LookingGlassNetworkSubsystem(IntelSubsystem, "LG", false, false);
             AgentSubsystem = new AgentSubsystem(IntelSubsystem, AgentClass.None);
@@ -162,7 +165,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            subsystemManager.UpdateTime();
+            Context.UpdateTime();
             if (argument == "combatautopilottoggle")
             {
                 CombatAutopilot = !CombatAutopilot;
@@ -227,7 +230,7 @@ namespace IngameScript
                     if (CombatAutopilot)
                     {
                         var hadTarget = PriorityTarget != null;
-                        var intelItems = IntelSubsystem.GetFleetIntelligences(subsystemManager.Timestamp);
+                        var intelItems = IntelSubsystem.GetFleetIntelligences(Context.CurrentTime);
 
                         PriorityTarget = null;
                         float HighestEnemyPriority = 0;
@@ -237,7 +240,7 @@ namespace IngameScript
                             if (kvp.Key.Item1 == IntelItemType.Enemy)
                             {
                                 var enemy = kvp.Value as EnemyShipIntel;
-                                var dist = (int)(enemy.GetPositionFromCanonicalTime(subsystemManager.Timestamp + IntelSubsystem.CanonicalTimeDiff) - Me.GetPosition()).Length();
+                                var dist = (int)(enemy.GetPositionFromCanonicalTime(Context.CanonicalTime) - Me.GetPosition()).Length();
                                 var size = enemy.Radius;
                                 if (dist > 2000 || size < 30)
                                     continue;
@@ -264,7 +267,7 @@ namespace IngameScript
                         else
                         {
                             AgentSubsystem.AddTask(TaskType.Attack, MyTuple.Create(IntelItemType.Enemy, PriorityTarget.ID), CommandType.Override, 0,
-                                subsystemManager.Timestamp + IntelSubsystem.CanonicalTimeDiff);
+                                Context.CanonicalTime);
                         }
                     }
                     else

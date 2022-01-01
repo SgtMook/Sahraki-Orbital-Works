@@ -53,22 +53,27 @@ namespace IngameScript
         {
             Context = context;
 
-            if (!WCAPI.Activate(Context.Program.Me)) 
+            if (!WCAPI.Activate(Context.Program.Me))
                 WCAPI = null;
 
             IntelProvider.AddIntelMutator(this);
             GetParts();
             ParseConfigs();
+            HoldFire();
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             runs++;
+
             if (WCAPI == null && runs % 12 == 0)
             {
                 WCAPI = new WcPbApi();
-                if (!WCAPI.Activate(Context.Program.Me))
+                if (WCAPI.Activate(Context.Program.Me))
+                    GetParts();
+                else
                     WCAPI = null;
+
             }
 
 
@@ -81,7 +86,7 @@ namespace IngameScript
                 if (target.IsEmpty()) continue;
                 if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid) continue;
                 if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies) continue;
-            
+
                 var intelDict = IntelProvider.GetFleetIntelligences(timestamp);
                 var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
 
@@ -102,7 +107,8 @@ namespace IngameScript
         #endregion
         ExecutionContext Context;
 
-        List<IMyUserControllableGun> Guns = new List<IMyUserControllableGun>();
+        RoundRobin<IMyFunctionalBlock> WCGuns = new RoundRobin<IMyFunctionalBlock>();
+        RoundRobin<IMyUserControllableGun> Guns = new RoundRobin<IMyUserControllableGun>();
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
 
         StringBuilder updateBuilder = new StringBuilder();
@@ -112,20 +118,20 @@ namespace IngameScript
         public EnemyShipIntel TargetIntel;
 
         int fireCounter;
+        TimeSpan NextSalvoFire;
 
         int engageCounter;
 
         public int FireDist = 800;
+        public int FireSalvoMS = 0;
         public int EngageDist = 500;
         public int AlertDist = 1500;
 
         public int ProjectileSpeed = 400;
 
-        public float EngageTheta = 0.1f;
-
-        public float FireTolerance = 0.2f;
-
-        public float OwnSpeedMultiplier = 1f;
+        public double EngageTheta = 0.1;
+        public double FireTolerance = 0.2;
+        public double OwnSpeedMultiplier = 1;
 
         int runs = 0;
 
@@ -139,25 +145,33 @@ namespace IngameScript
 
         void GetParts()
         {
-            Guns.Clear();
+            Guns.Items.Clear();
+            WCGuns.Items.Clear();
             Turrets.Clear();
             Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
         }
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (Context.Reference.CubeGrid.EntityId != block.CubeGrid.EntityId) 
+            if (!UseGuns || 
+                Context.Reference.CubeGrid.EntityId != block.CubeGrid.EntityId ||
+                block.CustomName.Contains("[X]"))
                 return false;
 
-            if (block is IMyLargeTurretBase)
+            bool isWCGun = WCAPI != null && WCAPI.HasCoreWeapon(block);
+            var turret = block as IMyLargeTurretBase;
+            var gun = block as IMyUserControllableGun;
+
+            if (isWCGun)
+                WCGuns.Items.Add(block as IMyFunctionalBlock);
+            else if (turret != null)
             {
-                IMyLargeTurretBase turret = (IMyLargeTurretBase)block;
                 Turrets.Add(turret);
                 turret.EnableIdleRotation = false;
                 turret.SyncEnableIdleRotation();
             }
-            else if (block is IMyUserControllableGun && UseGuns)
-                Guns.Add((IMyUserControllableGun)block);
+            else if (gun != null)
+                Guns.Items.Add(gun);
 
             return false;
         }
@@ -172,28 +186,21 @@ namespace IngameScript
         // OwnSpeedMultiplier = 1
         void ParseConfigs()
         {
+            var hornetSection = "Hornet";
             MyIni Parser = new MyIni();
             MyIniParseResult result;
             if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
-            var val = Parser.Get("Hornet", "FireDist").ToInt16();
-            if (val != 0) FireDist = val;
-            val = Parser.Get("Hornet", "EngageDist").ToInt16();
-            if (val != 0) EngageDist = val;
-            val = Parser.Get("Hornet", "AlertDist").ToInt16();
-            if (val != 0) AlertDist = val;
+            FireDist = Parser.Get(hornetSection, "FireDist").ToInt32(FireDist);
+            FireSalvoMS = Parser.Get(hornetSection, "FireSalvoMS").ToInt32(FireSalvoMS);
+            EngageDist = Parser.Get(hornetSection, "EngageDist").ToInt32(EngageDist);
+            AlertDist = Parser.Get(hornetSection, "AlertDist").ToInt32(AlertDist);
+            ProjectileSpeed = Parser.Get(hornetSection, "ProjectileSpeed").ToInt32(ProjectileSpeed);
 
-            val = Parser.Get("Hornet", "ProjectileSpeed").ToInt16();
-            if (val != 0) ProjectileSpeed = val;
-
-            var flo = Parser.Get("Hornet", "EngageTheta").ToDecimal();
-            if (flo != 0) EngageTheta = (float)flo;
-            
-            flo = Parser.Get("Hornet", "FireTolerance").ToDecimal();
-            if (flo != 0) FireTolerance = (float)flo;
-
-            OwnSpeedMultiplier = (float)Parser.Get("Hornet", "OwnSpeedMultiplier").ToDecimal(1);
+            EngageTheta = Parser.Get(hornetSection, "EngageTheta").ToDouble(EngageTheta);
+            FireTolerance = Parser.Get(hornetSection, "FireTolerance").ToDouble(FireTolerance);
+            OwnSpeedMultiplier = Parser.Get(hornetSection, "OwnSpeedMultiplier").ToDouble(OwnSpeedMultiplier);
         }
 
         #region Public accessors
@@ -201,27 +208,46 @@ namespace IngameScript
         {
             if (fireCounter == -1)
             {
-                foreach (var gun in Guns)
+                if (FireSalvoMS == 0)
                 {
-                    gun.Enabled = true;
-                    if (WCAPI != null && WCAPI.HasCoreWeapon(gun))
-                        WCAPI.ToggleWeaponFire(gun, true, true);
-                    else
-                        TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
+                    Guns.Items.ForEach(gun => { gun.Enabled = true; TerminalPropertiesHelper.SetValue(gun, "Shoot", true); });
+                    if ( WCAPI != null )
+                        WCGuns.Items.ForEach(gun => { gun.Enabled = true; WCAPI.ToggleWeaponFire(gun, true, true);});
+                }
+                else
+                {
+                    NextSalvoFire = Context.CurrentTime;
                 }
             }
             fireCounter = 3;
+
+            if (fireCounter > 0 && 
+                Context.CurrentTime >= NextSalvoFire)
+            {
+                NextSalvoFire += ScriptTime.FromMilliseconds(FireSalvoMS);
+                var gun = Guns.GetAndAdvance();
+                if (gun != null)
+                {
+                    gun.Enabled = true;
+                    TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
+                }
+                if (WCAPI != null)
+                {
+                    var wcGun = WCGuns.GetAndAdvance();
+                    if (wcGun != null)
+                    {
+                        gun.Enabled = true;
+                        WCAPI.ToggleWeaponFire(gun, true, true);
+                    }
+                } 
+            }
         }
 
         public void HoldFire()
         {
-            foreach (var gun in Guns)
-            {
-                if (WCAPI != null && WCAPI.HasCoreWeapon(gun))
-                    WCAPI.ToggleWeaponFire(gun, false, true);
-                else
-                    TerminalPropertiesHelper.SetValue(gun, "Shoot", false);
-            }
+            Guns.Items.ForEach(gun => TerminalPropertiesHelper.SetValue(gun, "Shoot", false));
+            if (WCAPI != null)
+                WCGuns.Items.ForEach(gun => WCAPI.ToggleWeaponFire(gun, false, true));
             fireCounter = -1;
         }
 

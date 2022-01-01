@@ -36,10 +36,10 @@ namespace IngameScript
 
             // Add subsystems
             // Intel system setup
-            IIntelProvider intelSubsystem;
-            intelSubsystem = new IntelSubsystem(1);
-            
-            subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
+            IntelSubsystem intelSubsystem = new IntelSubsystem(1);
+            Context.IntelSystem = intelSubsystem;
+
+            subsystemManager.AddSubsystem("intel", intelSubsystem);
             LookingGlassNetworkSubsystem lookingGlassNetwork = null;
 
             // Looking Glass Setup
@@ -141,7 +141,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            subsystemManager.UpdateTime();
+            Context.UpdateTime();
             if (commandLine.TryParse(argument))
             {
                 subsystemManager.CommandV2(commandLine);

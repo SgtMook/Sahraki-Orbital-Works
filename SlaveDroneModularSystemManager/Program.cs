@@ -35,6 +35,7 @@ namespace IngameScript
             // Intel system setup
             IIntelProvider intelSubsystem;
             intelSubsystem = new IntelSubsystem();
+            Context.IntelSystem = intelSubsystem;
 
             subsystemManager.AddSubsystem("intel", (ISubsystem)intelSubsystem);
 
@@ -74,7 +75,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            subsystemManager.UpdateTime();
+            Context.UpdateTime();
             if (commandLine.TryParse(argument))
             {
                 subsystemManager.CommandV2(commandLine);

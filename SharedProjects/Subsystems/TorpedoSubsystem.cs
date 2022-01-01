@@ -362,6 +362,13 @@ namespace IngameScript
                 foreach (var torp in Torpedos)
                 {
                     var extend = torp.Controller.GetShipSpeed() * 0.017 + (torp.Controller.CubeGrid.GridSizeEnum == MyCubeSize.Large ? 11.5 : 3);
+
+//                     if (torp.TubeIndex >= 0 && !torp.Controller.CubeGrid.IsSameConstructAs(Context.Reference.CubeGrid))
+//                     {
+//                         Context.Log.Debug("Detach Tube #" + torp.TubeIndex);
+//                         torp.TubeIndex = -1;
+//                     }
+
                     torp.FastUpdate();
                     if (torp.proxArmed && torp.Target != null)
                     {
@@ -810,14 +817,14 @@ namespace IngameScript
                     if ( target != null )
                     {
                         TargetInfo targetInfo;
-                        group.EngagedTargets.TryGetValue(target, out targetInfo);
-                        if (targetInfo == null)
+                        if (!group.EngagedTargets.TryGetValue(target, out targetInfo))
                         {
                             targetInfo = new TargetInfo();
-                            targetInfo.Requests = LaunchCount - 1;
-                            targetInfo.LastLaunch = localTime;
-                            targetInfo.Interval = TimeSpan.FromMilliseconds(LaunchIntervalMS);
+                            group.EngagedTargets.Add(target, targetInfo);
                         }
+                        targetInfo.Requests = LaunchCount - 1;
+                        targetInfo.LastLaunch = localTime;
+                        targetInfo.Interval = TimeSpan.FromMilliseconds(LaunchIntervalMS);
                     }
                 }
 
@@ -860,6 +867,7 @@ namespace IngameScript
         public List<float> CameraExtends = new List<float>();
         public IMySensorBlock Sensor;
         public IMyShipController Controller;
+        public int TubeIndex;
         public string Tag; // This is the number of the index of SubMissiles. Legacy: HE, CLST, MICRO, etc
         public HashSet<IMyShipMergeBlock> Splitters = new HashSet<IMyShipMergeBlock>();
 
@@ -998,7 +1006,7 @@ namespace IngameScript
                 foreach (var thruster in Thrusters) thruster.ThrustOverridePercentage = canCruise ? .25f : 1f;
             }
 
-            AimAtTarget(RefreshNavigation(CanonicalTime));
+            AimAtTarget(normalAccelerationVector);
         }
 
         public void FastUpdate()
@@ -1008,6 +1016,7 @@ namespace IngameScript
                 runs++;
                 if (runs == 2)
                 {
+//                    HostSubsystem.Context.Log.Debug("Fast Tube #" + TubeIndex);
                     foreach (var thruster in Thrusters)
                     {
                         thruster.Enabled = true;
@@ -1447,7 +1456,7 @@ namespace IngameScript
         public double CruiseDistSqMin = 10000;
         public int PlungeDist = 1000;
         public double HitOffset = 0;
-        public int ReloadCooldownMS = 3500;
+        public int ReloadCooldownMS = 5000;
         public Dictionary<MyItemType, int> TorpedoParts = new Dictionary<MyItemType, int>();
 
         public bool AutoFire = false;
@@ -1691,7 +1700,7 @@ namespace IngameScript
                 return;
             }
 
-//            Host.Context.Log.Debug("LoadTorpedoParts SUCCESS");
+//            Host.Context.Log.Debug("Load Tube #"+Index);
             foreach (var part in Host.PartsScratchpad)
             {
                 AddTorpedoPart(part);
@@ -1737,6 +1746,8 @@ namespace IngameScript
             if (!Release.Detach())
                 return null;
 
+//            Host.Context.Log.Debug("Fire Tube #"+Index);
+
             ReloadCooldown = localTime + TimeSpan.FromMilliseconds(Group.ReloadCooldownMS);
             // Torpedo Welder Control
             // Thruster Release Torpedoes need to temporarily disable welders to fire.
@@ -1756,6 +1767,8 @@ namespace IngameScript
                 Connector.OtherConnector.Enabled = false;
 
             var torp = LoadedTorpedo;
+            LoadedTorpedo = null;
+
             torp.TrickshotMode = Group.Trickshot || trickshot ? Torpedo.AltModeStage.Setup : Torpedo.AltModeStage.Off;
             foreach (var sub in torp.SubTorpedos)
             {
@@ -1764,8 +1777,9 @@ namespace IngameScript
                 sub.canInitialize = false;
             }
             torp.HostSubsystem = Host;
+            torp.TubeIndex = Index;
+//            Host.Context.Log.Debug("Init Tube #" + Index);
             torp.Init(canonicalTime, Group);
-            LoadedTorpedo = null;
             torp.Target = target;
             return torp;
         }

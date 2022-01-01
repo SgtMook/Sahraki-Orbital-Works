@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <MDKVersion>1.4.7</MDKVersion>
+    <MDKVersion>1.4.12</MDKVersion>
     <MDKGameBinPath>d:\games\steam\SteamApps\common\SpaceEngineers\Bin64</MDKGameBinPath>
-    <MDKInstallPath>c:\users\brend\appdata\local\microsoft\visualstudio\16.0_18565220\extensions\5glhs2re.50u</MDKInstallPath>
+    <MDKInstallPath>c:\users\brend\appdata\local\microsoft\visualstudio\16.0_18565220\extensions\5utr1mht.mog</MDKInstallPath>
     <MDKOutputPath>C:\Users\brend\AppData\Roaming\SpaceEngineers\IngameScripts\local</MDKOutputPath>
   </PropertyGroup>
   <ItemGroup>
@@ -66,6 +66,10 @@
     <Reference Include="MDKUtilities">
       <HintPath>$(MDKInstallPath)\MDKUtilities.dll</HintPath>
       <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Collections.Immutable">
+      <HintPath>$(MDKGameBinPath)\System.Collections.Immutable.dll</HintPath>
+      <Private>false</Private>
     </Reference>
     <Analyzer Include="$(MDKInstallPath)\Analyzers\MDKAnalyzer.dll" />
   </ItemGroup>
