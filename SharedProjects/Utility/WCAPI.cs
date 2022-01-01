@@ -24,9 +24,10 @@ namespace IngameScript
         private Action<ICollection<MyDefinitionId>> _getCoreWeapons;
         private Action<ICollection<MyDefinitionId>> _getCoreTurrets;
         private Action<IMyTerminalBlock, bool, bool, int> _toggleWeaponFire;
-        private Func<Sandbox.ModAPI.Ingame.IMyTerminalBlock, int, Sandbox.ModAPI.Ingame.MyDetectedEntityInfo> _getWeaponTarget;
-        private Func<Sandbox.ModAPI.Ingame.IMyTerminalBlock, bool> _hasCoreWeapon;
+        private Func<IMyTerminalBlock, int, MyDetectedEntityInfo> _getWeaponTarget;
+        private Func<IMyTerminalBlock, bool> _hasCoreWeapon;
         private Action<Sandbox.ModAPI.Ingame.IMyTerminalBlock, IDictionary<Sandbox.ModAPI.Ingame.MyDetectedEntityInfo, float>> _getSortedThreats;
+        private Func<long, int, MyDetectedEntityInfo> _getAiFocus;
 
         public bool Activate(IMyTerminalBlock pbBlock)
         {
@@ -44,6 +45,7 @@ namespace IngameScript
             AssignMethod(delegates, "ToggleWeaponFire", ref _toggleWeaponFire);
             AssignMethod(delegates, "HasCoreWeapon", ref _hasCoreWeapon);
             AssignMethod(delegates, "GetSortedThreats", ref _getSortedThreats);
+            AssignMethod(delegates, "GetAiFocus", ref _getAiFocus);
 
             return true;
         }
@@ -76,5 +78,7 @@ namespace IngameScript
 
         public void GetSortedThreats(Sandbox.ModAPI.Ingame.IMyTerminalBlock pBlock, IDictionary<Sandbox.ModAPI.Ingame.MyDetectedEntityInfo, float> collection) =>
             _getSortedThreats?.Invoke(pBlock, collection);
+
+        public MyDetectedEntityInfo? GetAiFocus(long shooter, int priority = 0) => _getAiFocus?.Invoke(shooter, priority);
     }
 }

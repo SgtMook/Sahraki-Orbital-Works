@@ -67,7 +67,7 @@ namespace IngameScript
             }
         }
 
-        public static string BlockBytePosToBase64(IMyTerminalBlock block, IMyCubeBlock origin)
+        public static string BlockBytePosToBase64(IMyCubeBlock block, IMyCubeBlock origin)
         {
             if (block == null)
             {
@@ -93,7 +93,7 @@ namespace IngameScript
             return input;
         }
 
-        public static bool Base64BytePosToBlockList<T>(string input, IMyCubeBlock origin, ref List<T> result) where T : class, IMyTerminalBlock
+        public static bool Base64BytePosToBlockList<T>(string input, IMyCubeBlock origin, ref List<T> result) where T : class, IMyCubeBlock 
         {
             if (string.IsNullOrEmpty(input))
             {

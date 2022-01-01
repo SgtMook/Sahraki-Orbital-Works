@@ -53,8 +53,6 @@ namespace IngameScript
         {
             Context = context;
 
-            if (!WCAPI.Activate(Context.Program.Me)) 
-                WCAPI = null;
             GetParts();
             ParseConfigs();
         }
@@ -68,12 +66,6 @@ namespace IngameScript
                 if (Designator != null) 
                     UpdateDesignator(timestamp);
             } 
-            if (WCAPI == null && runs % 120 == 0)
-            {
-                WCAPI = new WcPbApi();
-                if (!WCAPI.Activate(Context.Program.Me))
-                    WCAPI = null;
-            }
         }
 
         #endregion
@@ -96,8 +88,6 @@ namespace IngameScript
         Dictionary<long, MyTuple<MyDetectedEntityInfo, bool>> DetectedTargets = new Dictionary<long, MyTuple<MyDetectedEntityInfo, bool>>();
 
         StringBuilder debugBuilder = new StringBuilder();
-
-        WcPbApi WCAPI = new WcPbApi();
 
         double RaycastDistanceMax = 10000;
         int ScanExtent;
@@ -144,7 +134,7 @@ namespace IngameScript
             
             if (block is IMyLargeTurretBase)
             {
-                if (WCAPI == null || !WCAPI.HasCoreWeapon(block)) 
+                if (Context.WCAPI == null || !Context.WCAPI.HasCoreWeapon(block)) 
                     Turrets.Add((IMyLargeTurretBase)block);
             }
 
@@ -185,29 +175,39 @@ namespace IngameScript
             DetectedTargets.Clear();
             // WC only...
 //            Context.Log.Debug("A");
-            if (WCAPI != null)
+            if (Context.WCAPI != null)
             {
                 GetThreatsScratchpad.Clear();
-                WCAPI.GetSortedThreats(Context.Reference, GetThreatsScratchpad);
+                Context.WCAPI.GetSortedThreats(Context.Reference, GetThreatsScratchpad);
 
                 foreach (var target in GetThreatsScratchpad.Keys)
                 {
-                    DetectedTargets.Add(target.EntityId, MyTuple.Create( target, true) );
+                    DetectedTargets[target.EntityId] =  MyTuple.Create( target, true);
+                }
 
-                    TryAddEnemyShipIntel(intelItems, localTime, canonicalTime, target, true);
+                int priority = 0;
+                while (true)
+                {
+                    var selectedTarget = Context.WCAPI.GetAiFocus(Context.Reference.CubeGrid.EntityId, priority);
+                    if (selectedTarget == null) break;
+                    TryAddEnemyShipIntel(intelItems, localTime, canonicalTime, selectedTarget.Value, true, true);
+                    break;
                 }
             }
 //            Context.Log.Debug("B");
-            foreach (var turret in Turrets)
+            else
             {
-                if (!turret.HasTarget) 
-                    continue;
-
-                var target = turret.GetTargetedEntity();
-
-                if ( !target.IsEmpty() && !DetectedTargets.ContainsKey(target.EntityId) )
+                foreach (var turret in Turrets)
                 {
-                    DetectedTargets.Add(target.EntityId, MyTuple.Create(target, false));
+                    if (!turret.HasTarget) 
+                        continue;
+
+                    var target = turret.GetTargetedEntity();
+
+                    if ( !target.IsEmpty() && !DetectedTargets.ContainsKey(target.EntityId) )
+                    {
+                        DetectedTargets[target.EntityId] = MyTuple.Create(target, false);
+                    }
                 }
             }
 //            Context.Log.Debug("C");
@@ -238,13 +238,15 @@ namespace IngameScript
                 TryScanTarget(targetPosition, localTime, enemy);
             }
         }
-        public void TryAddEnemyShipIntel(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelDict, TimeSpan localTime, TimeSpan canonicalTime, MyDetectedEntityInfo target, bool validated = false)
+        public void TryAddEnemyShipIntel(Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> intelDict, TimeSpan localTime, TimeSpan canonicalTime, MyDetectedEntityInfo target, bool validated = false, bool targetNeutral = false)
         {
             if (target.IsEmpty())
                 return;
             if (target.Type != MyDetectedEntityType.SmallGrid && target.Type != MyDetectedEntityType.LargeGrid && target.Type != MyDetectedEntityType.Unknown)
                 return;
-            if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies)
+            if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies && target.Relationship != MyRelationsBetweenPlayerAndBlock.Neutral)
+                return;
+            if (target.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies && !targetNeutral)
                 return;
 
             var key = MyTuple.Create(IntelItemType.Enemy, target.EntityId);
