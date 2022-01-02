@@ -236,8 +236,8 @@ namespace IngameScript
                     var wcGun = WCGuns.GetAndAdvance();
                     if (wcGun != null)
                     {
-                        gun.Enabled = true;
-                        WCAPI.ToggleWeaponFire(gun, true, true);
+                        wcGun.Enabled = true;
+                        WCAPI.ToggleWeaponFire(wcGun, true, true);
                     }
                 } 
             }
