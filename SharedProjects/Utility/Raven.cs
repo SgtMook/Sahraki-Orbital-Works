@@ -41,7 +41,10 @@ namespace IngameScript
             SubsystemManager = new SubsystemManager(Context);
             Drive = new AtmoDrive(Controller);
             CombatLoaderSubsystem loaderSubsystem = new CombatLoaderSubsystem("Drone Cargo", "Drone Store");
+            
             IntelSubsystem intelSubsystem = new IntelSubsystem();
+            Context.IntelSystem = intelSubsystem;
+
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem, loaderSubsystem);
             StatusIndicatorSubsystem indicatorSubsystem = new StatusIndicatorSubsystem(dockingSubsystem, intelSubsystem);
             MonitorSubsystem monitorSubsystem = new MonitorSubsystem(intelSubsystem);
@@ -71,7 +74,7 @@ namespace IngameScript
 
         public void Update(UpdateType updateSource)
         {
-            SubsystemManager.UpdateTime();
+            Context.UpdateTime();
             SubsystemManager.Update(updateSource);
         }
 

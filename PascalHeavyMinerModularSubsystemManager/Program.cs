@@ -43,6 +43,8 @@ namespace IngameScript
 
             AutopilotSubsystem = new AutopilotSubsystem();
             IntelSubsystem = new IntelSubsystem();
+            Context.IntelSystem = IntelSubsystem;
+
             MiningSubsystem = new HoneybeeMiningSystem();
             LookingGlassNetwork = new LookingGlassNetworkSubsystem(IntelSubsystem, "LG", false, false);
             AgentSubsystem = new AgentSubsystem(IntelSubsystem, AgentClass.Fighter);
@@ -89,7 +91,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            subsystemManager.UpdateTime();
+            Context.UpdateTime();
             if (commandLine.TryParse(argument))
             {
                 subsystemManager.CommandV2(commandLine);

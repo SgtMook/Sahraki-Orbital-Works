@@ -16,6 +16,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)HangarSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HoneybeeSubsystems.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HornetSubsystems.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)HoverTorpedoSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IntelSubsystems.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)InventoryManagerSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ISubsystem.cs" />

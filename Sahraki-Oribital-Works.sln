@@ -108,7 +108,9 @@ Global
 		SharedProjects\Tasks\Tasks.projitems*{c30fef71-aecf-44b3-a1ab-042f75fefdb5}*SharedItemsImports = 4
 		SharedProjects\Utility\Utility.projitems*{c30fef71-aecf-44b3-a1ab-042f75fefdb5}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{c53f458b-e409-4c3b-bc29-1a7e6c413809}*SharedItemsImports = 13
-		SharedProjects\SharedProjects.projitems*{d02f10a6-eeda-45e2-9e37-40247ec6ebc4}*SharedItemsImports = 4
+		SharedProjects\Subsystems\Subsystems.projitems*{d02f10a6-eeda-45e2-9e37-40247ec6ebc4}*SharedItemsImports = 4
+		SharedProjects\Tasks\Tasks.projitems*{d02f10a6-eeda-45e2-9e37-40247ec6ebc4}*SharedItemsImports = 4
+		SharedProjects\Utility\Utility.projitems*{d02f10a6-eeda-45e2-9e37-40247ec6ebc4}*SharedItemsImports = 4
 		SharedProjects\LegacyShared\LegacyShared.projitems*{de00c4f2-c050-4b87-84c9-2d77d1e00064}*SharedItemsImports = 13
 		SharedProjects\SharedProjects.projitems*{e18e0ede-4e3d-49cf-b1aa-2b822278f54d}*SharedItemsImports = 4
 		SharedProjects\SharedProjects.projitems*{e61d9e0f-ae0e-41a5-9c83-cc268641ca53}*SharedItemsImports = 4
@@ -147,6 +149,7 @@ Global
 		{F64AC661-A74C-40FC-85DE-6B944ACFE43A}.Debug|x64.ActiveCfg = Debug|x64
 		{3D4E7DFE-9C39-44DE-BEFA-E197191168AD}.Debug|x64.ActiveCfg = Debug|x64
 		{D02F10A6-EEDA-45E2-9E37-40247EC6EBC4}.Debug|x64.ActiveCfg = Debug|x64
+		{D02F10A6-EEDA-45E2-9E37-40247EC6EBC4}.Debug|x64.Build.0 = Debug|x64
 		{E61D9E0F-AE0E-41A5-9C83-CC268641CA53}.Debug|x64.ActiveCfg = Debug|x64
 		{21D1E24D-F1B4-4078-97C2-0D554C8C16E9}.Debug|x64.ActiveCfg = Debug|x64
 		{21D1E24D-F1B4-4078-97C2-0D554C8C16E9}.Debug|x64.Build.0 = Debug|x64
@@ -180,7 +183,7 @@ Global
 		{9A60403B-B2E1-49E7-8E0B-783783080493} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
 		{F64AC661-A74C-40FC-85DE-6B944ACFE43A} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
 		{3D4E7DFE-9C39-44DE-BEFA-E197191168AD} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
-		{D02F10A6-EEDA-45E2-9E37-40247EC6EBC4} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
+		{D02F10A6-EEDA-45E2-9E37-40247EC6EBC4} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
 		{E61D9E0F-AE0E-41A5-9C83-CC268641CA53} = {079D58B0-FA15-497B-94E2-9161049AA8F0}
 		{21D1E24D-F1B4-4078-97C2-0D554C8C16E9} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
 		{E18E0EDE-4E3D-49CF-B1AA-2B822278F54D} = {079D58B0-FA15-497B-94E2-9161049AA8F0}

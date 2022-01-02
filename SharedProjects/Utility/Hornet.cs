@@ -22,14 +22,19 @@ namespace IngameScript
     // This is a Hornet class attack drone
     public class Hornet
     {
+        ExecutionContext Context;
         public SubsystemManager SubsystemManager;
 
         public Hornet(IMyTerminalBlock reference, ExecutionContext context)
         {
+            Context = context;
+
             SubsystemManager = new SubsystemManager(context);
 
             AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
             IntelSubsystem intelSubsystem = new IntelSubsystem();
+            Context.IntelSystem = intelSubsystem;
+
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             HornetCombatSubsystem combatSubsystem = new HornetCombatSubsystem(intelSubsystem);
             MonitorSubsystem monitorSubsystem = new MonitorSubsystem(intelSubsystem);
@@ -58,7 +63,7 @@ namespace IngameScript
 
         public void Update(UpdateType updateSource)
         {
-            SubsystemManager.UpdateTime();
+            Context.UpdateTime();
             SubsystemManager.Update(updateSource);
         }
     }

@@ -24,17 +24,23 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
+        ExecutionContext Context;
+        CommandLine commandLine = new CommandLine();
+        
         public IntelSubsystem IntelSubsystem;
         public ScannerNetworkSubsystem ScannerSubsystem;
-        public TorpedoSubsystem TorpedoSubsystem;
+        public HoverTorpedoSubsystem TorpedoSubsystem;
 
         public Program()
         {
-            subsystemManager = new SubsystemManager(this);
+
+            Context = new ExecutionContext(this);
+
+            subsystemManager = new SubsystemManager(Context);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
 
             IntelSubsystem = new IntelSubsystem();
-            TorpedoSubsystem = new TorpedoSubsystem(IntelSubsystem);
+            TorpedoSubsystem = new HoverTorpedoSubsystem(IntelSubsystem);
             ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
             subsystemManager.AddSubsystem("intel", IntelSubsystem);
             subsystemManager.AddSubsystem("scanner", ScannerSubsystem);
@@ -42,8 +48,6 @@ namespace IngameScript
 
             subsystemManager.DeserializeManager(Storage);
         }
-
-        MyCommandLine commandLine = new MyCommandLine();
 
         SubsystemManager subsystemManager;
 
@@ -55,10 +59,11 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            subsystemManager.UpdateTime();
+            Context.UpdateTime();
+
             if (commandLine.TryParse(argument))
             {
-                subsystemManager.Command(commandLine.Argument(0), commandLine.Argument(1), commandLine.ArgumentCount > 2 ? commandLine.Argument(2) : null);
+                subsystemManager.CommandV2(commandLine);
             }
             else
             {
@@ -66,7 +71,8 @@ namespace IngameScript
                 {
                     subsystemManager.Update(updateSource);
                     var status = subsystemManager.GetStatus();
-                    if (status != string.Empty) Echo(status);
+                    if (status != string.Empty) 
+                        Echo(subsystemManager.GetStatus());
                 }
                 catch (Exception e)
                 {

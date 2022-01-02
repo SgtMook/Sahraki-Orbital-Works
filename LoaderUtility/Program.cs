@@ -26,8 +26,8 @@ namespace IngameScript
 
         SubsystemManager mySubsystemManager;
 
-        public CombatLoaderSubsystem myCombatLoaderSubsystem;
-        public MonitorSubsystem myMonitorSubsystem;
+        CombatLoaderSubsystem myCombatLoaderSubsystem;
+        MonitorSubsystem myMonitorSubsystem;
 
         MyCommandLine CommandLine = new MyCommandLine();
 
@@ -59,7 +59,7 @@ namespace IngameScript
             // one update type.
             // 
             // The method itself is required, but the arguments above
-            // can be removed if not needed.
+            // can be removed if not needed.            
         }
     }
 }

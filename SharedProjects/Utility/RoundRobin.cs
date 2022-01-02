@@ -33,6 +33,7 @@ namespace IngameScript
                 Items = new List<T>();
         }
 
+
         public T GetAndAdvance()
         {
             if (current >= Items.Count)

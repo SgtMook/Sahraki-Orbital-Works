@@ -35,6 +35,8 @@ namespace IngameScript
             // Add subsystems
             AutopilotSubsystem autopilotSubsystem = new AutopilotSubsystem();
             IntelSubsystem intelSubsystem = new IntelSubsystem();
+            Context.IntelSystem = intelSubsystem;
+
             DockingSubsystem dockingSubsystem = new DockingSubsystem(intelSubsystem);
             HoneybeeMiningSystem miningSubsystem = new HoneybeeMiningSystem();
             MonitorSubsystem monitorSubsystem = new MonitorSubsystem(intelSubsystem);
@@ -74,7 +76,7 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            subsystemManager.UpdateTime();
+            Context.UpdateTime();
             if (commandLine.TryParse(argument))
             {
                 subsystemManager.CommandV2(commandLine);

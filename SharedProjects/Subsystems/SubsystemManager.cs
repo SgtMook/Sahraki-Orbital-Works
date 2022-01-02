@@ -29,9 +29,9 @@ namespace IngameScript
     }
     public class Logger
     {
-        private const int LineCount = 20;
-        private string[] LogLines;
-        private int LogIndex = 0;
+        const int LineCount = 40;
+        string[] LogLines;
+        int LogIndex = 0;
 
         public Logger()
         {
@@ -60,7 +60,14 @@ namespace IngameScript
             }
         }
     }
-    
+
+    public struct ScriptTime
+    {
+//         long ticks;
+//         public static readonly TimeSpan Zero;
+        public static TimeSpan FromMilliseconds(double value) { return TimeSpan.FromMilliseconds(value); }
+    }
+
     // Wrapping for functionality & minification
     public class CommandLine
     {
@@ -110,6 +117,13 @@ namespace IngameScript
         public Random Random = new Random();
         public long Frame = 0;
         public WcPbApi WCAPI = null;
+        public TimeSpan CurrentTime;
+        
+        // The Intel system uses Canonical Time, since each ship
+        // can have its own time offset based on the timezone of
+        // the player.
+        public TimeSpan CanonicalTime;
+        public IIntelProvider IntelSystem;
         public ExecutionContext(MyGridProgram program, IMyTerminalBlock reference = null)
         { 
             Program = program;
@@ -118,6 +132,12 @@ namespace IngameScript
 
             Reference = (reference == null) ? program.Me : reference;
         }
+        public void UpdateTime()
+        {
+            CurrentTime += Program.Runtime.TimeSinceLastRun;
+            CanonicalTime = CurrentTime + (IntelSystem != null ? IntelSystem.CanonicalTimeDiff : TimeSpan.Zero);
+        }
+
     }
 
     public class SubsystemManager
@@ -129,8 +149,6 @@ namespace IngameScript
         StringBuilder StatusBuilder = new StringBuilder();
         StringBuilder DebugBuilder = new StringBuilder();
         StringBuilder ExceptionBuilder = new StringBuilder();
-
-        public TimeSpan Timestamp = new TimeSpan();
 
         const double PROFILER_NEW_VALUE_FACTOR = 0.01;
         const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
@@ -312,7 +330,7 @@ namespace IngameScript
                     ISubsystem system = subsystem.Value;
                     if ((system.UpdateFrequency & updateFrequency) != 0)
                     {
-                        system.Update(Timestamp, updateFrequency);
+                        system.Update(Context.CurrentTime, updateFrequency);
                     }
                     targetFrequency |= system.UpdateFrequency;
                     if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch(subsystem.Key);
@@ -384,7 +402,7 @@ namespace IngameScript
             }
             else if (Subsystems.ContainsKey(subsystem))
             {
-                Subsystems[subsystem].Command(Timestamp, command, argument);
+                Subsystems[subsystem].Command(Context.CurrentTime, command, argument);
             }
         }
         public void CommandV2(CommandLine command)
@@ -408,16 +426,11 @@ namespace IngameScript
                 ISubsystem subsystem;
                 if ( Subsystems.TryGetValue(command.Subsystem, out subsystem) )
                 {
-                    subsystem.Command(Timestamp, command.Argument(0), command.Argument(1));
-                    subsystem.CommandV2(Timestamp, command);
+                    subsystem.Command(Context.CurrentTime, command.Argument(0), command.Argument(1));
+                    subsystem.CommandV2(Context.CurrentTime, command);
                 }
 
             }
-        }
-
-        public void UpdateTime()
-        {
-            Timestamp += Context.Program.Runtime.TimeSinceLastRun;
         }
     }
 }
