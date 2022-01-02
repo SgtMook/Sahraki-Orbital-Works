@@ -104,6 +104,7 @@ namespace IngameScript
 
             foreach (string line in values)
             {
+                if (string.IsNullOrEmpty(line)) continue;
                 IMySlimBlock slim = origin.CubeGrid.GetCubeBlock(Base64ByteToVector3I(line, origin));
                 if (slim != null && slim.IsFullIntegrity)
                 {
@@ -132,9 +133,19 @@ namespace IngameScript
             if (input != null)
             {
                 var split = input.Split('.');
-                result.X = int.Parse(split[0]);
-                result.Y = int.Parse(split[1]);
-                result.Z = int.Parse(split[2]);
+
+                int x, y, z;
+
+                if (!int.TryParse(split[0], out x) ||
+                    !int.TryParse(split[1], out y) ||
+                    !int.TryParse(split[2], out z))
+                {
+                    throw new Exception($"Failed parsing {input}");
+                }
+
+                result.X = x;
+                result.Y = y;
+                result.Z = z;
                 result = TransformBlockPosToGridPos(result, origin);
             }
             return result;

@@ -71,6 +71,20 @@ namespace IngameScript
     // TorpedoMk1           - M-1 Launcher
     // DestroyerMissileX    - M-8 Launcher
 
+    // Kharak
+    //
+    // MyObjectBuilder_AmmoMagazine
+    //
+    // NATO_25x184mm
+    // NATO_5p56x45mm
+    // Ballistics_Flak
+    // Ballistics_Cannon
+    // Ballistics_Railgun
+    // Ballistics_MAC
+    // Missile200mm
+    // Missiles_Missile
+    // Missiles_Torpedo
+
 
     public class CombatLoaderSubsystem : ISubsystem
     {
@@ -79,13 +93,13 @@ namespace IngameScript
         
         public void Command(TimeSpan timestamp, string command, object argument)
         {
-            if (command == "reload") Reload();
-            if (command == "unload") Unload();
         }
 
         public void CommandV2(TimeSpan timestamp, CommandLine command)
         {
-
+            if (command.Argument(0) == "reload") Reload();
+            if (command.Argument(0) == "unload") Unload();
+            if (command.Argument(0) == "toggleauto") AutoReload = !AutoReload;
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -135,11 +149,25 @@ namespace IngameScript
             if (runs % 10 == 0)
             {
                 UpdateInventories();
+
+                if (!LoadingInventory && !UnloadingInventory && AutoReload && AutoReloadInterval > 0)
+                {
+                    if (AutoReloadTicker > 0)
+                    {
+                        AutoReloadTicker--;
+                    }
+                    else
+                    {
+                        AutoReloadTicker = AutoReloadInterval;
+                        Reload();
+                    }
+                }
             }
         }
         #endregion
         string InventoryRequestSection = "InventoryRequest";
         const string kLoaderSection = "Loader";
+        const string kLoaderDisplaySection = "LoaderDisplay";
         ExecutionContext Context;
 
         List<IMyTerminalBlock> StoreInventoryOwners = new List<IMyTerminalBlock>();
@@ -148,6 +176,7 @@ namespace IngameScript
         public Dictionary<MyItemType, int> TotalInventoryRequests = new Dictionary<MyItemType, int>();
         public Dictionary<MyItemType, int> TotalInventory = new Dictionary<MyItemType, int>();
         public Dictionary<MyItemType, int> NextTotalInventory = new Dictionary<MyItemType, int>();
+        public List<MyItemType> SortedInventory = new List<MyItemType>();
 
         MyIni iniParser = new MyIni();
         List<MyIniKey> iniKeyScratchpad = new List<MyIniKey>();
@@ -159,7 +188,7 @@ namespace IngameScript
 
         public int LastCheckIndex = 0;
         public int UpdateNum = 0;
-        int kMaxChecksPerRun = 1;
+        int LoadsPerRun = 1;
         int runs = 0;
 
         public bool LoadingInventory = false;
@@ -171,10 +200,30 @@ namespace IngameScript
 
         string CargoGroupName;
         string StoreGroupName;
-        string ReportOutputName;
-        int ReportOutputIndex;
+        string ReportOutputGroupName;
+        string ReportOutputTag;
 
-        IMyTextSurface TextSurface;
+        int AutoReloadInterval = -1;
+        int AutoReloadTicker = -1;
+        bool AutoReload = true;
+
+        Dictionary<IMyTextSurface, OutputSurfaceConfig> TextSurfaces = new Dictionary<IMyTextSurface, OutputSurfaceConfig>();
+
+        struct OutputSurfaceConfig
+        {
+            public bool ShowLoading;
+            public string Header;
+            public int StartIndex;
+            public int EndIndex;
+
+            public OutputSurfaceConfig(bool showLoading = true, string header = "", int startIndex = -1, int endIndex = -1)
+            {
+                ShowLoading = showLoading;
+                Header = header;
+                StartIndex = startIndex;
+                EndIndex = endIndex;
+            }
+        }
 
         public CombatLoaderSubsystem(string cargoGroupName = "Cargo", string storeGroupName = "Store")
         {
@@ -189,10 +238,17 @@ namespace IngameScript
             InventoryRequests.Clear();
 
             Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectBlocks);
+            var displayGroup = Context.Terminal.GetBlockGroupWithName(ReportOutputGroupName);
+            if (displayGroup != null)
+            {
+                displayGroup.GetBlocksOfType<IMyTerminalBlock>(null, CollectDisplays);
+            }
 
             var cargoGroup = Context.Terminal.GetBlockGroupWithName(CargoGroupName);
             if (cargoGroup == null) return;
             cargoGroup.GetBlocks(null, CollectInventoryOwners);
+
+            InventoryOwners.Sort((a, b) => a.CustomName.CompareTo(b.CustomName));
         }
         
         bool CollectInventoryOwners(IMyTerminalBlock block)
@@ -204,30 +260,72 @@ namespace IngameScript
                 InventoryOwners.Add(block);
             }
 
+            SortedInventory.Sort((a, b)=>a.ToString().CompareTo(b.ToString()));
+
             return false;
         }
 
         bool CollectBlocks(IMyTerminalBlock block)
         {
             if (block.CubeGrid.EntityId != Context.Reference.CubeGrid.EntityId) return false;
-            if (block.CustomName == ReportOutputName)
+            if (block.CustomName.Contains(ReportOutputTag))
             {
                 if (block is IMyTextSurface)
-                    TextSurface = (IMyTextSurface)block;
+                    AddTextSurface(block);
                 else if (block is IMyTextSurfaceProvider)
-                    TextSurface = ((IMyTextSurfaceProvider)block).GetSurface(ReportOutputIndex);
-
-                return false;
+                    AddTextSurfaceProvider(block);
             }
             return false;
+        }
+
+        bool CollectDisplays(IMyTerminalBlock block)
+        {
+            if (!block.IsSameConstructAs(Context.Reference)) return false;
+            if (block is IMyTextSurface)
+                AddTextSurface(block);
+            else if (block is IMyTextSurfaceProvider)
+                AddTextSurfaceProvider(block);
+
+            return false;
+        }
+
+
+        void AddTextSurface(IMyTerminalBlock block)
+        {
+            TextSurfaces.Add(block as IMyTextSurface, ReadConfigData(block.CustomData, kLoaderDisplaySection));
+        }
+        void AddTextSurfaceProvider(IMyTerminalBlock block)
+        {
+            var surfaceProvider = block as IMyTextSurfaceProvider;
+            for (int i = 0; i < surfaceProvider.SurfaceCount; i++)
+            {
+                TextSurfaces.Add(surfaceProvider.GetSurface(i), ReadConfigData(block.CustomData, kLoaderDisplaySection + i.ToString()));
+            }
+        }
+
+        OutputSurfaceConfig ReadConfigData(string data, string configTag)
+        {
+            MyIni Parser = new MyIni();
+            MyIniParseResult result;
+            if (!Parser.TryParse(data, out result))
+                return new OutputSurfaceConfig();
+
+            var ShowLoading = Parser.Get(configTag, "ShowLoading").ToBoolean(true);
+            var Header = Parser.Get(configTag, "Header").ToString("");
+            var StartIndex = Parser.Get(configTag, "StartIndex").ToInt32(-1);
+            var EndIndex = Parser.Get(configTag, "EndIndex").ToInt32(-1);
+
+            return new OutputSurfaceConfig(ShowLoading, Header, StartIndex, EndIndex);
         }
 
         // [Loader]
         // CargoGroupName = Cargo
         // StoreGroupName = Store
-        // ReportOutputName = ""
-        // ReportOutputIndex = 0
+        // ReportOutputGroupName = CargoReport
+        // ReportOutputTag = [CargoReport]
         // Loadout = InventoryRequest
+        // AutoReloadSeconds = -1
+        // LoadsPerRun = 1
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
@@ -237,9 +335,12 @@ namespace IngameScript
 
             CargoGroupName = Parser.Get(kLoaderSection, "CargoGroupName").ToString(CargoGroupName);
             StoreGroupName = Parser.Get(kLoaderSection, "StoreGroupName").ToString(StoreGroupName);
-            ReportOutputName = Parser.Get(kLoaderSection, "ReportOutputName").ToString(ReportOutputName);
-            ReportOutputIndex = Parser.Get(kLoaderSection, "ReportOutputIndex").ToInt32(ReportOutputIndex);
+            ReportOutputGroupName = Parser.Get(kLoaderSection, "ReportOutputGroupName").ToString(ReportOutputGroupName);
+            ReportOutputTag = Parser.Get(kLoaderSection, "ReportOutputTag").ToString("[CargoReport]");
             InventoryRequestSection = Parser.Get(kLoaderSection, "Loadout").ToString(InventoryRequestSection);
+            AutoReloadInterval = Parser.Get(kLoaderSection, "AutoReloadSeconds").ToInt32(AutoReloadInterval) * 6;
+            AutoReloadTicker = AutoReloadInterval;
+            LoadsPerRun = Parser.Get(kLoaderSection, "LoadsPerRun").ToInt32(LoadsPerRun);
         }
 
         void GetBlockRequestSettings(IMyTerminalBlock block)
@@ -267,21 +368,28 @@ namespace IngameScript
 
                     if (!TotalInventoryRequests.ContainsKey(type)) TotalInventoryRequests[type] = 0;
                     TotalInventoryRequests[type] += count;
+                    if (!SortedInventory.Contains(type)) SortedInventory.Add(type);
                 }
             }
         }
 
         void UpdateInventories()
         {
-            for (int i = LastCheckIndex; i < LastCheckIndex + kMaxChecksPerRun; i++)
+            for (int i = LastCheckIndex; i < LastCheckIndex + LoadsPerRun; i++)
             {
                 if (i < InventoryOwners.Count())
                 {
+                    if (InventoryOwners[i].CubeGrid != Context.Reference.CubeGrid) continue;
+
                     if (LoadingInventory)
                     {
                         SortInventory(InventoryOwners[i]);
-                        if (TextSurface != null)
-                            TextSurface.WriteText($"LOADING - {i} / {InventoryOwners.Count()}");
+
+                        foreach (var kvp in TextSurfaces)
+                        {
+                            if (kvp.Value.ShowLoading)
+                                kvp.Key.WriteText($"LOADING - {i} / {InventoryOwners.Count()}");
+                        }
                     }
 
                     inventoryItemsScratchpad.Clear();
@@ -302,22 +410,34 @@ namespace IngameScript
                     LastCheckIndex = 0;
                     if (LoadingInventory)
                     {
-                        if (TextSurface != null)
+                        foreach (var kvp in TextSurfaces)
                         {
                             reportBuilder.Clear();
-                            reportBuilder.AppendLine("LOADER REPORT");
+                            reportBuilder.AppendLine(kvp.Value.Header != "" ? kvp.Value.Header : "LOADER REPORT");
                             reportBuilder.AppendLine($"LOADOUT: {InventoryRequestSection}");
                             reportBuilder.AppendLine(DateTime.Now.ToShortTimeString());
                             reportBuilder.AppendLine("========");
 
-                            foreach (var kvp in TotalInventoryRequests)
+                            int indexCounter = 0;
+
+                            foreach (var key in SortedInventory)
                             {
-                                var request = kvp.Value;
-                                int got = TotalInventory.GetValueOrDefault(kvp.Key);
-                                reportBuilder.AppendLine($"{(got == request ? "AOK" : (got > request ? "OVR" : "MIS"))} - {kvp.Key.SubtypeId} - {got} / {request}");
+                                if (indexCounter >= kvp.Value.EndIndex && kvp.Value.EndIndex > -1)
+                                {
+                                    break;
+                                }
+
+                                if (indexCounter > kvp.Value.StartIndex)
+                                {
+                                    var request = TotalInventoryRequests[key];
+                                    int got = TotalInventory.GetValueOrDefault(key);
+                                    reportBuilder.AppendLine($"{(got == request ? "AOK" : (got > request ? "OVR" : "MIS"))} - {key.SubtypeId} - {got} / {request}");
+                                }
+
+                                indexCounter++;
                             }
 
-                            TextSurface.WriteText(reportBuilder.ToString());
+                            kvp.Key.WriteText(reportBuilder.ToString());
                         }
 
                         UnloadingInventory = false;
@@ -328,12 +448,12 @@ namespace IngameScript
                     return;
                 }
             }
-            LastCheckIndex += kMaxChecksPerRun;
+            LastCheckIndex += LoadsPerRun;
         }
 
         void SortInventories()
         {
-            for (int i = LastCheckIndex; i < LastCheckIndex + kMaxChecksPerRun; i++)
+            for (int i = LastCheckIndex; i < LastCheckIndex + LoadsPerRun; i++)
             {
                 if (i < InventoryOwners.Count())
                 {
@@ -345,7 +465,7 @@ namespace IngameScript
                     return;
                 }
             }
-            LastCheckIndex += kMaxChecksPerRun;
+            LastCheckIndex += LoadsPerRun;
         }
 
         void SortInventory(IMyTerminalBlock inventoryOwner)

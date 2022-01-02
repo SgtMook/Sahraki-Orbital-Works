@@ -26,8 +26,10 @@ namespace IngameScript
         private Action<IMyTerminalBlock, bool, bool, int> _toggleWeaponFire;
         private Func<IMyTerminalBlock, int, MyDetectedEntityInfo> _getWeaponTarget;
         private Func<IMyTerminalBlock, bool> _hasCoreWeapon;
-        private Action<Sandbox.ModAPI.Ingame.IMyTerminalBlock, IDictionary<Sandbox.ModAPI.Ingame.MyDetectedEntityInfo, float>> _getSortedThreats;
+        private Action<IMyTerminalBlock, IDictionary<MyDetectedEntityInfo, float>> _getSortedThreats;
         private Func<long, int, MyDetectedEntityInfo> _getAiFocus;
+        private Action<IMyTerminalBlock, long, int> _setWeaponTarget;
+        private Func<long, bool> _hasGridAi;
 
         public bool Activate(IMyTerminalBlock pbBlock)
         {
@@ -46,6 +48,8 @@ namespace IngameScript
             AssignMethod(delegates, "HasCoreWeapon", ref _hasCoreWeapon);
             AssignMethod(delegates, "GetSortedThreats", ref _getSortedThreats);
             AssignMethod(delegates, "GetAiFocus", ref _getAiFocus);
+            AssignMethod(delegates, "SetWeaponTarget", ref _setWeaponTarget);
+            AssignMethod(delegates, "HasGridAi", ref _hasGridAi);
 
             return true;
         }
@@ -71,14 +75,19 @@ namespace IngameScript
 
         public void ToggleWeaponFire(IMyTerminalBlock weapon, bool on, bool allWeapons, int weaponId = 0) =>
             _toggleWeaponFire?.Invoke(weapon, on, allWeapons, weaponId);
-        public MyDetectedEntityInfo? GetWeaponTarget(Sandbox.ModAPI.Ingame.IMyTerminalBlock weapon, int weaponId = 0) =>
+        public MyDetectedEntityInfo? GetWeaponTarget(IMyTerminalBlock weapon, int weaponId = 0) =>
             _getWeaponTarget?.Invoke(weapon, weaponId);
 
-        public bool HasCoreWeapon(Sandbox.ModAPI.Ingame.IMyTerminalBlock weapon) => _hasCoreWeapon?.Invoke(weapon) ?? false;
+        public bool HasCoreWeapon(IMyTerminalBlock weapon) => _hasCoreWeapon?.Invoke(weapon) ?? false;
 
-        public void GetSortedThreats(Sandbox.ModAPI.Ingame.IMyTerminalBlock pBlock, IDictionary<Sandbox.ModAPI.Ingame.MyDetectedEntityInfo, float> collection) =>
+        public void GetSortedThreats(IMyTerminalBlock pBlock, IDictionary<MyDetectedEntityInfo, float> collection) =>
             _getSortedThreats?.Invoke(pBlock, collection);
 
         public MyDetectedEntityInfo? GetAiFocus(long shooter, int priority = 0) => _getAiFocus?.Invoke(shooter, priority);
+
+        public void SetWeaponTarget(IMyTerminalBlock weapon, long target, int weaponId = 0) =>
+            _setWeaponTarget?.Invoke(weapon, target, weaponId);
+
+        public bool HasGridAi(long entity) => _hasGridAi?.Invoke(entity) ?? false;
     }
 }

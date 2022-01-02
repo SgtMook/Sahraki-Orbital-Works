@@ -52,6 +52,7 @@ namespace IngameScript
         // max_landing_roll = 15
         // precision = 16
         // mouse_speed = 0.5
+        // auto_enable_with_dampener = false
         void ParseConfigs()
         {
             iniParser.Clear();
@@ -72,18 +73,20 @@ namespace IngameScript
 
             precisionAimFactor = iniParser.Get(kHeliDriveConfigSection, "precision").ToSingle(16.0f);
             mouseSpeed = iniParser.Get(kHeliDriveConfigSection, "mouse_speed").ToSingle(0.5f);
+            autoEnableWithDampener = iniParser.Get(kHeliDriveConfigSection, "auto_enable_with_dampener").ToBoolean(false);
         }
 
         public void Setup(ExecutionContext context, string name)
         {
             Context = context;
+            Drive.Setup(controller);
             ParseConfigs();
 
             var blockGroup = Context.Terminal.GetBlockGroupWithName(blockGroupName);
             if (blockGroup == null) throw new Exception("Could not find block group with name '" + blockGroupName + "'");
 
             controllerCache.Clear();
-            blockGroup.GetBlocksOfType<IMyShipController>(controllerCache);
+            context.Terminal.GetBlocksOfType(controllerCache);
             if (controllerCache.Count == 0) throw new Exception("Ship must have at least one ship controller");
             controller = null;
             foreach (var controller in controllerCache)
@@ -94,14 +97,12 @@ namespace IngameScript
             if (this.controller == null) this.controller = controllerCache[0];
 
             gyroCache.Clear();
-            blockGroup.GetBlocksOfType<IMyGyro>(gyroCache);
+            blockGroup.GetBlocksOfType(gyroCache);
             if (gyroCache.Count == 0) throw new Exception("Ship must have atleast one gyroscope");
 
             thrustCache.Clear();
-            blockGroup.GetBlocksOfType<IMyThrust>(thrustCache);
+            blockGroup.GetBlocksOfType(thrustCache);
             if (thrustCache.Count == 0) throw new Exception("Ship must have atleast one thruster");
-
-            Drive.Setup(controller);
 
             Drive.thrustController.Update(controller, thrustCache);
 
@@ -110,13 +111,16 @@ namespace IngameScript
             Drive.SwitchToMode(start_mode);
         }
 
-        
-
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             runs++;
-            if (runs% 10 == 0)
+            if (runs % 10 == 0)
             {
+                if (autoEnableWithDampener)
+                {
+                    Drive.SwitchToMode(controller.DampenersOverride ? "flight" : "shutdown");
+                }
+
                 Drive.MoveIndicators = controller.MoveIndicator;
                 Drive.RotationIndicators = new Vector3(controller.RotationIndicator, controller.RollIndicator * 9);
                 Drive.autoStop = controller.DampenersOverride;
@@ -155,6 +159,7 @@ namespace IngameScript
 
         public bool enableLateralOverride;
         public bool enablePrecisionAim;
+        public bool autoEnableWithDampener;
 
         //Cache Variables
         public List<IMyShipController> controllerCache = new List<IMyShipController>();

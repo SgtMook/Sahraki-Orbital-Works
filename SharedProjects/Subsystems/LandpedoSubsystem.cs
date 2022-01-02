@@ -172,6 +172,7 @@ namespace IngameScript
                     return;
 
                 Landpedo = Landpedo.GetLandpedo(PartScratchpad);
+                projector.Enabled = false;
             }
             else
             {
@@ -312,7 +313,7 @@ namespace IngameScript
                         double altitude;
                         landpedo.Controller.TryGetPlanetElevation(MyPlanetElevation.Surface, out altitude);
 
-                        if (targetPointDist > 250 || landpedo.Launchers.Count == 0)
+                        if (targetPointDist > 350 || landpedo.Launchers.Count == 0)
                         {
                             landpedo.desiredAltitude = planarVector.Length() > 200 ? 10 : 50;
                             planarVector.Normalize();
@@ -388,16 +389,16 @@ namespace IngameScript
 
                             if (verticalVelocity.Length() > 10 && verticalVelocity.Dot(gravDir) > 0)
                             {
-                                landpedo.Drive.maxFlightPitch = 45;
-                                landpedo.Drive.maxFlightRoll = 45;
+                                landpedo.Drive.maxFlightPitch = 20;
+                                landpedo.Drive.maxFlightRoll = 20;
                             }
                             else
                             {
-                                landpedo.Drive.maxFlightPitch = 70;
-                                landpedo.Drive.maxFlightRoll = 70;
+                                landpedo.Drive.maxFlightPitch = 60;
+                                landpedo.Drive.maxFlightRoll = 60;
                             }
 
-                            if (targetPointDist < 600)
+                            if (targetPointDist < 1000)
                             {
                                 landpedo.Drive.maxFlightPitch = 20;
                             }

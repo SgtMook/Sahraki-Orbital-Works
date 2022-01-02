@@ -28,7 +28,7 @@ namespace IngameScript
 
         public IMyMotorStator Azimuth;
         public IMyMotorAdvancedStator Elevation;
-        public List<IMyFunctionalBlock> Weapons = new List<IMyFunctionalBlock>();
+        public WeaponGroup WeaponGroup = new WeaponGroup();
         public TurretSubsystem Host;
 
         public PID AzimuthPID;
@@ -40,7 +40,9 @@ namespace IngameScript
 
         public bool targetLarge = true;
         public bool targetSmall = true;
-        public bool snapAim = true;
+
+        bool active = true;
+        bool manual = false;
 
         public float AzimuthMax;
         public float ElevationMax;
@@ -50,35 +52,58 @@ namespace IngameScript
         public double targetAzimuth = 0;
         public double targetElevation = 0;
 
-        int fireTicks = 0;
+        public double restAzimuth = 0;
+        public double restElevation = 0;
 
         StringBuilder statusBuilder = new StringBuilder();
+
+        public void ToggleActive()
+        {
+            active = !active;
+        }
+
+        public void ToggleManual()
+        {
+            manual = !manual;
+            if (manual)
+            {
+                Azimuth.UpperLimitDeg = float.MaxValue;
+                Azimuth.LowerLimitDeg = float.MinValue;
+                Elevation.UpperLimitDeg = float.MaxValue;
+                Elevation.LowerLimitDeg = float.MinValue;
+                Azimuth.TargetVelocityRPM = 0;
+                Elevation.TargetVelocityRPM = 0;
+            }
+            foreach (var gun in WeaponGroup.Weapons.Items)
+            {
+                gun.Enabled = manual;
+            }
+        }
 
         public void SelectTarget(List<EnemyShipIntel> targets, TimeSpan timestamp)
         {
             // Auto reset
-            targetAzimuth = 0;
-            targetElevation = 0;
+            targetAzimuth = restAzimuth;
+            targetElevation = restElevation;
 
-            //statusBuilder.Clear();
-            if (Weapons.Count == 0) return;
+            if (Elevation == null || Azimuth == null) return;
 
-            //statusBuilder.AppendLine("TGTS: " + targets.Count.ToString());
-            while (Weapons[0].Closed)
-            {
-                Weapons.RemoveAtFast(0);
-                if (Weapons.Count == 0) return;
-            }
-            IMyTerminalBlock reference = Weapons[0];
+            var reference = WeaponGroup.Reference;
+            if (!WeaponGroup.Active)
+                return;
+
+            if (!active)
+                return;
 
             var myVel = Host.IntelProvider.Controller.GetShipVelocities().LinearVelocity;
             var canonicalTime = Host.IntelProvider.CanonicalTimeDiff + timestamp;
             foreach (var target in targets)
             {
                 var targetVel = target.GetVelocity();
+                var targetPos = target.GetPositionFromCanonicalTime(canonicalTime);
                 
                 // Get attack position
-                var relativeAttackPoint = AttackHelpers.GetAttackPoint(targetVel - myVel, target.GetPositionFromCanonicalTime(canonicalTime) - (reference.WorldMatrix.Translation), projectileSpeed);
+                var relativeAttackPoint = AttackHelpers.GetAttackPoint(targetVel - myVel, targetPos - (reference.WorldMatrix.Translation), projectileSpeed);
                 var relativeAttackDirection = Vector3D.Normalize(relativeAttackPoint);
 
                 // Check range
@@ -108,67 +133,66 @@ namespace IngameScript
 
         public void AimAndFire()
         {
-            var azimuthDiff = targetAzimuth - ((Azimuth.Angle + Math.PI) % (2 * Math.PI) - Math.PI);
-            var elevationDiff = targetElevation - ((Elevation.Angle + Math.PI) % (2 * Math.PI) - Math.PI);
-            if (snapAim)
+            if (manual)
             {
-                Azimuth.UpperLimitRad = (float)targetAzimuth + 0.00001f;
-                Azimuth.LowerLimitRad = (float)targetAzimuth - 0.00001f;
-                Azimuth.TargetVelocityRPM = Math.Abs(azimuthDiff) < 0.00002 ? 0 : 30 * Math.Sign(azimuthDiff);
+                return;
+            }
 
-                Elevation.UpperLimitRad = (float)targetElevation + 0.00001f;
-                Elevation.LowerLimitRad = (float)targetElevation - 0.00001f;
-                Elevation.TargetVelocityRPM = Math.Abs(elevationDiff) < 0.00002 ? 0 : 30 * Math.Sign(elevationDiff);
+            if (Elevation == null || Azimuth == null) return;
+
+            var azimuthWraparound = AzimuthMax > Math.PI && AzimuthMin < -Math.PI;
+            var trueAzimuthAngle = Azimuth.Angle;
+            if (trueAzimuthAngle > Math.PI + 0.01) trueAzimuthAngle -= 2 * (float)Math.PI;
+            if (trueAzimuthAngle < -Math.PI - 0.01) trueAzimuthAngle += 2 * (float)Math.PI;
+
+            var azimuthDiff = targetAzimuth - trueAzimuthAngle;
+            var elevationDiff = targetElevation - ((Elevation.Angle + Math.PI) % (2 * Math.PI) - Math.PI);
+
+            if (Math.Abs(azimuthDiff) < 0.00002)
+            {
+                Azimuth.TargetVelocityRPM = 0;
             }
             else
             {
-                if (Math.Abs(azimuthDiff) < 0.00002)
+                if (azimuthWraparound && azimuthDiff > Math.PI)
                 {
-                    Azimuth.TargetVelocityRPM = 0;
+                    Azimuth.LowerLimitRad = (float)(targetAzimuth - 2 * Math.PI);
+                    Azimuth.UpperLimitRad = float.MaxValue;
+                    Azimuth.TargetVelocityRPM = -30;
+                }
+                else if (azimuthWraparound && azimuthDiff < -Math.PI)
+                {
+                    Azimuth.LowerLimitRad = float.MinValue;
+                    Azimuth.UpperLimitRad = (float)(targetAzimuth + 2 * Math.PI);
+                    Azimuth.TargetVelocityRPM = 30;
                 }
                 else
                 {
-                    Azimuth.UpperLimitRad = azimuthDiff > 0 ? (float)targetAzimuth : Azimuth.Angle + 0.5f * 3.1415f / 180;
-                    Azimuth.LowerLimitRad = azimuthDiff < 0 ? (float)targetAzimuth : Azimuth.Angle - 0.5f * 3.1415f / 180;
+
+                    Azimuth.UpperLimitRad = azimuthDiff > 0 ? (float)targetAzimuth : trueAzimuthAngle + 0.5f * 3.1415f / 180;
+                    Azimuth.LowerLimitRad = azimuthDiff < 0 ? (float)targetAzimuth : trueAzimuthAngle - 0.5f * 3.1415f / 180;
                     Azimuth.TargetVelocityRPM = 30 * Math.Sign(azimuthDiff);
                 }
-
-                if (Math.Abs(elevationDiff) < 0.00002)
-                {
-                    Elevation.TargetVelocityRPM = 0;
-                }
-                else
-                {
-                    Elevation.UpperLimitRad = elevationDiff > 0 ? (float)targetElevation : Elevation.Angle + 0.5f * 3.1415f / 180;
-                    Elevation.LowerLimitRad = elevationDiff < 0 ? (float)targetElevation : Elevation.Angle - 0.5f * 3.1415f / 180;
-                    Elevation.TargetVelocityRPM = 30 * Math.Sign(elevationDiff);
-                }
-
-                //Azimuth.TargetVelocityRPM = (float)AzimuthPID.Control(azimuthDiff);
-                //Elevation.TargetVelocityRPM = (float)ElevationPID.Control(elevationDiff);
             }
 
-            if (targetAzimuth != 0 && Math.Abs(azimuthDiff) < fireTolerance && targetElevation != 0 && Math.Abs(elevationDiff) < fireTolerance)
+            if (Math.Abs(elevationDiff) < 0.00002)
             {
-                if (fireTicks < 0)
-                {
-                    foreach (var weapon in Weapons)
-                    {
-                        weapon.Enabled = true;
-                    }
-                }
-                fireTicks = 3;
+                Elevation.TargetVelocityRPM = 0;
             }
             else
             {
-                fireTicks--;
-                if (fireTicks < 0)
-                {
-                    foreach (var weapon in Weapons)
-                    {
-                        weapon.Enabled = false;
-                    }
-                }
+                Elevation.UpperLimitRad = elevationDiff > 0 ? (float)targetElevation : Elevation.Angle + 0.5f * 3.1415f / 180;
+                Elevation.LowerLimitRad = elevationDiff < 0 ? (float)targetElevation : Elevation.Angle - 0.5f * 3.1415f / 180;
+                Elevation.TargetVelocityRPM = 30 * Math.Sign(elevationDiff);
+            }
+
+            if (targetAzimuth != restAzimuth && Math.Abs(azimuthDiff) < fireTolerance && targetElevation != restElevation && Math.Abs(elevationDiff) < fireTolerance)
+            {
+                WeaponGroup.OpenFire();
+            }
+            else
+            {
+                WeaponGroup.HoldFire();
             }
         }
 
@@ -182,7 +206,7 @@ namespace IngameScript
             var azmStatus = Azimuth == null ? "MIS" : Azimuth.IsFunctional ? "AOK" : "DMG";
             var elvStatus = Elevation == null ? "MIS" : Elevation.IsFunctional ? "AOK" : "DMG";
             int okWpn = 0;
-            foreach (var weapon in Weapons)
+            foreach (var weapon in WeaponGroup.Weapons.Items)
             {
                 if (weapon.IsFunctional)
                     okWpn++;
@@ -205,7 +229,14 @@ namespace IngameScript
 
         public void CommandV2(TimeSpan timestamp, CommandLine command)
         {
-
+            if (command.Argument(0) == "toggle")
+            {
+                ToggleActive(command.Argument(1));
+            }
+            if (command.Argument(0) == "togglemanual")
+            {
+                ToggleManual(command.Argument(1));
+            }
         }
 
         public void DeserializeSubsystem(string serialized)
@@ -229,7 +260,29 @@ namespace IngameScript
             ParseConfigs();
             GetParts();
         }
-        
+
+        public void ToggleActive(string name)
+        {
+            foreach (var kvp in TurretsDict)
+            {
+                if (kvp.Key.CustomName.Contains(name))
+                {
+                    kvp.Value.ToggleActive();
+                }
+            }
+        }
+
+        public void ToggleManual(string name)
+        {
+            foreach (var kvp in TurretsDict)
+            {
+                if (kvp.Key.CustomName.Contains(name))
+                {
+                    kvp.Value.ToggleManual();
+                }
+            }
+        }
+
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
         {
             runs++;
@@ -237,6 +290,8 @@ namespace IngameScript
             if (runs % RotorHingeTurret.TURRET_TIMESTEP == 0 && runs > 60)
             {
                 if (Context.WCAPI == null) return;
+
+
                 statusBuilder.Clear();
                 var target = Context.WCAPI.GetAiFocus(Context.Reference.CubeGrid.EntityId);
                 statusBuilder.AppendLine(target == null ? "NULL" : target.Value.Name);
@@ -284,6 +339,8 @@ namespace IngameScript
                 {
                     turret.SelectTarget(OrderedTargets, timestamp);
                     turret.AimAndFire();
+                    if (turret.WeaponGroup.WCAPI == null) turret.WeaponGroup.WCAPI = Context.WCAPI;
+                    turret.WeaponGroup.Update(RotorHingeTurret.TURRET_TIMESTEP);
                     statusBuilder.AppendLine($"{turret.Azimuth.CustomName}: {turret.GetStatus()}");
                 }
             }
@@ -311,7 +368,6 @@ namespace IngameScript
         Dictionary<EnemyShipIntel, int> EnemyToScore = new Dictionary<EnemyShipIntel, int>();
         int MaxEngagementDist = 0;
         int MinEngagementSize = 0;
-
 
         public TurretSubsystem(IIntelProvider intelProvider, string turretGroupName = "[LG-TURRET]")
         {
@@ -351,15 +407,18 @@ namespace IngameScript
                         TurretsDict[rotor].projectileSpeed = iniParser.Get(kTurretSettingSection, "Speed").ToInt32(1000);
                         TurretsDict[rotor].targetLarge = iniParser.Get(kTurretSettingSection, "TargetLarge").ToBoolean(true);
                         TurretsDict[rotor].targetSmall = iniParser.Get(kTurretSettingSection, "TargetSmall").ToBoolean(true);
-                        TurretsDict[rotor].snapAim = iniParser.Get(kTurretSettingSection, "SnapAim").ToBoolean(true);
                         var kP = (float)iniParser.Get(kTurretSettingSection, "kP").ToDecimal(60);
                         var kI = (float)iniParser.Get(kTurretSettingSection, "kI").ToDecimal(1);
                         var kD = (float)iniParser.Get(kTurretSettingSection, "kD").ToDecimal(30);
 
-                        TurretsDict[rotor].AzimuthMax = (float)(iniParser.Get(kTurretSettingSection, "AzimuthMax").ToInt32(175) * 180 / Math.PI);
-                        TurretsDict[rotor].AzimuthMin = (float)(iniParser.Get(kTurretSettingSection, "AzimuthMin").ToInt32(-175) * 180 / Math.PI);
-                        TurretsDict[rotor].ElevationMax = (float)(iniParser.Get(kTurretSettingSection, "ElevationMax").ToInt32(20) * 180 / Math.PI);
-                        TurretsDict[rotor].ElevationMin = (float)(iniParser.Get(kTurretSettingSection, "ElevationMin").ToInt32(-20) * 180 / Math.PI);
+                        TurretsDict[rotor].AzimuthMax = (float)(iniParser.Get(kTurretSettingSection, "AzimuthMax").ToInt32(175) * Math.PI / 180);
+                        TurretsDict[rotor].AzimuthMin = (float)(iniParser.Get(kTurretSettingSection, "AzimuthMin").ToInt32(-175) * Math.PI / 180);
+                        TurretsDict[rotor].restAzimuth = (float)(iniParser.Get(kTurretSettingSection, "AzimuthRest").ToInt32(0) * Math.PI / 180);
+                        TurretsDict[rotor].ElevationMax = (float)(iniParser.Get(kTurretSettingSection, "ElevationMax").ToInt32(20) * Math.PI / 180);
+                        TurretsDict[rotor].ElevationMin = (float)(iniParser.Get(kTurretSettingSection, "ElevationMin").ToInt32(-20) * Math.PI / 180);
+                        TurretsDict[rotor].restElevation = (float)(iniParser.Get(kTurretSettingSection, "ElevationRest").ToInt32(0) * Math.PI / 180);
+
+                        TurretsDict[rotor].WeaponGroup.salvoTicks = iniParser.Get(kTurretSettingSection, "SalvoTicks").ToInt32(0);
 
                         TurretsDict[rotor].AzimuthPID = new PID(kP, kI, kD, 0.03, RotorHingeTurret.TURRET_TIMESTEP);
                         TurretsDict[rotor].ElevationPID = new PID(kP, kI, kD, 0.03, RotorHingeTurret.TURRET_TIMESTEP);
@@ -390,7 +449,7 @@ namespace IngameScript
             {
                 if (TopTopIDsToTurret.ContainsKey(block.CubeGrid.EntityId) && block is IMyFunctionalBlock)
                 {
-                    TopTopIDsToTurret[block.CubeGrid.EntityId].Weapons.Add(block as IMyFunctionalBlock);
+                    TopTopIDsToTurret[block.CubeGrid.EntityId].WeaponGroup.Add(block as IMyFunctionalBlock);
                 }
             }
         }

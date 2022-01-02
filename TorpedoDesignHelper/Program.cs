@@ -32,10 +32,25 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            DummyTube = new TorpedoTube(1, this, new TorpedoSubsystem(null));
+            DummyTube = new TorpedoTube(1, new TorpedoSubsystem(null));
             DummyTube.LoadedTorpedo = new Torpedo();
 
-            GetParts();
+            if (argument == "ALL")
+            {
+                GetParts(true);
+            }
+            else if (argument == "HUMMINGBIRD")
+            {
+                GetPartsHummingbird();
+            }
+            else if (argument == "LANDPEDO")
+            {
+                GetPartsLandpedo();
+            }
+            else
+            {
+                GetParts();
+            }
 
             if (argument == "LOAD")
             {
@@ -72,11 +87,46 @@ namespace IngameScript
 
         TorpedoTube DummyTube;
         List<IMyTerminalBlock> PartsOfInterest = new List<IMyTerminalBlock>();
+        List<IMyTerminalBlock> PartsOfInterest2 = new List<IMyTerminalBlock>();
         IMyShipMergeBlock Base;
 
-        void GetParts()
+        IMyMotorAdvancedStator Rotor;
+        IMyProjector Projector;
+        IMyShipConnector Connector;
+
+        void GetParts(bool ALL = false)
         {
-            GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            if (ALL)
+            {
+                GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectAllParts);
+                SaveTorpedo();
+            }
+            else
+            {
+                GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
+            }
+        }
+
+        void GetPartsHummingbird()
+        {
+            GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectAllPartsHummingbird);
+            var sb = new StringBuilder();
+            sb.AppendLine(GridTerminalHelper.BlockListBytePosToBase64(PartsOfInterest, Connector));
+            sb.AppendLine(GridTerminalHelper.BlockBytePosToBase64(Rotor.Top, Connector));
+            sb.AppendLine(GridTerminalHelper.BlockBytePosToBase64(Projector, Connector));
+            sb.AppendLine(GridTerminalHelper.BlockListBytePosToBase64(PartsOfInterest2, Rotor));
+            Connector.CustomData = sb.ToString();
+        }
+
+        void GetPartsLandpedo()
+        {
+            GridTerminalSystem.GetBlocksOfType<IMyTerminalBlock>(null, CollectAllPartsLandpedo);
+
+            var sb = new StringBuilder();
+            sb.AppendLine(GridTerminalHelper.BlockListBytePosToBase64(PartsOfInterest, Connector));
+            sb.AppendLine(GridTerminalHelper.BlockBytePosToBase64(Projector, Connector));
+            sb.AppendLine(GridTerminalHelper.BlockBytePosToBase64(Base, Connector));
+            Connector.CustomData = sb.ToString();
         }
 
         bool CollectParts(IMyTerminalBlock block)
@@ -90,6 +140,46 @@ namespace IngameScript
             if (block is IMyRadioAntenna)
                 PartsOfInterest.Add(block);
             if (block is IMyShipMergeBlock && block.CustomName.Contains("<BASE>")) Base = (IMyShipMergeBlock)block;
+
+            return false;
+        }
+
+        bool CollectAllParts(IMyTerminalBlock block)
+        {
+            if (!Me.IsSameConstructAs(block)) return false;
+            if (block is IMyProgrammableBlock) return false;
+            PartsOfInterest.Add(block);
+            if (block is IMyShipMergeBlock && block.CustomName.Contains("<BASE>")) Base = (IMyShipMergeBlock)block;
+
+            return false;
+        }
+
+        bool CollectAllPartsHummingbird(IMyTerminalBlock block)
+        {
+            if (block == Me) return false;
+            if (!Me.IsSameConstructAs(block)) return false;
+            if (block.CubeGrid == Me.CubeGrid)
+                PartsOfInterest.Add(block);
+            else
+                PartsOfInterest2.Add(block);
+            if (block is IMyShipMergeBlock && block.CustomName.Contains("<BASE>")) Base = (IMyShipMergeBlock)block;
+            if (block is IMyMotorAdvancedStator) Rotor = (IMyMotorAdvancedStator)block;
+            if (block is IMyProjector) Projector = (IMyProjector)block;
+            if (block is IMyShipConnector) Connector = (IMyShipConnector)block;
+
+            return false;
+        }
+
+        bool CollectAllPartsLandpedo(IMyTerminalBlock block)
+        {
+            if (block == Me) return false;
+            if (!Me.IsSameConstructAs(block)) return false;
+            if (block is IMyProgrammableBlock) return false;
+            if (block is IMyShipMergeBlock) Base = (IMyShipMergeBlock)block;
+            if (block is IMyProjector) Projector = (IMyProjector)block;
+            if (block is IMyShipConnector) Connector = (IMyShipConnector)block;
+
+            PartsOfInterest.Add(block);
 
             return false;
         }
