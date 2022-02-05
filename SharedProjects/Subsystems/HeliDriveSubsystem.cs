@@ -62,7 +62,7 @@ namespace IngameScript
             blockGroupName = iniParser.Get(kHeliDriveConfigSection, "block_group_name").ToString("Heli Assist");
 
             start_mode = iniParser.Get(kHeliDriveConfigSection, "start_mode").ToString("flight");
-            rememberLastMode = iniParser.Get(kHeliDriveConfigSection, "remember_mode").ToBoolean(true);
+//            rememberLastMode = iniParser.Get(kHeliDriveConfigSection, "remember_mode").ToBoolean(true);
 
             Drive.maxFlightPitch = iniParser.Get(kHeliDriveConfigSection, "max_pitch").ToSingle(40.0f);
             Drive.maxFlightRoll = iniParser.Get(kHeliDriveConfigSection, "max_roll").ToSingle(40.0f);
@@ -135,8 +135,8 @@ namespace IngameScript
         string blockGroupName;
 
         string start_mode;
-        string last_mode = "";
-        bool rememberLastMode;
+//        string last_mode = "";
+//        bool rememberLastMode;
 
 
         MyIni iniParser = new MyIni();

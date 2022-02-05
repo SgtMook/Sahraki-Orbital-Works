@@ -94,6 +94,10 @@ namespace IngameScript
         {
             return plane.Normal.Dot(point) + plane.D;
         }
+        public static double DistanceToPlaneD(PlaneD plane, Vector3D point)
+        {
+            return plane.Normal.Dot(point) + plane.D;
+        }
 
         public static Vector3 GetRandomPerpendicularNormalToDirection(Random random, Vector3 direction)
         {
@@ -131,6 +135,17 @@ namespace IngameScript
                 return false; // parallel
 
             result = rayPos - rayNorm * (DistanceToPlane(plane, rayPos) / a);
+            return true;
+        }
+
+        public static bool PlaneIntersectionD(PlaneD plane, Vector3D rayPos, Vector3D rayNorm, out Vector3D result)
+        {
+            result = Vector3D.Zero;
+            var a = plane.Normal.Dot(rayNorm);
+            if (a == 0)
+                return false; // parallel
+
+            result = rayPos - rayNorm * (DistanceToPlaneD(plane, rayPos) / a);
             return true;
         }
     }

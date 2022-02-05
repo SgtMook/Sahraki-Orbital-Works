@@ -149,7 +149,6 @@ namespace IngameScript
         public Dictionary<MyItemType, int> TotalInventory = new Dictionary<MyItemType, int>();
         public Dictionary<MyItemType, int> NextTotalInventory = new Dictionary<MyItemType, int>();
 
-        MyIni iniParser = new MyIni();
         List<MyIniKey> iniKeyScratchpad = new List<MyIniKey>();
 
         List<MyInventoryItem> inventoryItemsScratchpad = new List<MyInventoryItem>();
@@ -230,7 +229,8 @@ namespace IngameScript
         // Loadout = InventoryRequest
         void ParseConfigs()
         {
-            MyIni Parser = new MyIni();
+            var Parser = Context.IniParser;
+
             MyIniParseResult result;
             if (!Parser.TryParse(Context.Reference.CustomData, out result))
                 return;
@@ -242,19 +242,44 @@ namespace IngameScript
             InventoryRequestSection = Parser.Get(kLoaderSection, "Loadout").ToString(InventoryRequestSection);
         }
 
+//         void BuildDictionaryFromCustomData<TKey,TValue>(ExecutionContext context, IMyTerminalBlock block, string section, Func<string, TKey> funcKeyParse, Func<MyIniValue, TValue> funcValueParse, Action<TKey,TValue> funcWrite) // Dictionary<MyIniValue, TValue> dictionary )
+//         {
+//             var Parser = context.IniParser;
+//             if (Parser.TryParse(block.CustomData) && Parser.ContainsSection(section))
+//             {
+//                 var TODOiniKeyScratchpad = new List<MyIniKey>();
+//                 Parser.GetKeys(TODOiniKeyScratchpad);
+//                 foreach (var iniKey in iniKeyScratchpad)
+//                 {
+//                     if (iniKey.Section != section)
+//                         continue;
+// 
+//                     var value = valueParse(Parser.Get(iniKey));
+//                     if (value == null)
+//                         continue;
+//                     
+//                     var key = keyParse(iniKey.Name);
+//                     if (key == null)
+//                         continue;
+// 
+//                 }
+//             }
+//         }
+
         void GetBlockRequestSettings(IMyTerminalBlock block)
         {
             InventoryRequests[block.EntityId] = new Dictionary<MyItemType, int>();
 
-            if (iniParser.TryParse(block.CustomData) && iniParser.ContainsSection(InventoryRequestSection))
+            var Parser = Context.IniParser;
+            if (Parser.TryParse(block.CustomData) && Parser.ContainsSection(InventoryRequestSection))
             {
                 // TODO: Replace with
                 //         public void GetKeys(string section, List<MyIniKey> keys);
-                iniParser.GetKeys(iniKeyScratchpad);
+                Parser.GetKeys(iniKeyScratchpad);
                 foreach (var key in iniKeyScratchpad)
                 {
                     if (key.Section != InventoryRequestSection) continue;
-                    var count = iniParser.Get(key).ToInt32();
+                    var count = Parser.Get(key).ToInt32();
                     if (count == 0) continue;
                     var type = MyItemType.Parse(key.Name);
 
@@ -265,7 +290,8 @@ namespace IngameScript
 
                     InventoryRequests[block.EntityId][type] = count;
 
-                    if (!TotalInventoryRequests.ContainsKey(type)) TotalInventoryRequests[type] = 0;
+                    if (!TotalInventoryRequests.ContainsKey(type))
+                        TotalInventoryRequests[type] = 0;
                     TotalInventoryRequests[type] += count;
                 }
             }

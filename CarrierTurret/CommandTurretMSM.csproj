@@ -4,10 +4,10 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{F859A0B3-ADE3-4409-9529-C2AC20CD0E51}</ProjectGuid>
+    <ProjectGuid>{6F893FAC-AE9F-48D4-B780-3313A595D87E}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>IngameScript</RootNamespace>
-    <AssemblyName>HingeMissileDesignHelper</AssemblyName>
+    <AssemblyName>CarrierTurret</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -51,8 +51,8 @@
     <AdditionalFiles Include="MDK\whitelist.cache" />
   </ItemGroup>
   <Import Project="..\SharedProjects\Subsystems\Subsystems.projitems" Label="Shared" />
-  <Import Project="..\SharedProjects\Utility\Utility.projitems" Label="Shared" />
   <Import Project="..\SharedProjects\Tasks\Tasks.projitems" Label="Shared" />
+  <Import Project="..\SharedProjects\Utility\Utility.projitems" Label="Shared" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="AfterBuild">
     <Copy SourceFiles="MDK\MDK.options.props" DestinationFolder="$(TargetDir)\MDK" />

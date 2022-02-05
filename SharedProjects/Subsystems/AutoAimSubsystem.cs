@@ -29,6 +29,10 @@ namespace IngameScript
         {
         }
 
+        public void CommandV2(TimeSpan timestamp, CommandLine command)
+        {
+        }
+
         public void DeserializeSubsystem(string serialized)
         {
         }
@@ -107,7 +111,7 @@ namespace IngameScript
 
         bool CollectParts(IMyTerminalBlock block)
         {
-            if (ProgramReference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
+            if (Context.Reference.CubeGrid.EntityId != block.CubeGrid.EntityId) return false;
 
             if (block is IMyShipController && ((IMyShipController)block).CanControlShip) Controller = (IMyShipController)block;
             if (block is IMyGyro) Gyros.Add((IMyGyro)block);
