@@ -95,18 +95,19 @@ namespace IngameScript
         void UpdateIndicator()
         {
             if (IndicatorLight == null) return;
+// 
+//             Color color = Color.Green;
+//             if (!IntelProvider.HasMaster)
+//             {
+//                 color = Color.Red;
+//             }
+//             else if (DockingSubsystem.HomeID == -1)
+//             {
+//                 color = Color.Yellow;
+//             }
 
-            Color color = Color.Green;
-            if (!IntelProvider.HasMaster)
-            {
-                color = Color.Red;
-            }
-            else if (DockingSubsystem.HomeID == -1)
-            {
-                color = Color.Yellow;
-            }
-
-            IndicatorLight.Color = color;
+            // I need more characters Keen.. I NEED THEM
+            IndicatorLight.Color = !IntelProvider.HasMaster ? Color.Red : DockingSubsystem.HomeID == -1 ? Color.Yellow : Color.Green;
         }
     }
 }

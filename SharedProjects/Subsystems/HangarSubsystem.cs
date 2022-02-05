@@ -146,11 +146,6 @@ namespace IngameScript
             hangarStatus = HangarStatus.None;
         }
 
-        public bool OK()
-        {
-            return Connector != null;
-        }
-
         public void TakeRequest(long requesterID, HangarRequest request, TimeSpan timestamp)
         {
             if (request == HangarRequest.RequestDock)
@@ -458,20 +453,21 @@ namespace IngameScript
         {
             controller = null;
             DirectionIndicator = null;
-            for (int i = 0; i < Hangars.Count(); i++) 
-                if (Hangars[i] != null) Hangars[i].Clear();
+            foreach (var hangar in Hangars)
+                hangar?.Clear();
             HangarsDict.Clear();
             lastConnectorStatuses.Clear();
             SortedHangarsList.Clear();
 
             Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
-
-            for (int i = 0; i < Hangars.Count(); i++)
-                if (Hangars[i] != null && Hangars[i].Connector != null)
+            foreach (var hangar in Hangars)
+            {
+                if (IsHangarOk(hangar))
                 {
-                    SortedHangarsList.Add(Hangars[i]);
-                    HangarsDict[Hangars[i].Connector.EntityId] = Hangars[i];
+                    SortedHangarsList.Add(hangar);
+                    HangarsDict[hangar.Connector.EntityId] = hangar;
                 }
+            }
         }
 
         bool CollectParts(IMyTerminalBlock block)
@@ -502,7 +498,8 @@ namespace IngameScript
 
             int hangarIndex;
             if (!int.TryParse(numString, out hangarIndex)) return false;
-            if (Hangars[hangarIndex] == null) Hangars[hangarIndex] = new Hangar(hangarIndex, this);
+            if (Hangars[hangarIndex] == null)
+                Hangars[hangarIndex] = new Hangar(hangarIndex, this);
             Hangars[hangarIndex].AddPart(block);
 
             return false;
@@ -537,11 +534,11 @@ namespace IngameScript
         {
             if (argument == null)
             {
-                for (int i = 0; i < Hangars.Count(); i++)
+                foreach (var hangar in Hangars)
                 {
-                    if (Hangars[i] != null && Hangars[i].OK())
+                    if (IsHangarOk(hangar))
                     {
-                        Hangars[i].OwnerID = -1;
+                        hangar.OwnerID = -1;
                     }
                 }
             }
@@ -558,20 +555,20 @@ namespace IngameScript
         void ReportAndUpdateHangars(TimeSpan timestamp)
         {
             var intelItems = IntelProvider.GetFleetIntelligences(timestamp);
-            for (int i = 0; i < Hangars.Count(); i++)
+            foreach (var hangar in Hangars)
             {
-                if (Hangars[i] != null && Hangars[i].OK())
+                if (IsHangarOk(hangar))
                 {
-                    IntelProvider.ReportFleetIntelligence(GetHangarIntel(Hangars[i], timestamp), timestamp);
-                    Hangars[i].Update(timestamp, intelItems);
+                    IntelProvider.ReportFleetIntelligence(GetHangarIntel(hangar, timestamp), timestamp);
+                    hangar.Update(timestamp, intelItems);
 
-                    if (requestingRefresh == false && lastConnectorStatuses.ContainsKey(Hangars[i]) && 
-                        ((lastConnectorStatuses[Hangars[i]] == MyShipConnectorStatus.Connected && Hangars[i].Connector.Status != MyShipConnectorStatus.Connected) ||
-                        (lastConnectorStatuses[Hangars[i]] != MyShipConnectorStatus.Connected && Hangars[i].Connector.Status == MyShipConnectorStatus.Connected)))
+                    if (requestingRefresh == false && lastConnectorStatuses.ContainsKey(hangar) && 
+                        ((lastConnectorStatuses[hangar] == MyShipConnectorStatus.Connected && hangar.Connector.Status != MyShipConnectorStatus.Connected) ||
+                        (lastConnectorStatuses[hangar] != MyShipConnectorStatus.Connected && hangar.Connector.Status == MyShipConnectorStatus.Connected)))
                     {
                         requestingRefresh = true;
                     }
-                    lastConnectorStatuses[Hangars[i]] = Hangars[i].Connector.Status;
+                    lastConnectorStatuses[hangar] = hangar.Connector.Status;
                 }
             }
         }
@@ -580,21 +577,28 @@ namespace IngameScript
         {
             while (HangarListener.HasPendingMessage)
             {
-                var msg = HangarListener.AcceptMessage();
-                if (!(msg.Data is MyTuple<long, long, int>)) return;
-                var unpacked = (MyTuple<long, long, int>)msg.Data;
-                if (!HangarsDict.ContainsKey(unpacked.Item2)) return;
-                HangarsDict[unpacked.Item2].TakeRequest(unpacked.Item1, (HangarRequest)unpacked.Item3, timestamp);
+                var data = HangarListener.AcceptMessage().Data;
+                if (!(data is MyTuple<long, long, int>)) return;
+                var unpacked = (MyTuple<long, long, int>)data;
+
+                Hangar hangar; 
+                if (!HangarsDict.TryGetValue(unpacked.Item2, out hangar))
+                    return;
+                hangar.TakeRequest(unpacked.Item1, (HangarRequest)unpacked.Item3, timestamp);
             }
         }
 
+        bool IsHangarOk(Hangar hangar)
+        {
+            return hangar != null && hangar.Connector != null;
+        }
         void UpdateHangardisplays()
         {
-            for (int i = 0; i < Hangars.Count(); i++)
+            foreach (var hangar in Hangars)
             {
-                if (Hangars[i] != null && Hangars[i].OK())
+                if (IsHangarOk(hangar))
                 {
-                    Hangars[i].UpdateDisplays();
+                    hangar.UpdateDisplays();
                 }
             }
         }

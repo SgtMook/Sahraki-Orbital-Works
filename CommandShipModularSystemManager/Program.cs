@@ -72,11 +72,9 @@ namespace IngameScript
                 subsystemManager.AddSubsystem("torpedo", torpedoSubsystem);
             }
 
-            if (lookingGlassNetwork != null)
-            {
-                lookingGlassNetwork.AddPlugin("combat", new LookingGlassPlugin_Combat(torpedoSubsystem, hangarSubsystem, scannerSubsystem));
-                lookingGlassNetwork.ActivatePlugin(DefaultLookingGlassPlugin);
-            }
+
+            lookingGlassNetwork?.AddPlugin("combat", new LookingGlassPlugin_Combat(torpedoSubsystem, hangarSubsystem, scannerSubsystem));
+            lookingGlassNetwork?.ActivatePlugin(DefaultLookingGlassPlugin);
 
             //
             // Command system setup

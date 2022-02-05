@@ -227,15 +227,18 @@ namespace IngameScript
 
         public Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> GetFleetIntelligences(TimeSpan timestamp)
         {
-            if (Host != null) return Host.GetFleetIntelligences(timestamp);
-            if (timestamp == TimeSpan.Zero) return IntelItems;
+            if (Host != null) 
+                return Host.GetFleetIntelligences(timestamp);
+            if (timestamp == TimeSpan.Zero) 
+                return IntelItems;
             GetSyncMessages(timestamp);
             return IntelItems;
         }
 
         public TimeSpan GetLastUpdatedTime(MyTuple<IntelItemType, long> key)
         {
-            if (Host != null) return Host.GetLastUpdatedTime(key);
+            if (Host != null)
+                return Host.GetLastUpdatedTime(key);
             if (!Timestamps.ContainsKey(key))
                 return TimeSpan.MaxValue;
             return Timestamps[key];
@@ -254,7 +257,8 @@ namespace IngameScript
 
         public TimeSpan CanonicalTimeDiff { get
             {
-                if (Host != null) return Host.CanonicalTimeDiff;
+                if (Host != null)
+                    return Host.CanonicalTimeDiff;
                 return canonicalTimeDiff;
             }
             set
@@ -277,7 +281,8 @@ namespace IngameScript
 
         public void ReportCommand(FriendlyShipIntel agent, TaskType taskType, MyTuple<IntelItemType, long> targetKey, TimeSpan timestamp, CommandType commandType = CommandType.Override)
         {
-            if (Host != null) Host.ReportCommand(agent, taskType, targetKey, timestamp, commandType);
+            if (Host != null)
+                Host.ReportCommand(agent, taskType, targetKey, timestamp, commandType);
             if (agent.ID == Context.Reference.CubeGrid.EntityId && MyAgent != null)
             {
                 MyAgent.AddTask(taskType, targetKey, CommandType.Override, 0, timestamp + CanonicalTimeDiff);
@@ -401,8 +406,10 @@ namespace IngameScript
             foreach (var processor in intelProcessors)
                 processor.ProcessIntel(myIntel);
 
-            if (Host != null) Host.ReportFleetIntelligence(myIntel, timestamp);
-            else ReportFleetIntelligence(myIntel, timestamp);
+            if (Host != null)
+                Host.ReportFleetIntelligence(myIntel, timestamp);
+            else 
+                ReportFleetIntelligence(myIntel, timestamp);
         }
 
         void GetSyncMessages(TimeSpan timestamp)
@@ -579,7 +586,9 @@ namespace IngameScript
             IsMaster = true;
             CanonicalTimeSourceID = Context.Reference.EntityId;
             CanonicalTimeSourceRank = Rank;
-            if (EnemyPriorities != null) foreach(var kvp in EnemyPriorities) MasterEnemyPriorities.Add(kvp.Key, kvp.Value);
+            if (EnemyPriorities != null)
+                foreach(var kvp in EnemyPriorities)
+                    MasterEnemyPriorities.Add(kvp.Key, kvp.Value);
             CanonicalTimeDiff = TimeSpan.Zero;
         }
 

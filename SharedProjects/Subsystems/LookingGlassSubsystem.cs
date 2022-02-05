@@ -33,7 +33,8 @@ namespace IngameScript
                 AutoActivate = false;
                 int index;
                 if (!int.TryParse((string)argument, out index)) return;
-                if (ActiveLookingGlass != null) ActiveLookingGlass.InterceptControls = false;
+                if (ActiveLookingGlass != null)
+                    ActiveLookingGlass.InterceptControls = false;
                 ActiveLookingGlass = LookingGlasses[index];
                 ActiveLookingGlass.InterceptControls = true;
             }
@@ -166,12 +167,12 @@ namespace IngameScript
 
             Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
-            for (int i = 0; i < LookingGlassArray.Length; i++)
+            foreach( var lookingGlass in LookingGlassArray)
             {
-                if (LookingGlassArray[i] != null && LookingGlassArray[i].IsOK(OverrideGyros))
+                if (lookingGlass != null && lookingGlass.IsOK(OverrideGyros))
                 {
-                    LookingGlassArray[i].Initialize();
-                    AddLookingGlass(LookingGlassArray[i]);
+                    lookingGlass.Initialize();
+                    AddLookingGlass(lookingGlass);
                 }
             }
         }
@@ -327,32 +328,32 @@ namespace IngameScript
 
         void DoA(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.Do4(timestamp);
+            ActivePlugin?.Do4(timestamp);
         }
 
         void DoS(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.Do5(timestamp);
+            ActivePlugin?.Do5(timestamp);
         }
 
         void DoD(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.Do6(timestamp);
+            ActivePlugin?.Do6(timestamp);
         }
 
         void DoW(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.Do8(timestamp);
+            ActivePlugin?.Do8(timestamp);
         }
 
         void DoC(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.Do7(timestamp);
+            ActivePlugin?.Do7(timestamp);
         }
 
         void DoSpace(TimeSpan timestamp)
         {
-            if (ActivePlugin != null) ActivePlugin.Do3(timestamp);
+            ActivePlugin?.Do3(timestamp);
         }
 
         void UpdateSwivels()
@@ -412,7 +413,8 @@ namespace IngameScript
         {
             foreach (var kvp in Plugins)
             {
-                if (ActiveLookingGlass != null && kvp.Value == ActivePlugin) kvp.Value.UpdateHUD(timestamp);
+                if (ActiveLookingGlass != null && kvp.Value == ActivePlugin)
+                    kvp.Value.UpdateHUD(timestamp);
                 kvp.Value.UpdateState(timestamp);
             }
         }
@@ -1002,7 +1004,7 @@ namespace IngameScript
 
             if ((properties & IntelSpriteOptions.ShowName) != 0 || (properties & IntelSpriteOptions.ShowTruncatedName) != 0)
             {
-                var name = intel.DisplayName != null ? intel.DisplayName : "null";
+                var name = intel.DisplayName;// != null ? intel.DisplayName : "null";
                 if (name.StartsWith("L-") || name.StartsWith("S-"))
                     name = name.Substring(0, Math.Min(name.Length, 8));
                 builder.AppendLine(name);
@@ -2129,8 +2131,10 @@ namespace IngameScript
                         if ((fsi.AgentStatus & AgentStatus.DockedAtHome) != 0) continue;
 
                         LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small;
-                        if (fsi.AgentClass == AgentClass.None) options = LookingGlass.IntelSpriteOptions.ShowName;
-                        else if (HangarSubsystem != null && fsi.AgentClass == AgentClass.Fighter && HangarSubsystem.HangarsDict.ContainsKey(fsi.HomeID)) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
+                        if (fsi.AgentClass == AgentClass.None)
+                            options = LookingGlass.IntelSpriteOptions.ShowName;
+                        else if (HangarSubsystem != null && fsi.AgentClass == AgentClass.Fighter && HangarSubsystem.HangarsDict.ContainsKey(fsi.HomeID))
+                            options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
 
                         Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
                     }

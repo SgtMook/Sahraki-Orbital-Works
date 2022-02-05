@@ -1456,11 +1456,11 @@ namespace IngameScript
                 return;
             }
 
-            for (int i = 0; i < SubTorpedosScratchpad.Length; i++)
+            foreach( var subTorp in SubTorpedosScratchpad)
             {
-                if (SubTorpedosScratchpad[i] != null)
+                if (subTorp != null)
                 {
-                    if (!SubTorpedosScratchpad[i].OK())
+                    if (!subTorp.OK())
                     {
                         LoadedTorpedo = null;
                         return;
@@ -1470,7 +1470,8 @@ namespace IngameScript
 
             if (Connector != null)
             {
-                if (Connector.Status == MyShipConnectorStatus.Connectable) Connector.Connect();
+                if (Connector.Status == MyShipConnectorStatus.Connectable) 
+                    Connector.Connect();
                 if (Connector.Status != MyShipConnectorStatus.Connected)
                 {
                     LoadedTorpedo = null;
@@ -1478,7 +1479,8 @@ namespace IngameScript
                 }
             }
 
-            foreach (var tank in LoadedTorpedo.Tanks) tank.Stockpile = true;
+            foreach (var tank in LoadedTorpedo.Tanks) 
+                tank.Stockpile = true;
         }
 
         public HoverTorpedo Fire(TimeSpan localTime, TimeSpan canonicalTime, EnemyShipIntel target = null)

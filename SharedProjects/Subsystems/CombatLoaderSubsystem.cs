@@ -306,8 +306,7 @@ namespace IngameScript
                     if (LoadingInventory)
                     {
                         SortInventory(InventoryOwners[i]);
-                        if (TextSurface != null)
-                            TextSurface.WriteText($"LOADING - {i} / {InventoryOwners.Count()}");
+                        TextSurface?.WriteText($"LOADING - {i} / {InventoryOwners.Count()}");
                     }
 
                     inventoryItemsScratchpad.Clear();
@@ -471,10 +470,7 @@ namespace IngameScript
             UpdateNum++;
             StoreInventoryOwners.Clear();
             var storeGroup = Context.Terminal.GetBlockGroupWithName(StoreGroupName);
-            if (storeGroup != null)
-            {
-                storeGroup.GetBlocksOfType<IMyTerminalBlock>(null, CollectStores);
-            }
+            storeGroup?.GetBlocksOfType<IMyTerminalBlock>(null, CollectStores);
 
             LoadingInventory = true;
             LastCheckIndex = 0;

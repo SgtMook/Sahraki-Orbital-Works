@@ -25,6 +25,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)TerminalPropertiesHelper.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ThrusterManager.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TrigHelpers.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utils.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)VectorHelpers.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)WCAPI.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)WeaponGroup.cs" />

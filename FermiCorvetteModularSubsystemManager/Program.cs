@@ -264,7 +264,6 @@ namespace IngameScript
                         Builder.AppendLine("== TORPEDO TUBES ==");
                         Builder.AppendLine();
 
-
                         foreach (var kvp in HostProgram.TorpedoSubsystem.TorpedoTubeGroups)
                         {
                             int ready = kvp.Value.NumReady;
