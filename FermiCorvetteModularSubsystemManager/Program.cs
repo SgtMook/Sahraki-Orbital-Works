@@ -140,16 +140,16 @@ namespace IngameScript
         {
             public LookingGlassNetworkSubsystem Host { get; set; }
 
-            public void Do4(TimeSpan localTime)
+            public void Do4()
             {
-                HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, localTime);
+                HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, Host.Context.LocalTime);
             }
 
-            public void Do7(TimeSpan localTime)
+            public void Do7()
             {
             }
 
-            public void Do6(TimeSpan localTime)
+            public void Do6()
             {
                 if (closestEnemyToCursorID != -1)
                 {
@@ -158,11 +158,11 @@ namespace IngameScript
                 }
             }
 
-            public void Do5(TimeSpan localTime)
+            public void Do5()
             {
                 if (HostProgram.TorpedoSubsystem.TorpedoTubeGroups.ContainsKey("SM"))
                 {
-                    if (FireTorpedoAtCursorTarget("SM", localTime))
+                    if (FireTorpedoAtCursorTarget("SM", Host.Context.LocalTime))
                     {
                         FeedbackOnTarget = true;
                         return;
@@ -171,7 +171,7 @@ namespace IngameScript
                 FeedbackText = "NOT LOADED";
             }
 
-            public void Do3(TimeSpan localTime)
+            public void Do3()
             {
                 if (CAPMode == 0)
                 {
@@ -191,7 +191,7 @@ namespace IngameScript
                 }
             }
 
-            public void Do8(TimeSpan localTime)
+            public void Do8()
             {
             }
 
@@ -199,14 +199,14 @@ namespace IngameScript
             {
             }
 
-            public void UpdateHUD(TimeSpan localTime)
+            public void UpdateHUD()
             {
-                DrawInfoUI(localTime);
-                DrawActionsUI(localTime);
-                DrawMiddleHUD(localTime);
+                DrawInfoUI();
+                DrawActionsUI();
+                DrawMiddleHUD();
             }
 
-            public void UpdateState(TimeSpan localTime)
+            public void UpdateState()
             {
                 if (CAPMode != 0)
                 {
@@ -215,7 +215,7 @@ namespace IngameScript
                         if (closestEnemyToCursorID != -1)
                         {
                             HostProgram.AgentSubsystem.AddTask(TaskType.Attack, MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID), CommandType.Override, 0,
-                                localTime + HostProgram.IntelSubsystem.CanonicalTimeDiff);
+                                Host.Context.CanonicalTime);
                         }
                     }
                 }
@@ -251,7 +251,7 @@ namespace IngameScript
                 return HostProgram.TorpedoSubsystem.Fire(localTime, HostProgram.TorpedoSubsystem.TorpedoTubeGroups[group], target, false) != null;
             }
 
-            void DrawInfoUI(TimeSpan timestamp)
+            void DrawInfoUI()
             {
                 if (HostProgram.CombatLoaderSubsystem.UpdateNum > LastInventoryUpdate)
                 {
@@ -304,7 +304,7 @@ namespace IngameScript
                 }
             }
 
-            void DrawActionsUI(TimeSpan timestamp)
+            void DrawActionsUI()
             {
                 if (!HUDPromptOK)
                 {
@@ -338,9 +338,11 @@ namespace IngameScript
                 }
             }
 
-            void DrawMiddleHUD(TimeSpan localTime)
+            void DrawMiddleHUD()
             {
                 if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
+
+                var localTime = Host.Context.LocalTime;
 
                 if (CAPMode == 1) FeedbackText = "CAP ON - AIM MODE - 3 FULL";
                 else if (CAPMode == 3) FeedbackText = "CAP ON - FULL MODE - 3 OFF";

@@ -45,12 +45,12 @@ namespace IngameScript
             }
             if (command == "activateplugin") ActivatePlugin((string)argument);
             if (command == "cycleplugin") CyclePlugin();
-            if (command == "up" || command == "8") DoW(timestamp);
-            if (command == "down" || command == "5") DoS(timestamp);
-            if (command == "left" || command == "4") DoA(timestamp);
-            if (command == "right" || command == "6") DoD(timestamp);
-            if (command == "enter" || command == "3") DoSpace(timestamp);
-            if (command == "cancel" || command == "7") DoC(timestamp);
+            if (command == "up" || command == "8") DoW();
+            if (command == "down" || command == "5") DoS();
+            if (command == "left" || command == "4") DoA();
+            if (command == "right" || command == "6") DoD();
+            if (command == "enter" || command == "3") DoSpace();
+            if (command == "cancel" || command == "7") DoC();
         }
 
         public void CommandV2(TimeSpan timestamp, CommandLine command)
@@ -90,12 +90,12 @@ namespace IngameScript
         {
             if ((updateFlags & UpdateFrequency.Update1) != 0 && ActiveLookingGlass != null)
             {
-                TriggerInputs(timestamp);
+                TriggerInputs();
                 UpdateSwivels();
             }
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
-                UpdatePlugins(timestamp);
+                UpdatePlugins();
                 UpdateActiveLookingGlass();
                 UpdateUpdateFrequency();
             }
@@ -306,54 +306,54 @@ namespace IngameScript
         bool lastCDown = false;
         bool lastSpaceDown = false;
 
-        void TriggerInputs(TimeSpan timestamp)
+        void TriggerInputs()
         {
             if (Controller == null) return;
             if (!OverrideThrusters) return;
             if (!Active) return;
             var inputVecs = Controller.MoveIndicator;
-            if (!lastADown && inputVecs.X < 0) DoA(timestamp);
+            if (!lastADown && inputVecs.X < 0) DoA();
             lastADown = inputVecs.X < 0;
-            if (!lastSDown && inputVecs.Z > 0) DoS(timestamp);
+            if (!lastSDown && inputVecs.Z > 0) DoS();
             lastSDown = inputVecs.Z > 0;
-            if (!lastDDown && inputVecs.X > 0) DoD(timestamp);
+            if (!lastDDown && inputVecs.X > 0) DoD();
             lastDDown = inputVecs.X > 0;
-            if (!lastWDown && inputVecs.Z < 0) DoW(timestamp);
+            if (!lastWDown && inputVecs.Z < 0) DoW();
             lastWDown = inputVecs.Z < 0;
-            if (!lastCDown && inputVecs.Y < 0) DoC(timestamp);
+            if (!lastCDown && inputVecs.Y < 0) DoC();
             lastCDown = inputVecs.Y < 0;
-            if (!lastSpaceDown && inputVecs.Y > 0) DoSpace(timestamp);
+            if (!lastSpaceDown && inputVecs.Y > 0) DoSpace();
             lastSpaceDown = inputVecs.Y > 0;
         }
 
-        void DoA(TimeSpan timestamp)
+        void DoA()
         {
-            ActivePlugin?.Do4(timestamp);
+            ActivePlugin?.Do4();
         }
 
-        void DoS(TimeSpan timestamp)
+        void DoS()
         {
-            ActivePlugin?.Do5(timestamp);
+            ActivePlugin?.Do5();
         }
 
-        void DoD(TimeSpan timestamp)
+        void DoD()
         {
-            ActivePlugin?.Do6(timestamp);
+            ActivePlugin?.Do6();
         }
 
-        void DoW(TimeSpan timestamp)
+        void DoW()
         {
-            ActivePlugin?.Do8(timestamp);
+            ActivePlugin?.Do8();
         }
 
-        void DoC(TimeSpan timestamp)
+        void DoC()
         {
-            ActivePlugin?.Do7(timestamp);
+            ActivePlugin?.Do7();
         }
 
-        void DoSpace(TimeSpan timestamp)
+        void DoSpace()
         {
-            ActivePlugin?.Do3(timestamp);
+            ActivePlugin?.Do3();
         }
 
         void UpdateSwivels()
@@ -409,13 +409,13 @@ namespace IngameScript
             if (ActiveLookingGlass != null) UpdateFrequency |= UpdateFrequency.Update1;
         }
 
-        void UpdatePlugins(TimeSpan timestamp)
+        void UpdatePlugins()
         {
             foreach (var kvp in Plugins)
             {
                 if (ActiveLookingGlass != null && kvp.Value == ActivePlugin)
-                    kvp.Value.UpdateHUD(timestamp);
-                kvp.Value.UpdateState(timestamp);
+                    kvp.Value.UpdateHUD();
+                kvp.Value.UpdateState();
             }
         }
 
@@ -1044,15 +1044,15 @@ namespace IngameScript
 
     public interface ILookingGlassPlugin
     {
-        void Do4(TimeSpan localTime);
-        void Do5(TimeSpan localTime);
-        void Do6(TimeSpan localTime);
-        void Do8(TimeSpan localTime);
-        void Do7(TimeSpan localTime);
-        void Do3(TimeSpan localTime);
+        void Do4();
+        void Do5();
+        void Do6();
+        void Do8();
+        void Do7();
+        void Do3();
 
-        void UpdateHUD(TimeSpan localTime);
-        void UpdateState(TimeSpan localTime);
+        void UpdateHUD();
+        void UpdateState();
 
         void Setup();
 
@@ -1063,7 +1063,7 @@ namespace IngameScript
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
-        public void Do4(TimeSpan localTime)
+        public void Do4()
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -1076,7 +1076,7 @@ namespace IngameScript
             }
         }
 
-        public void Do5(TimeSpan localTime)
+        public void Do5()
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -1093,7 +1093,7 @@ namespace IngameScript
             }
         }
 
-        public void Do6(TimeSpan localTime)
+        public void Do6()
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -1105,7 +1105,7 @@ namespace IngameScript
                 TargetSelection_TaskTypesIndex = Host.DeltaSelection(TargetSelection_TaskTypesIndex, TargetSelection_TaskTypes.Count, true);
             }
         }
-        public void Do8(TimeSpan localTime)
+        public void Do8()
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -1121,7 +1121,7 @@ namespace IngameScript
             }
         }
 
-        public void Do7(TimeSpan localTime)
+        public void Do7()
         {
             if (CurrentUIMode == UIMode.SelectTarget)
             {
@@ -1133,8 +1133,9 @@ namespace IngameScript
             }
         }
 
-        public void Do3(TimeSpan localTime)
+        public void Do3()
         {
+            var localTime = Host.Context.LocalTime;
             if (CurrentUIMode == UIMode.SelectAgent)
             {
                 if (AgentSelection_CurrentIndex < AgentSelection_FriendlyAgents.Count && AgentSelection_CurrentClass != AgentClass.None)
@@ -1198,14 +1199,14 @@ namespace IngameScript
         {
         }
 
-        public void UpdateHUD(TimeSpan localTime)
+        public void UpdateHUD()
         {
-            DrawMiddleHUD(localTime);
-            DrawAgentSelectionUI(localTime);
-            DrawTargetSelectionUI(localTime);
+            DrawMiddleHUD();
+            DrawAgentSelectionUI();
+            DrawTargetSelectionUI();
         }
 
-        public void UpdateState(TimeSpan localTime)
+        public void UpdateState()
         {
         }
         #endregion
@@ -1224,7 +1225,7 @@ namespace IngameScript
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
         #region SelectAgent
-        void DrawAgentSelectionUI(TimeSpan timestamp)
+        void DrawAgentSelectionUI()
         {
             Builder.Clear();
 
@@ -1241,7 +1242,8 @@ namespace IngameScript
 
             AgentSelection_FriendlyAgents.Clear();
 
-            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(timestamp).Values)
+            var localTime = Host.Context.LocalTime;
+            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
             {
                 if (intel is FriendlyShipIntel && ((FriendlyShipIntel)intel).AgentClass == AgentSelection_CurrentClass)
                     AgentSelection_FriendlyAgents.Add((FriendlyShipIntel)intel);
@@ -1344,7 +1346,7 @@ namespace IngameScript
         List<IFleetIntelligence> TargetSelection_Targets = new List<IFleetIntelligence>();
         int TargetSelection_TargetIndex;
 
-        void DrawTargetSelectionUI(TimeSpan timestamp)
+        void DrawTargetSelectionUI()
         {
             Builder.Clear();
 
@@ -1395,7 +1397,7 @@ namespace IngameScript
             Builder.AppendLine();
 
             TargetSelection_Targets.Clear();
-            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(timestamp).Values)
+            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(Host.Context.LocalTime).Values)
             {
                 if ((intel.Type & TaskTypeToTargetTypes[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]) != 0)
                     TargetSelection_Targets.Add(intel);
@@ -1477,7 +1479,7 @@ namespace IngameScript
         #endregion
 
         #region MiddleHUD
-        void DrawMiddleHUD(TimeSpan localTime)
+        void DrawMiddleHUD()
         {
             int realTargetIndex = -1;
             if (TargetSelection_TaskTypes.Count > 0)
@@ -1489,6 +1491,8 @@ namespace IngameScript
             SpriteScratchpad.Clear();
 
             if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
+
+            var localTime = Host.Context.LocalTime;
 
             foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)
             {
@@ -1591,7 +1595,7 @@ namespace IngameScript
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
-        public void Do4(TimeSpan localTime)
+        public void Do4()
         {
             if (TargetPriority_Selection < TargetPriority_TargetList.Count)
             {
@@ -1602,12 +1606,12 @@ namespace IngameScript
             }
         }
 
-        public void Do5(TimeSpan localTime)
+        public void Do5()
         {
             TargetPriority_Selection = Host.DeltaSelection(TargetPriority_Selection, TargetPriority_TargetList.Count, true);
         }
 
-        public void Do6(TimeSpan localTime)
+        public void Do6()
         {
             if (TargetPriority_Selection < TargetPriority_TargetList.Count)
             {
@@ -1617,18 +1621,18 @@ namespace IngameScript
                 Host.IntelProvider.SetPriority(iD, priority + 1);
             }
         }
-        public void Do8(TimeSpan localTime)
+        public void Do8()
         {
             TargetPriority_Selection = Host.DeltaSelection(TargetPriority_Selection, TargetPriority_TargetList.Count, false);
         }
 
-        public void Do7(TimeSpan localTime)
+        public void Do7()
         {
         }
 
-        public void Do3(TimeSpan localTime)
+        public void Do3()
         {
-            Host.ActiveLookingGlass.DoScan(localTime);
+            Host.ActiveLookingGlass.DoScan(Host.Context.LocalTime);
         }
 
 
@@ -1636,14 +1640,14 @@ namespace IngameScript
         {
         }
 
-        public void UpdateHUD(TimeSpan localTime)
+        public void UpdateHUD()
         {
-            DrawScanUI(localTime);
-            DrawTrackingUI(localTime);
-            DrawMiddleHUD(localTime);
+            DrawScanUI();
+            DrawTrackingUI();
+            DrawMiddleHUD();
         }
 
-        public void UpdateState(TimeSpan localTime)
+        public void UpdateState()
         {
         }
         #endregion
@@ -1662,7 +1666,7 @@ namespace IngameScript
         }
 
 
-        void DrawScanUI(TimeSpan timestamp)
+        void DrawScanUI()
         {
             Builder.Clear();
             int kRowLength = 19;
@@ -1726,16 +1730,15 @@ namespace IngameScript
             }
         }
         
-        void DrawTrackingUI(TimeSpan timestamp)
+        void DrawTrackingUI()
         {
             Builder.Clear();
 
             Builder.AppendLine("= TARGET PRIORITY =");
         
             Builder.AppendLine();
-        
-            var intels = Host.IntelProvider.GetFleetIntelligences(timestamp);
-            var canonicalTime = timestamp + Host.IntelProvider.CanonicalTimeDiff;
+
+            var intels = Host.IntelProvider.GetFleetIntelligences(Host.Context.LocalTime);
             TargetPriority_TargetList.Clear();
 
             foreach (var intel in intels)
@@ -1790,9 +1793,11 @@ namespace IngameScript
             }
         }
 
-        void DrawMiddleHUD(TimeSpan localTime)
+        void DrawMiddleHUD()
         {
             if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
+
+            var localTime = Host.Context.LocalTime;
 
             foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)
             {
@@ -1845,11 +1850,11 @@ namespace IngameScript
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
-        public void Do4(TimeSpan localTime)
+        public void Do4()
         {
             if (TorpedoSubsystem != null)
             {
-                if (FireTorpedoAtCursorTarget("SM", localTime))
+                if (FireTorpedoAtCursorTarget("SM", Host.Context.LocalTime))
                 {
                     FeedbackOnTarget = true;
                     return;
@@ -1858,11 +1863,11 @@ namespace IngameScript
             FeedbackText = "NOT LOADED";
         }
 
-        public void Do5(TimeSpan localTime)
+        public void Do5()
         {
             if (TorpedoSubsystem != null)
             {
-                if (FireTorpedoAtCursorTarget("LG", localTime))
+                if (FireTorpedoAtCursorTarget("LG", Host.Context.LocalTime))
                 {
                     FeedbackOnTarget = true;
                     return;
@@ -1871,7 +1876,7 @@ namespace IngameScript
             FeedbackText = "NOT LOADED";
         }
 
-        public void Do6(TimeSpan localTime)
+        public void Do6()
         {
             if (closestEnemyToCursorID == -1)
             {
@@ -1882,6 +1887,7 @@ namespace IngameScript
 
             if (HangarSubsystem != null)
             {
+                var localTime = Host.Context.LocalTime;
                 var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
 
                 var enemyKey = MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID);
@@ -1910,12 +1916,13 @@ namespace IngameScript
 
             if (!launched) FeedbackText = "DRONES UNAVAILABLE";
         }
-        public void Do8(TimeSpan localTime)
+        public void Do8()
         {
         }
 
-        public void Do7(TimeSpan localTime)
+        public void Do7()
         {
+            var localTime = Host.Context.LocalTime;
             var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
             var targetKey = MyTuple.Create(IntelItemType.NONE, (long)0);
             foreach (var hangar in HangarSubsystem.SortedHangarsList)
@@ -1933,12 +1940,12 @@ namespace IngameScript
             }
         }
 
-        public void Do3(TimeSpan localTime)
+        public void Do3()
         {
             if (ScannerSubsystem != null)
             {
                 var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 10000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
-                ScannerSubsystem.TryScanTarget(pos, localTime);
+                ScannerSubsystem.TryScanTarget(pos, Host.Context.LocalTime);
             }
         }
 
@@ -1946,14 +1953,14 @@ namespace IngameScript
         {
         }
 
-        public void UpdateHUD(TimeSpan localTime)
+        public void UpdateHUD()
         {
-            DrawInfoUI(localTime);
-            DrawActionsUI(localTime);
-            DrawMiddleHUD(localTime);
+            DrawInfoUI();
+            DrawActionsUI();
+            DrawMiddleHUD();
         }
 
-        public void UpdateState(TimeSpan localTime)
+        public void UpdateState()
         {
         }
         #endregion
@@ -1987,7 +1994,7 @@ namespace IngameScript
             return TorpedoSubsystem.Fire(localTime, TorpedoSubsystem.TorpedoTubeGroups[group], target, false) != null;
         }
 
-        void DrawInfoUI(TimeSpan timestamp)
+        void DrawInfoUI()
         {
             Builder.Clear();
 
@@ -2022,7 +2029,7 @@ namespace IngameScript
             }
             else
             {
-                var intelItems = Host.IntelProvider.GetFleetIntelligences(timestamp);
+                var intelItems = Host.IntelProvider.GetFleetIntelligences(Host.Context.LocalTime);
                 Builder.AppendLine("     |H |P |A |ST  |");
                 foreach (var hangar in HangarSubsystem.SortedHangarsList)
                 {   //     |H |P |A |ST  |
@@ -2085,7 +2092,7 @@ namespace IngameScript
             }
         }
 
-        void DrawActionsUI(TimeSpan timestamp)
+        void DrawActionsUI()
         {
             Builder.Clear();
 
@@ -2109,10 +2116,12 @@ namespace IngameScript
             }
         }
 
-        void DrawMiddleHUD(TimeSpan localTime)
+        void DrawMiddleHUD()
         {
             if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
 
+
+            var localTime = Host.Context.LocalTime;
             foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)
             {
                 SpriteScratchpad.Clear();

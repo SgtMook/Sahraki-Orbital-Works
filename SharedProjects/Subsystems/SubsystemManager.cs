@@ -185,7 +185,7 @@ namespace IngameScript
         public Random Random = new Random();
         public long Frame = 0;
         public WcPbApi WCAPI = null;
-        public TimeSpan CurrentTime;
+        public TimeSpan LocalTime;
         public MyIni IniParser = new MyIni();
 
         // The Intel system uses Canonical Time, since each ship
@@ -207,8 +207,8 @@ namespace IngameScript
         }
         public void UpdateTime()
         {
-            CurrentTime += Program.Runtime.TimeSinceLastRun;
-            CanonicalTime = CurrentTime + (IntelSystem != null ? IntelSystem.CanonicalTimeDiff : TimeSpan.Zero);
+            LocalTime += Program.Runtime.TimeSinceLastRun;
+            CanonicalTime = LocalTime + (IntelSystem != null ? IntelSystem.CanonicalTimeDiff : TimeSpan.Zero);
         }
 
     }
@@ -403,7 +403,7 @@ namespace IngameScript
                     ISubsystem system = subsystem.Value;
                     if ((system.UpdateFrequency & updateFrequency) != 0)
                     {
-                        system.Update(Context.CurrentTime, updateFrequency);
+                        system.Update(Context.LocalTime, updateFrequency);
                     }
                     targetFrequency |= system.UpdateFrequency;
                     if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch(subsystem.Key);
@@ -475,7 +475,7 @@ namespace IngameScript
             }
             else if (Subsystems.ContainsKey(subsystem))
             {
-                Subsystems[subsystem].Command(Context.CurrentTime, command, argument);
+                Subsystems[subsystem].Command(Context.LocalTime, command, argument);
             }
         }
         public void CommandV2(CommandLine command)
@@ -499,8 +499,8 @@ namespace IngameScript
                 ISubsystem subsystem;
                 if ( Subsystems.TryGetValue(command.Subsystem, out subsystem) )
                 {
-                    subsystem.Command(Context.CurrentTime, command.Argument(0), command.Argument(1));
-                    subsystem.CommandV2(Context.CurrentTime, command);
+                    subsystem.Command(Context.LocalTime, command.Argument(0), command.Argument(1));
+                    subsystem.CommandV2(Context.LocalTime, command);
                 }
 
             }

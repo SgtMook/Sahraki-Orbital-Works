@@ -216,13 +216,13 @@ namespace IngameScript
                 }
                 else
                 {
-                    NextSalvoFire = Context.CurrentTime;
+                    NextSalvoFire = Context.LocalTime;
                 }
             }
             fireCounter = 3;
 
             if (fireCounter > 0 && 
-                Context.CurrentTime >= NextSalvoFire)
+                Context.LocalTime >= NextSalvoFire)
             {
                 NextSalvoFire += ScriptTime.FromMilliseconds(FireSalvoMS);
                 var gun = Guns.GetAndAdvance();
