@@ -410,8 +410,12 @@ namespace IngameScript
                     if (LoadingInventory)
                     {
                         SortInventory(InventoryOwners[i]);
-                        if (TextSurface != null)
-                            TextSurface.WriteText($"LOADING - {i} / {InventoryOwners.Count()}");
+
+                        foreach (var kvp in TextSurfaces)
+                        {
+                            if (kvp.Value.ShowLoading)
+                                kvp.Key.WriteText($"LOADING - {i} / {InventoryOwners.Count()}");
+                        }
                     }
 
                     inventoryItemsScratchpad.Clear();
