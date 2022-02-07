@@ -97,7 +97,7 @@ namespace IngameScript
         {
         }
 
-        // [Loader]
+        // [Utility]
         // TurnOffWheels = true
         // TurnOffGyros = true
         // TurnOffHydros = true
@@ -123,6 +123,7 @@ namespace IngameScript
         bool CollectBlocks(IMyTerminalBlock block)
         {
             if (!block.IsSameConstructAs(Context.Reference)) return false;
+            if (block.CustomName.Contains("[X]")) return false;
             if (block is IMyMotorSuspension) Suspensions.Add(block as IMyMotorSuspension);
             if (block is IMyShipController) Controllers.Add(block as IMyShipController);
             if (block is IMyGasGenerator) O2Generators.Add(block as IMyGasGenerator);
@@ -194,7 +195,7 @@ namespace IngameScript
             {
                 foreach (var suspension in Suspensions)
                 {
-                    if (!suspension.IsAttached)
+                    if (suspension.CubeGrid.EntityId == Context.Reference.CubeGrid.EntityId && !suspension.IsAttached)
                     {
                         AddWheelTimer.Trigger();
                         return;

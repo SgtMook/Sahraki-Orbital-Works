@@ -455,7 +455,7 @@ namespace IngameScript
         }
 
         // [Turret]
-        // MinEngagementSize = 1
+        // MinEngagementSize = 0
         void ParseConfigs()
         {
             iniParser.Clear();
@@ -463,7 +463,7 @@ namespace IngameScript
             if (!iniParser.TryParse(Context.Reference.CustomData, out result))
                 return;
 
-            MinEngagementSize = iniParser.Get(kTurretSection, "MinEngagementSize").ToInt32(1);
+            MinEngagementSize = iniParser.Get(kTurretSection, "MinEngagementSize").ToInt32(0);
         }
     }
 }

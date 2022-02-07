@@ -43,7 +43,7 @@ namespace IngameScript
         }
 
         // [HeliDrive]
-        // block_group_name = "Heli Assist"
+        // block_group_name = Heli Assist
         // start_mode = flight
         // remember_mode = true
         // max_pitch = 40
@@ -53,6 +53,7 @@ namespace IngameScript
         // precision = 16
         // mouse_speed = 0.5
         // auto_enable_with_dampener = false
+        // auto_enable_with_thrusters = false
         void ParseConfigs()
         {
             iniParser.Clear();
@@ -74,6 +75,7 @@ namespace IngameScript
             precisionAimFactor = iniParser.Get(kHeliDriveConfigSection, "precision").ToSingle(16.0f);
             mouseSpeed = iniParser.Get(kHeliDriveConfigSection, "mouse_speed").ToSingle(0.5f);
             autoEnableWithDampener = iniParser.Get(kHeliDriveConfigSection, "auto_enable_with_dampener").ToBoolean(false);
+            autoEnableWithThruster = iniParser.Get(kHeliDriveConfigSection, "auto_enable_with_thrusters").ToBoolean(false);
         }
 
         public void Setup(ExecutionContext context, string name)
@@ -88,13 +90,7 @@ namespace IngameScript
             controllerCache.Clear();
             context.Terminal.GetBlocksOfType(controllerCache);
             if (controllerCache.Count == 0) throw new Exception("Ship must have at least one ship controller");
-            controller = null;
-            foreach (var controller in controllerCache)
-            {
-                if (controller.IsUnderControl || (controller.IsMainCockpit && this.controller == null))
-                    this.controller = controller;
-            }
-            if (this.controller == null) this.controller = controllerCache[0];
+            SelectController();
 
             gyroCache.Clear();
             blockGroup.GetBlocksOfType(gyroCache);
@@ -108,7 +104,19 @@ namespace IngameScript
 
             Drive.gyroController.Update(controller, gyroCache);
 
-            Drive.SwitchToMode(start_mode);
+            AutoSelectMode();
+        }
+
+        private void SelectController()
+        {
+            controller = null;
+            foreach (var controller in controllerCache)
+            {
+                if (controller.IsMainCockpit)
+                    this.controller = controller;
+            }
+            if (this.controller == null) this.controller = controllerCache[0];
+            Drive.controller = controller;
         }
 
         public void Update(TimeSpan timestamp, UpdateFrequency updateFlags)
@@ -116,13 +124,14 @@ namespace IngameScript
             runs++;
             if (runs % 10 == 0)
             {
-                if (autoEnableWithDampener)
+                if (!controller.IsMainCockpit)
                 {
-                    Drive.SwitchToMode(controller.DampenersOverride ? "flight" : "shutdown");
+                    SelectController();
                 }
+                AutoSelectMode();
 
-                Drive.MoveIndicators = controller.MoveIndicator;
-                Drive.RotationIndicators = new Vector3(controller.RotationIndicator, controller.RollIndicator * 9);
+                Drive.MoveIndicators = MergeIndicators(controller.MoveIndicator, MoveIndicatorOverride);
+                Drive.RotationIndicators = MergeIndicators(new Vector3(controller.RotationIndicator, controller.RollIndicator * 9), RotationIndicatorOverride);
                 Drive.autoStop = controller.DampenersOverride;
 
                 if (enablePrecisionAim) Drive.RotationIndicators *= 1 / precisionAimFactor;
@@ -131,6 +140,33 @@ namespace IngameScript
                 Drive.enableLateralOverride = enableLateralOverride;
 
                 Drive.Drive();
+            }
+        }
+
+        Vector3 MergeIndicators(Vector3 input, Vector3 ovd)
+        {
+            return new Vector3(float.IsNegativeInfinity(ovd.X) ? input.X : ovd.X, float.IsNegativeInfinity(ovd.Y) ? input.Y : ovd.Y, float.IsNegativeInfinity(ovd.Z) ? input.Z : ovd.Z);
+        }
+
+        void AutoSelectMode()
+        {
+            if (autoEnableWithDampener)
+            {
+                Drive.SwitchToMode(controller.DampenersOverride ? "flight" : "shutdown");
+            }
+            else if (autoEnableWithThruster)
+            {
+                bool AnyThrusterEnabled = false;
+                foreach (var thruster in Drive.thrustController.allThrusters)
+                {
+                    if (thruster.IsFunctional && thruster.Enabled)
+                    {
+                        AnyThrusterEnabled = true;
+                        break;
+                    }
+                }
+
+                Drive.SwitchToMode(AnyThrusterEnabled ? "flight" : "shutdown");
             }
         }
         #endregion
@@ -160,11 +196,15 @@ namespace IngameScript
         public bool enableLateralOverride;
         public bool enablePrecisionAim;
         public bool autoEnableWithDampener;
+        public bool autoEnableWithThruster;
 
         //Cache Variables
         public List<IMyShipController> controllerCache = new List<IMyShipController>();
         public List<IMyGyro> gyroCache = new List<IMyGyro>();
         public List<IMyThrust> thrustCache = new List<IMyThrust>();
+
+        public Vector3 MoveIndicatorOverride = Vector3.NegativeInfinity;
+        public Vector3 RotationIndicatorOverride = Vector3.NegativeInfinity;
 
     }
 }

@@ -49,7 +49,5 @@ namespace IngameScript
         {
             return Lerp(InvLerp(reference_value, reference_start, reference_end), respace_start, respace_end);
         }
-        
-
     }
 }

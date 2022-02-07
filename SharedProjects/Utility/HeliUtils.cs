@@ -66,7 +66,8 @@ namespace IngameScript
                     gyroController.SetOverride(true);
                     break;
                 case "shutdown":
-                    gyroController.SetEnabled(false);
+                    gyroController.SetEnabled(true);
+                    gyroController.SetOverride(false);
                     thrustController.SetEnabled(false);
                     break;
                 case "standby":
