@@ -34,7 +34,7 @@ namespace IngameScript
 
         public bool Activate(IMyTerminalBlock pbBlock)
         {
-            var dict = pbBlock.GetProperty("WcPbAPI")?.As<Dictionary<string, Delegate>>().GetValue(pbBlock);
+            var dict = pbBlock.GetProperty("WcPbAPI")?.As<IReadOnlyDictionary<string, Delegate>>().GetValue(pbBlock);
             return ApiAssign(dict);
         }
 

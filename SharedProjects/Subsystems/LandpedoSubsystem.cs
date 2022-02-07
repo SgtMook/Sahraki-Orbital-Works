@@ -130,7 +130,8 @@ namespace IngameScript
         public void CheckLandpedo()
         {
             statusBuilder.Clear();
-            if (Landpedo != null) return;
+            if (Landpedo != null) 
+                return;
 
             if (Connector != null)
             {

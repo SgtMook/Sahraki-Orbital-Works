@@ -33,7 +33,8 @@ namespace IngameScript
                 AutoActivate = false;
                 int index;
                 if (!int.TryParse((string)argument, out index)) return;
-                if (ActiveLookingGlass != null) ActiveLookingGlass.InterceptControls = false;
+                if (ActiveLookingGlass != null)
+                    ActiveLookingGlass.InterceptControls = false;
                 ActiveLookingGlass = LookingGlasses[index];
                 ActiveLookingGlass.InterceptControls = true;
             }
@@ -44,12 +45,12 @@ namespace IngameScript
             }
             if (command == "activateplugin") ActivatePlugin((string)argument);
             if (command == "cycleplugin") CyclePlugin();
-            if (command == "up" || command == "8") DoW(timestamp);
-            if (command == "down" || command == "5") DoS(timestamp);
-            if (command == "left" || command == "4") DoA(timestamp);
-            if (command == "right" || command == "6") DoD(timestamp);
-            if (command == "enter" || command == "3") DoSpace(timestamp);
-            if (command == "cancel" || command == "7") DoC(timestamp);
+            if (command == "up" || command == "8") DoW();
+            if (command == "down" || command == "5") DoS();
+            if (command == "left" || command == "4") DoA();
+            if (command == "right" || command == "6") DoD();
+            if (command == "enter" || command == "3") DoSpace();
+            if (command == "cancel" || command == "7") DoC();
         }
 
         public void CommandV2(TimeSpan timestamp, CommandLine command)
@@ -75,6 +76,7 @@ namespace IngameScript
         {
             Context = context;
 
+//            ParseConfigs();
             GetParts();
             UpdateFrequency = UpdateFrequency.Update10;
             if (!OverrideThrusters && LookingGlasses.Count == 1)
@@ -88,12 +90,12 @@ namespace IngameScript
         {
             if ((updateFlags & UpdateFrequency.Update1) != 0 && ActiveLookingGlass != null)
             {
-                TriggerInputs(timestamp);
+                TriggerInputs();
                 UpdateSwivels();
             }
             if ((updateFlags & UpdateFrequency.Update10) != 0)
             {
-                UpdatePlugins(timestamp);
+                UpdatePlugins();
                 UpdateActiveLookingGlass();
                 UpdateUpdateFrequency();
             }
@@ -140,6 +142,11 @@ namespace IngameScript
             lookingGlass.Network = this;
         }
 
+//         void ParseConfigs()
+//         {
+// 
+//         }
+
         void GetParts()
         {
             for (int i = 0; i < LookingGlassArray.Length; i++)
@@ -160,12 +167,12 @@ namespace IngameScript
 
             Context.Terminal.GetBlocksOfType<IMyTerminalBlock>(null, CollectParts);
 
-            for (int i = 0; i < LookingGlassArray.Length; i++)
+            foreach( var lookingGlass in LookingGlassArray)
             {
-                if (LookingGlassArray[i] != null && LookingGlassArray[i].IsOK(OverrideGyros))
+                if (lookingGlass != null && lookingGlass.IsOK(OverrideGyros))
                 {
-                    LookingGlassArray[i].Initialize();
-                    AddLookingGlass(LookingGlassArray[i]);
+                    lookingGlass.Initialize();
+                    AddLookingGlass(lookingGlass);
                 }
             }
         }
@@ -299,54 +306,54 @@ namespace IngameScript
         bool lastCDown = false;
         bool lastSpaceDown = false;
 
-        void TriggerInputs(TimeSpan timestamp)
+        void TriggerInputs()
         {
             if (Controller == null) return;
             if (!OverrideThrusters) return;
             if (!Active) return;
             var inputVecs = Controller.MoveIndicator;
-            if (!lastADown && inputVecs.X < 0) DoA(timestamp);
+            if (!lastADown && inputVecs.X < 0) DoA();
             lastADown = inputVecs.X < 0;
-            if (!lastSDown && inputVecs.Z > 0) DoS(timestamp);
+            if (!lastSDown && inputVecs.Z > 0) DoS();
             lastSDown = inputVecs.Z > 0;
-            if (!lastDDown && inputVecs.X > 0) DoD(timestamp);
+            if (!lastDDown && inputVecs.X > 0) DoD();
             lastDDown = inputVecs.X > 0;
-            if (!lastWDown && inputVecs.Z < 0) DoW(timestamp);
+            if (!lastWDown && inputVecs.Z < 0) DoW();
             lastWDown = inputVecs.Z < 0;
-            if (!lastCDown && inputVecs.Y < 0) DoC(timestamp);
+            if (!lastCDown && inputVecs.Y < 0) DoC();
             lastCDown = inputVecs.Y < 0;
-            if (!lastSpaceDown && inputVecs.Y > 0) DoSpace(timestamp);
+            if (!lastSpaceDown && inputVecs.Y > 0) DoSpace();
             lastSpaceDown = inputVecs.Y > 0;
         }
 
-        void DoA(TimeSpan timestamp)
+        void DoA()
         {
-            if (ActivePlugin != null) ActivePlugin.Do4(timestamp);
+            ActivePlugin?.Do4();
         }
 
-        void DoS(TimeSpan timestamp)
+        void DoS()
         {
-            if (ActivePlugin != null) ActivePlugin.Do5(timestamp);
+            ActivePlugin?.Do5();
         }
 
-        void DoD(TimeSpan timestamp)
+        void DoD()
         {
-            if (ActivePlugin != null) ActivePlugin.Do6(timestamp);
+            ActivePlugin?.Do6();
         }
 
-        void DoW(TimeSpan timestamp)
+        void DoW()
         {
-            if (ActivePlugin != null) ActivePlugin.Do8(timestamp);
+            ActivePlugin?.Do8();
         }
 
-        void DoC(TimeSpan timestamp)
+        void DoC()
         {
-            if (ActivePlugin != null) ActivePlugin.Do7(timestamp);
+            ActivePlugin?.Do7();
         }
 
-        void DoSpace(TimeSpan timestamp)
+        void DoSpace()
         {
-            if (ActivePlugin != null) ActivePlugin.Do3(timestamp);
+            ActivePlugin?.Do3();
         }
 
         void UpdateSwivels()
@@ -402,12 +409,13 @@ namespace IngameScript
             if (ActiveLookingGlass != null) UpdateFrequency |= UpdateFrequency.Update1;
         }
 
-        void UpdatePlugins(TimeSpan timestamp)
+        void UpdatePlugins()
         {
             foreach (var kvp in Plugins)
             {
-                if (ActiveLookingGlass != null && kvp.Value == ActivePlugin) kvp.Value.UpdateHUD(timestamp);
-                kvp.Value.UpdateState(timestamp);
+                if (ActiveLookingGlass != null && kvp.Value == ActivePlugin)
+                    kvp.Value.UpdateHUD();
+                kvp.Value.UpdateState();
             }
         }
 
@@ -576,7 +584,7 @@ namespace IngameScript
             if (usingCamera.RaycastDistanceLimit >= 0)
             {
                 distance = Math.Min(distance, usingCamera.RaycastDistanceLimit);
-            }            
+            }
             LastDetectedInfo = usingCamera.Raycast(distance);
 
             Lidar_CameraIndex += 1;
@@ -597,7 +605,7 @@ namespace IngameScript
                 var intelDict = Network.IntelProvider.GetFleetIntelligences(timestamp);
                 var key = MyTuple.Create(IntelItemType.Enemy, LastDetectedInfo.EntityId);
                 var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-                TargetIntel.FromDetectedInfo(LastDetectedInfo, timestamp + Network.IntelProvider.CanonicalTimeDiff, true);
+                TargetIntel.FromDetectedInfo(LastDetectedInfo, timestamp + Network.IntelProvider.CanonicalTimeDiff);
                 Network.ReportIntel(TargetIntel, timestamp);
             }
 
@@ -635,19 +643,307 @@ namespace IngameScript
             NoCenter = 1 << 9,
             ShowLastDetected = 1 << 10,
         }
-        public Vector2 FleetIntelItemToSprites(IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
-        {
-            if (intel.ID == Network.Context.Reference.CubeGrid.EntityId) return new Vector2(float.MaxValue, float.MaxValue);
 
+        static string textPanel = "MyObjectBuilder_TextPanel/";
+
+//         MyDefinitionId L1x1 = MyDefinitionId.Parse("MyObjectBuilder_TextPanel/LargeLCDPanel");
+//         MyDefinitionId S1x1 = MyDefinitionId.Parse("MyObjectBuilder_TextPanel/SmallLCDPanel");
+        MyDefinitionId Large3x3 = MyDefinitionId.Parse(textPanel + "LargeLCDPanel3x3");
+        MyDefinitionId Large5x3 = MyDefinitionId.Parse(textPanel + "LargeLCDPanel5x3");
+        MyDefinitionId Large5x5 = MyDefinitionId.Parse(textPanel + "LargeLCDPanel5x5");
+        MyDefinitionId LargeTransparentDef = MyDefinitionId.Parse(textPanel + "TransparentLCDLarge");
+        MyDefinitionId SmallTransparentDef = MyDefinitionId.Parse(textPanel + "TransparentLCDSmall");
+
+        // The panel does not use up the full block width. The Width output is for this reduced effective width.
+        public Vector3D GetPanelSurfacePositionAndWidth(IMyTextPanel panel, out Vector2 Width)
+        {
+
+            // These were measured using the carbon fiber texture on blocks. Small grid has 32 hatches, large grid has 48.
+            var pos = panel.GetPosition();
+            var forward = panel.WorldMatrix.Forward;
+            if ( panel.BlockDefinition == LargeTransparentDef)
+            {
+                
+                // 2.50 - 8*(2.5/48)
+                Width.X = 2.0833f;
+                Width.Y = Width.X;
+                // 1.25 - 1*(2.5/48)
+                return pos + forward * 1.198;
+            }
+            else if (panel.BlockDefinition == SmallTransparentDef)
+            {
+                // .50 - 2*(.5/32) ~ could be 1.5
+                // Measurements After Projection
+                // -y .23112
+                // +y .23112
+                // -x .2230
+                // Width = 0.46875f; // measured via carbon fiber // .25 - 1*(.5/32)
+                Width.X = 0.49f; //0.4460f;
+                Width.Y = Width.X; 
+                return pos + forward * .234375;
+            }
+            else if (panel.BlockDefinition == Large3x3)
+            {
+                Width.X = 7.3958f;
+                Width.Y = Width.X;
+                return pos + forward * .234375;
+            }
+            else if (panel.BlockDefinition == Large5x3)
+            {
+                Width.X = 12.49f;
+                Width.Y = 7.3958f;
+                return pos + forward * .234375;
+            }
+            else if (panel.BlockDefinition == Large5x5)
+            {
+                Width.X = 12.49f;
+                Width.Y = Width.X;
+                return pos + forward * .234375;
+            }
+
+            var size = panel.CubeGrid.GridSizeEnum;
+            if (panel.CubeGrid.GridSizeEnum == MyCubeSize.Large )
+            {
+                // panel.Min & panel.Max may be useful here for general case
+                // 2.50 - 2*(2.5/48)
+                Width.X = 2.3958f;
+                Width.Y = Width.X;
+                // 1.25 - 4.3*(2.5/48)
+                return pos + forward * 1.026;
+            }
+            else
+            {
+                // .50 - 5*(.5/32) ~ 
+                Width.X = 0.42188f;
+                Width.Y = Width.X;
+                // .25 - 5.25*(.5/32)
+                return pos + forward * .16797;
+            }
+        }
+
+        Vector3D GetAdjustedCamera(IMyCameraBlock aCamera, Vector3D aForward)
+        {
+            // .25f for large grid uncertain
+            return PrimaryCamera.GetPosition() + aForward * (aCamera.CubeGrid.GridSizeEnum == MyCubeSize.Large ? .25f : .20f);
+        }
+        /*
+        bool FleetIntelWorldCoordsToPanelCoordsV1(IMyTextPanel panel, IFleetIntelligence intel, TimeSpan localTime, out float distance, out Vector2 outNormalizedScreenPosition, out Vector2 outScreenPosition)
+        {
             var worldDirection = intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff) - PrimaryCamera.WorldMatrix.Translation;
-            var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(PrimaryCamera.WorldMatrix));
+            var camDirection = panel.WorldMatrix.Translation - PrimaryCamera.WorldMatrix.Translation;
+            camDirection.Normalize();
+            var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(MatrixD.CreateWorld(PrimaryCamera.Position, camDirection, panel.WorldMatrix.Up)));
             var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y / bodyPosition.Z));
 
-            if (bodyPosition.Dot(Vector3D.Forward) < 0) return new Vector2(float.MaxValue, float.MaxValue);
+            // It is behind the camera.
+            if (bodyPosition.Dot(Vector3D.Forward) > 0)
+            {
+                distance = (float)bodyPosition.Length();
+                outNormalizedScreenPosition = screenPosition * (PrimaryCamera.CubeGrid.GridSizeEnum == MyCubeSize.Small ? kCameraToScreenSm : kCameraToScreenLg);
 
-            float dist = (float)bodyPosition.Length();
+                outScreenPosition = (outNormalizedScreenPosition + .5f) * kScreenSize;
+                outScreenPosition.X = Math.Max(30, Math.Min(kScreenSize - 30, outScreenPosition.X));
+                outScreenPosition.Y = Math.Max(30, Math.Min(kScreenSize - 30, outScreenPosition.Y));                
+                //              v.Y -= scale * (kMonospaceConstant.Y + 10) / 2;
+
+                return true;
+            }
+
+            outScreenPosition = Vector2.PositiveInfinity;
+            outNormalizedScreenPosition = outScreenPosition;
+            distance = outScreenPosition.X;
+
+            return false;
+        }
+        bool FleetIntelWorldCoordsToPanelCoordsV2(IMyTextPanel panel, IFleetIntelligence intel, TimeSpan localTime, out float distance, out Vector2 outNormalizedScreenPosition, out Vector2 outScreenPosition)
+        {
+            outNormalizedScreenPosition = Vector2.PositiveInfinity;
+            outScreenPosition = outNormalizedScreenPosition;
+
+            Vector3D camPosition, panelPosition,
+            camToTarget, camToPanel,
+            targetNormal, forwardNormal,
+            intersection, camToPanelTargetPos,
+            pointAtPanel;
+
+            Vector2 panelWidth;
+            panelPosition = GetPanelSurfacePositionAndWidth(panel, out panelWidth);
+            //panelPosition = panel.GetPosition() + panel.WorldMatrix.Forward * .25;
+
+            //camPosition = PrimaryCamera.GetPosition() + PrimaryCamera.WorldMatrix.Backward * .25;
+            camPosition = PrimaryCamera.GetPosition() + PrimaryCamera.WorldMatrix.Forward * .25;
+            camToTarget = intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff) - camPosition;
+            distance = (float)camToTarget.Length();
+            camToPanel = panelPosition - camPosition;
+            targetNormal = Vector3D.Normalize(camToTarget);
+            forwardNormal = Vector3D.Normalize(camToPanel);
+            var panelPlane = new PlaneD(panelPosition, panel.WorldMatrix.Forward);
+            if (!TrigHelpers.PlaneIntersectionD(panelPlane, camPosition, targetNormal, out intersection))
+                return false;
+
+            camToPanelTargetPos = intersection - camPosition;
+            pointAtPanel = Vector3D.ProjectOnPlane(ref camToPanelTargetPos, ref forwardNormal);
+
+            var rot = MatrixD.CreateWorld(Vector3D.Zero, panel.WorldMatrix.Forward, panel.WorldMatrix.Up);
+            // if it is "in view", this pointAtPanel value should not exceed +/- panelWidth/2.
+            pointAtPanel = Vector3D.Transform(pointAtPanel, MatrixD.Transpose(rot));
+//            Network.Context.Log.Debug("P:" + pointAtPanel.ToString());
+            var edgeClamp = panelWidth / 2; // panelwidth / 2 * .9
+            outNormalizedScreenPosition = new Vector2(MathHelper.Clamp((float)pointAtPanel.X, -edgeClamp.X, edgeClamp.X), -1 * MathHelper.Clamp((float)pointAtPanel.Y, -edgeClamp.Y, edgeClamp.Y));
+            //var surface = ((surface * (PrimaryCamera.CubeGrid.GridSizeEnum == MyCubeSize.Small ? kCameraToScreenSm : kCameraToScreenLg)) + new Vector2(0.5f, 0.5f)) * kScreenSize;
+            outNormalizedScreenPosition /= panelWidth; // normalize to screen origin space [-.5,+.5], from meters
+  //          Network.Context.Log.Debug("O:" + outNormalizedScreenPosition.ToString());
+            outScreenPosition = outNormalizedScreenPosition +  0.5f;           // normalize to screen draw space [0,1]
+//            Network.Context.Log.Debug("C:" + outScreenPosition.ToString());
+            outScreenPosition *= kScreenSize;    // respace to screen draw pixels [0,512]
+
+            return true;
+        }
+*/
+        bool FleetIntelWorldCoordsToPanelCoordsV3(IMyTextPanel panel, IFleetIntelligence intel, TimeSpan localTime, out float distance, out Vector2 outNormalizedScreenPosition, out Vector2 outScreenPosition)
+        {
+            outNormalizedScreenPosition = Vector2.PositiveInfinity;
+            outScreenPosition = outNormalizedScreenPosition;
+
+            Vector3D camPosition, panelPosition,
+            targetInPanelSpace, camInPanelSpace,
+            panelSpaceTargetVector, pointAtPanel;
+
+//            Network.Context.Draw.RemoveAll();
+
+            Vector2 panelWidth;
+            panelPosition = GetPanelSurfacePositionAndWidth(panel, out panelWidth);
+//            Network.Context.Draw.AddPoint(panelPosition, Color.Green, 0.002f);
+
+            camPosition = GetAdjustedCamera(PrimaryCamera, PrimaryCamera.WorldMatrix.Forward);
+//            Network.Context.Draw.AddPoint(camPosition, Color.Green, 0.002f);
+            MatrixD adjustedPanelMatrix = MatrixD.CreateWorld(panelPosition, panel.WorldMatrix.Forward, panel.WorldMatrix.Up);
+            var adjustedPanelMatrixInvert = MatrixD.Invert(adjustedPanelMatrix);
+
+            camInPanelSpace = Vector3D.Transform(camPosition, adjustedPanelMatrixInvert);
+
+            targetInPanelSpace = Vector3D.Transform(intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff), adjustedPanelMatrixInvert);
+//            Network.Context.Draw.AddLine(camPosition, intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff), Color.Red, 0.001f, -1f);
+
+            panelSpaceTargetVector = targetInPanelSpace - camInPanelSpace;
+            distance = (float)panelSpaceTargetVector.Length();
+
+            // position is zero since we our test points are already in panel space.
+            // targetInPanelSpace
+//             if (Vector3D.Forward.Dot(panelSpaceTargetVector) == 0 ) // TODO Epsilon where?
+//                 return false;
+// 
+//             pointAtPanel = Vector3D.ProjectOnPlane(ref panelSpaceTargetVector,ref Vector3D.Forward);
+            var panelPlane = new PlaneD(Vector3D.Zero, Vector3.Forward);
+            if (!TrigHelpers.PlaneIntersectionD(panelPlane, camInPanelSpace, Vector3D.Normalize(panelSpaceTargetVector), out pointAtPanel))
+                return false;
+//             Network.Context.Log.Debug("P:" + pointAtPanel.ToString());
+//             Network.Context.Draw.AddOBB(new MyOrientedBoundingBoxD(new BoundingBoxD(new Vector3D(-panelWidth / 2f, -panelWidth / 2f, -.002f), new Vector3D(panelWidth / 2f, panelWidth / 2f, .002f)), adjustedPanelMatrix), Color.Blue, thickness: .002f);
+//             Network.Context.Draw.AddPoint(Vector3D.Transform(pointAtPanel, adjustedPanelMatrix), Color.Orange, 0.002f);
+//            var edgeClamp = panelWidth / 2; // panelwidth / 2 * .9
+
+            var edgeClamp = (panelWidth * .9f) / 2f; // .9f is the clamp area
+            outNormalizedScreenPosition = new Vector2(MathHelper.Clamp((float)pointAtPanel.X, -edgeClamp.X, edgeClamp.X), -1 * MathHelper.Clamp((float)pointAtPanel.Y, -edgeClamp.Y, edgeClamp.Y));
+            //var surface = ((surface * (PrimaryCamera.CubeGrid.GridSizeEnum == MyCubeSize.Small ? kCameraToScreenSm : kCameraToScreenLg)) + new Vector2(0.5f, 0.5f)) * kScreenSize;
+            outNormalizedScreenPosition /= panelWidth; // normalize to screen origin space [-.5,+.5], from meters
+                                                       //            Network.Context.Log.Debug("O:" + outNormalizedScreenPosition.ToString());
+            outScreenPosition = outNormalizedScreenPosition + 0.5f;// normalize to screen draw space [0,1]
+                                                                   //            Network.Context.Log.Debug("C:" + outScreenPosition.ToString());
+            outScreenPosition *= kScreenSize;    // respace to screen draw pixels [0,512]
+
+            return true;
+        }
+
+//        Vector2 FleetIntelWorldCoordsToPanelCoordsVFailure(IMyTextPanel panel, IFleetIntelligence intel, TimeSpan localTime)
+//        {
+//            return new Vector2(float.MaxValue, float.MaxValue);
+            //            v - new Vector2(0.5f, 0.5f) * kScreenSize;
+            //             dot = targetNormal.Dot(forwardNormal);
+            //             angle = Math.Acos(dot);
+
+            //             var edgeLength = surfaceDistance / dot;
+            //             var target = targetNormal * edgeLength;
+            //             Vector3D.ProjectOnPlane(target, target
+            //             surfaceDistance.
+            //             Vector3D.Fract
+
+
+            //             {
+            //                 var camPosition = PrimaryCamera.GetPosition() + PrimaryCamera.WorldMatrix.Backward * .25;
+            //                 var camToTarget = intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff) - camPosition;
+            //                 double[] panelOffset = new double[] { 1.0, 0.20 };
+            //                 var panelPosition = panel.GetPosition() + panel.WorldMatrix.Forward * .25;
+            //                 var panelPlane = new Plane(panelPosition, panel.WorldMatrix.Forward);
+            //                 Vector3 Intersection;
+            //                 camToTarget.Normalize();
+            //                 TrigHelpers.PlaneIntersection(panelPlane, camPosition, camToTarget, out Intersection);
+            //                 Network.Context.Log.Debug("I:" + Intersection.ToString());
+            //                 //Network.Context.Log.Debug("P:" + panel.GetPosition());
+            //                 Vector3 local = Intersection - panelPosition;
+            //                 //            Vector3 local = Vector3.Transform(Intersection, MatrixD.Transpose(panel.WorldMatrix));
+            //                 Network.Context.Log.Debug("L:" + local.ToString());
+            //                 local *= (256f / panel.CubeGrid.GridSize);
+            //                 Network.Context.Log.Debug("S:" + local.ToString());
+            // 
+            //                 var d = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(30f, 30f), color: kFriendlyBlue);
+            //                 d.Position = new Vector2(256f - local.Y, 256f - local.Z);
+            //                 scratchpad.Add(d);
+            //             }
+
+            //.Transform( Intersection = Intersection - panel.GetPosition() + panel.WorldMatrix.Backward 
+
+            //             var CursorDirection = Intersection - Panels[Vector2I.Zero].GetPosition() + Panels[Vector2I.Zero].WorldMatrix.Backward * 1.25 + Panels[Vector2I.Zero].WorldMatrix.Right * 1.25;
+            //             var CursorDist = CursorDirection.Length();
+            //             CursorDirection.Normalize();
+
+            // LCD wall configuration:
+            // |  |    |
+            // |  |    |
+            // |  |    |
+
+            // Cursor position, originating in the middle of the LCD wall, with unit in meters
+            //         CursorPos = Vector3D.TransformNormal(CursorDirection, MatrixD.Transpose(Panels[Vector2I.Zero].WorldMatrix)) * CursorDist; 
+            //         CursorPos2D = new Vector2((float)CursorPos.X, (float)CursorPos.Y); 
+            //             if (true)
+            //             {
+            //                 var targetToCam = intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff) - PrimaryCamera.WorldMatrix.Translation;
+            // 
+            // 
+            //                 var WallPlane = new Plane(Panels[Vector2I.Zero].GetPosition() - Panels[Vector2I.Zero].WorldMatrix.Backward, Panels[Vector2I.Zero].WorldMatrix.Backward);
+            //                 Vector3 Intersection;
+            //                 TrigHelpers.PlaneIntersection(WallPlane, Turret.GetPosition() + Turret.WorldMatrix.Up * 0.579 + Turret.WorldMatrix.Backward * 0.068, TurretAimRay, out Intersection);
+            //             }
+            //             else
+            //             {
+
+//        }
+        public Vector2 FleetIntelItemToSprites(IMyTextPanel panel, IFleetIntelligence intel, TimeSpan localTime, Color color, ref List<MySprite> scratchpad, IntelSpriteOptions properties = IntelSpriteOptions.None)
+        {
+            var output = Vector2.PositiveInfinity;
+            if (intel.ID == Network.Context.Reference.CubeGrid.EntityId)
+                return output;
+
+            float dist;
+            Vector2 screenPos;
+            if (!FleetIntelWorldCoordsToPanelCoordsV3(panel, intel, localTime, out dist, out output, out screenPos))
+                return output;
+
+
+            //             var worldDirection = intel.GetPositionFromCanonicalTime(localTime + Network.IntelProvider.CanonicalTimeDiff) - PrimaryCamera.WorldMatrix.Translation;
+            //             var direction = panel.WorldMatrix.Translation - PrimaryCamera.WorldMatrix.Translation;
+            //             direction.Normalize();
+            //             var bodyPosition = Vector3D.TransformNormal(worldDirection, MatrixD.Transpose(MatrixD.CreateWorld(PrimaryCamera.Position, direction, panel.WorldMatrix.Up)));
+            //             var screenPosition = new Vector2(-1 * (float)(bodyPosition.X / bodyPosition.Z), (float)(bodyPosition.Y / bodyPosition.Z));
+            //             if (bodyPosition.Dot(Vector3D.Forward) < 0)
+            //                 return new Vector2(float.MaxValue, float.MaxValue);
+
+            //            var v = ((screenPosition * (PrimaryCamera.CubeGrid.GridSizeEnum == MyCubeSize.Small ? kCameraToScreenSm : kCameraToScreenLg)) + new Vector2(0.5f, 0.5f)) * kScreenSize;
+
+            var v = screenPos;
+
+
+
             float scale = kMaxScale;
-
             if (dist > kMaxDist) scale = kMinScale;
             else if (dist > kMinDist) scale = kMinScale + (kMaxScale - kMinScale) * (kMaxDist - dist) / (kMaxDist - kMinDist);
             if ((properties & IntelSpriteOptions.Large) != 0) scale *= 1.5f;
@@ -681,61 +977,60 @@ namespace IngameScript
             }
 
             bool cross = (properties & IntelSpriteOptions.EmphasizeWithCross) != 0;
-
-            var indicator = MySprite.CreateText(indicatorText, "Monospace", color, scale, TextAlignment.CENTER);
-            var v = ((screenPosition * (PrimaryCamera.CubeGrid.GridSizeEnum == MyCubeSize.Small ? kCameraToScreenSm : kCameraToScreenLg)) + new Vector2(0.5f, 0.5f)) * kScreenSize;
-
             if (cross)
             {
                 var c = new MySprite(SpriteType.TEXTURE, "Cross", size: new Vector2(30f, 30f));
                 c.Position = v;
-                scratchpad.Add(c);
+                scratchpad.Add(c);                
             }
 
-            var CenteredScreenPosition = v - new Vector2(0.5f, 0.5f) * kScreenSize;
-            v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
-            v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
+//             var CenteredScreenPosition = v - new Vector2(0.5f, 0.5f) * kScreenSize;
+//             v.X = Math.Max(30, Math.Min(kScreenSize - 30, v.X));
+//             v.Y = Math.Max(30, Math.Min(kScreenSize - 30, v.Y));
+            
             v.Y -= scale * (kMonospaceConstant.Y + 10) / 2;
+            
+            var indicator = MySprite.CreateText(indicatorText, "Monospace", color, scale, TextAlignment.CENTER);
             indicator.Position = v;
             scratchpad.Add(indicator);
 
             v.Y += kMonospaceConstant.Y * scale + 0.2f;
 
+            var builder = Network.Context.StringBuilder;
+            builder.Clear();
+
             if ((properties & IntelSpriteOptions.ShowDist) != 0)
-            {
-                float textSize= 0.4f;
-                if ((properties & IntelSpriteOptions.Small) != 0) textSize = 0.3f;
-                var distSprite = MySprite.CreateText($"{((int)dist).ToString()} m", "Debug", new Color(1, 1, 1, 0.5f), textSize, TextAlignment.CENTER);
-                distSprite.Position = v;
-                scratchpad.Add(distSprite);
-                v.Y += kDebugConstant.Y * textSize + 0.1f;
-            }
+                builder.AppendLine((int)dist + " m");
 
             if ((properties & IntelSpriteOptions.ShowName) != 0 || (properties & IntelSpriteOptions.ShowTruncatedName) != 0)
             {
-                float textSize = 0.4f;
-                if ((properties & IntelSpriteOptions.Small) != 0) textSize = 0.3f;
-                var name = intel.DisplayName;
-                if ((properties & IntelSpriteOptions.ShowTruncatedName) != 0) name = name.Substring(0, 8);
-                var nameSprite = MySprite.CreateText(name, "Debug", new Color(1, 1, 1, 0.5f), textSize, TextAlignment.CENTER);
-                nameSprite.Position = v;
-                scratchpad.Add(nameSprite);
-                v.Y += kDebugConstant.Y * textSize + 0.1f;
+                var name = intel.DisplayName;// != null ? intel.DisplayName : "null";
+                if (name.StartsWith("L-") || name.StartsWith("S-"))
+                    name = name.Substring(0, Math.Min(name.Length, 8));
+                builder.AppendLine(name);
             }
+                
 
             if ((properties & IntelSpriteOptions.ShowLastDetected) != 0 && (intel is EnemyShipIntel))
             {
-                float textSize = 0.4f;
-                if ((properties & IntelSpriteOptions.Small) != 0) textSize = 0.3f;
                 var esi = (EnemyShipIntel)intel;
                 var timediff = localTime - esi.CurrentCanonicalTime;
-                var timeSprite = MySprite.CreateText($"{((int)timediff.TotalMilliseconds).ToString()} ms", "Debug", new Color(1, 1, 1, 0.5f), textSize, TextAlignment.CENTER);
-                timeSprite.Position = v;
-                scratchpad.Add(timeSprite);
-                v.Y += kDebugConstant.Y * textSize + 0.1f;
+                builder.AppendLine((int)timediff.TotalMilliseconds + " ms");
             }
 
-            return CenteredScreenPosition;
+            if (builder.Length > 0)
+            {
+                var infoSprite = MySprite.CreateText(
+                    builder.ToString(),
+                    "Debug",
+                    new Color(1, 1, 1, 0.5f),
+                    (properties & IntelSpriteOptions.Small) != 0 ? 0.3f : 0.4f,
+                    TextAlignment.CENTER);
+                infoSprite.Position = v;
+                scratchpad.Add(infoSprite);
+            }
+
+            return output;
         }
 
         public readonly Color kFriendlyBlue = new Color(140, 140, 255, 100);
@@ -749,15 +1044,15 @@ namespace IngameScript
 
     public interface ILookingGlassPlugin
     {
-        void Do4(TimeSpan localTime);
-        void Do5(TimeSpan localTime);
-        void Do6(TimeSpan localTime);
-        void Do8(TimeSpan localTime);
-        void Do7(TimeSpan localTime);
-        void Do3(TimeSpan localTime);
+        void Do4();
+        void Do5();
+        void Do6();
+        void Do8();
+        void Do7();
+        void Do3();
 
-        void UpdateHUD(TimeSpan localTime);
-        void UpdateState(TimeSpan localTime);
+        void UpdateHUD();
+        void UpdateState();
 
         void Setup();
 
@@ -768,7 +1063,7 @@ namespace IngameScript
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
-        public void Do4(TimeSpan localTime)
+        public void Do4()
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -781,7 +1076,7 @@ namespace IngameScript
             }
         }
 
-        public void Do5(TimeSpan localTime)
+        public void Do5()
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -798,7 +1093,7 @@ namespace IngameScript
             }
         }
 
-        public void Do6(TimeSpan localTime)
+        public void Do6()
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -810,7 +1105,7 @@ namespace IngameScript
                 TargetSelection_TaskTypesIndex = Host.DeltaSelection(TargetSelection_TaskTypesIndex, TargetSelection_TaskTypes.Count, true);
             }
         }
-        public void Do8(TimeSpan localTime)
+        public void Do8()
         {
             if (CurrentUIMode == UIMode.SelectAgent)
             {
@@ -826,7 +1121,7 @@ namespace IngameScript
             }
         }
 
-        public void Do7(TimeSpan localTime)
+        public void Do7()
         {
             if (CurrentUIMode == UIMode.SelectTarget)
             {
@@ -838,8 +1133,9 @@ namespace IngameScript
             }
         }
 
-        public void Do3(TimeSpan localTime)
+        public void Do3()
         {
+            var localTime = Host.Context.LocalTime;
             if (CurrentUIMode == UIMode.SelectAgent)
             {
                 if (AgentSelection_CurrentIndex < AgentSelection_FriendlyAgents.Count && AgentSelection_CurrentClass != AgentClass.None)
@@ -903,14 +1199,14 @@ namespace IngameScript
         {
         }
 
-        public void UpdateHUD(TimeSpan localTime)
+        public void UpdateHUD()
         {
-            DrawMiddleHUD(localTime);
-            DrawAgentSelectionUI(localTime);
-            DrawTargetSelectionUI(localTime);
+            DrawMiddleHUD();
+            DrawAgentSelectionUI();
+            DrawTargetSelectionUI();
         }
 
-        public void UpdateState(TimeSpan localTime)
+        public void UpdateState()
         {
         }
         #endregion
@@ -929,7 +1225,7 @@ namespace IngameScript
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
         #region SelectAgent
-        void DrawAgentSelectionUI(TimeSpan timestamp)
+        void DrawAgentSelectionUI()
         {
             Builder.Clear();
 
@@ -946,7 +1242,8 @@ namespace IngameScript
 
             AgentSelection_FriendlyAgents.Clear();
 
-            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(timestamp).Values)
+            var localTime = Host.Context.LocalTime;
+            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
             {
                 if (intel is FriendlyShipIntel && ((FriendlyShipIntel)intel).AgentClass == AgentSelection_CurrentClass)
                     AgentSelection_FriendlyAgents.Add((FriendlyShipIntel)intel);
@@ -1049,7 +1346,7 @@ namespace IngameScript
         List<IFleetIntelligence> TargetSelection_Targets = new List<IFleetIntelligence>();
         int TargetSelection_TargetIndex;
 
-        void DrawTargetSelectionUI(TimeSpan timestamp)
+        void DrawTargetSelectionUI()
         {
             Builder.Clear();
 
@@ -1100,7 +1397,7 @@ namespace IngameScript
             Builder.AppendLine();
 
             TargetSelection_Targets.Clear();
-            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(timestamp).Values)
+            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(Host.Context.LocalTime).Values)
             {
                 if ((intel.Type & TaskTypeToTargetTypes[TargetSelection_TaskTypes[TargetSelection_TaskTypesIndex]]) != 0)
                     TargetSelection_Targets.Add(intel);
@@ -1182,7 +1479,7 @@ namespace IngameScript
         #endregion
 
         #region MiddleHUD
-        void DrawMiddleHUD(TimeSpan localTime)
+        void DrawMiddleHUD()
         {
             int realTargetIndex = -1;
             if (TargetSelection_TaskTypes.Count > 0)
@@ -1193,43 +1490,45 @@ namespace IngameScript
 
             SpriteScratchpad.Clear();
 
-            Host.GetDefaultSprites(SpriteScratchpad);
-            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
-            {
-                if (intel.Type == IntelItemType.Friendly)
-                {
-                    var options = LookingGlass.IntelSpriteOptions.Small;
-                    if (AgentSelection_FriendlyAgents.Count > AgentSelection_CurrentIndex && intel == AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])
-                        options = LookingGlass.IntelSpriteOptions.ShowName | LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
-
-                    Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
-                }
-                else if (intel.Type == IntelItemType.Enemy)
-                {
-                    var options = LookingGlass.IntelSpriteOptions.ShowDist;
-                    if (realTargetIndex >= 0 && TargetSelection_Targets.Count > realTargetIndex && intel == TargetSelection_Targets[realTargetIndex])
-                        options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
-
-                    int priority = Host.IntelProvider.GetPriority(intel.ID);
-
-                    if (priority == 0) options |= LookingGlass.IntelSpriteOptions.Circle | LookingGlass.IntelSpriteOptions.Small;
-                    else if (priority == 1) options |= LookingGlass.IntelSpriteOptions.Small;
-                    else if (priority == 3) options |= LookingGlass.IntelSpriteOptions.Large;
-                    else if (priority == 4) options |= LookingGlass.IntelSpriteOptions.Large | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
-
-                    Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
-                }
-                else if (intel.Type == IntelItemType.Waypoint)
-                {
-                    var options = LookingGlass.IntelSpriteOptions.ShowDist;
-                    Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kWaypointOrange, ref SpriteScratchpad, options);
-                }
-            }
-
             if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
+
+            var localTime = Host.Context.LocalTime;
 
             foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)
             {
+                Host.GetDefaultSprites(SpriteScratchpad);
+                foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
+                {
+                    if (intel.Type == IntelItemType.Friendly)
+                    {
+                        var options = LookingGlass.IntelSpriteOptions.Small;
+                        if (AgentSelection_FriendlyAgents.Count > AgentSelection_CurrentIndex && intel == AgentSelection_FriendlyAgents[AgentSelection_CurrentIndex])
+                            options = LookingGlass.IntelSpriteOptions.ShowName | LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
+
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
+                    }
+                    else if (intel.Type == IntelItemType.Enemy)
+                    {
+                        var options = LookingGlass.IntelSpriteOptions.ShowDist;
+                        if (realTargetIndex >= 0 && TargetSelection_Targets.Count > realTargetIndex && intel == TargetSelection_Targets[realTargetIndex])
+                            options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
+
+                        int priority = Host.IntelProvider.GetPriority(intel.ID);
+
+                        if (priority == 0) options |= LookingGlass.IntelSpriteOptions.Circle | LookingGlass.IntelSpriteOptions.Small;
+                        else if (priority == 1) options |= LookingGlass.IntelSpriteOptions.Small;
+                        else if (priority == 3) options |= LookingGlass.IntelSpriteOptions.Large;
+                        else if (priority == 4) options |= LookingGlass.IntelSpriteOptions.Large | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
+
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
+                    }
+                    else if (intel.Type == IntelItemType.Waypoint)
+                    {
+                        var options = LookingGlass.IntelSpriteOptions.ShowDist;
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kWaypointOrange, ref SpriteScratchpad, options);
+                    }
+                }
+
                 using (var frame = screen.DrawFrame())
                 {
             
@@ -1296,7 +1595,7 @@ namespace IngameScript
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
-        public void Do4(TimeSpan localTime)
+        public void Do4()
         {
             if (TargetPriority_Selection < TargetPriority_TargetList.Count)
             {
@@ -1307,12 +1606,12 @@ namespace IngameScript
             }
         }
 
-        public void Do5(TimeSpan localTime)
+        public void Do5()
         {
             TargetPriority_Selection = Host.DeltaSelection(TargetPriority_Selection, TargetPriority_TargetList.Count, true);
         }
 
-        public void Do6(TimeSpan localTime)
+        public void Do6()
         {
             if (TargetPriority_Selection < TargetPriority_TargetList.Count)
             {
@@ -1322,18 +1621,18 @@ namespace IngameScript
                 Host.IntelProvider.SetPriority(iD, priority + 1);
             }
         }
-        public void Do8(TimeSpan localTime)
+        public void Do8()
         {
             TargetPriority_Selection = Host.DeltaSelection(TargetPriority_Selection, TargetPriority_TargetList.Count, false);
         }
 
-        public void Do7(TimeSpan localTime)
+        public void Do7()
         {
         }
 
-        public void Do3(TimeSpan localTime)
+        public void Do3()
         {
-            Host.ActiveLookingGlass.DoScan(localTime);
+            Host.ActiveLookingGlass.DoScan(Host.Context.LocalTime);
         }
 
 
@@ -1341,14 +1640,14 @@ namespace IngameScript
         {
         }
 
-        public void UpdateHUD(TimeSpan localTime)
+        public void UpdateHUD()
         {
-            DrawScanUI(localTime);
-            DrawTrackingUI(localTime);
-            DrawMiddleHUD(localTime);
+            DrawScanUI();
+            DrawTrackingUI();
+            DrawMiddleHUD();
         }
 
-        public void UpdateState(TimeSpan localTime)
+        public void UpdateState()
         {
         }
         #endregion
@@ -1367,7 +1666,7 @@ namespace IngameScript
         }
 
 
-        void DrawScanUI(TimeSpan timestamp)
+        void DrawScanUI()
         {
             Builder.Clear();
             int kRowLength = 19;
@@ -1431,16 +1730,15 @@ namespace IngameScript
             }
         }
         
-        void DrawTrackingUI(TimeSpan timestamp)
+        void DrawTrackingUI()
         {
             Builder.Clear();
 
             Builder.AppendLine("= TARGET PRIORITY =");
         
             Builder.AppendLine();
-        
-            var intels = Host.IntelProvider.GetFleetIntelligences(timestamp);
-            var canonicalTime = timestamp + Host.IntelProvider.CanonicalTimeDiff;
+
+            var intels = Host.IntelProvider.GetFleetIntelligences(Host.Context.LocalTime);
             TargetPriority_TargetList.Clear();
 
             foreach (var intel in intels)
@@ -1495,48 +1793,49 @@ namespace IngameScript
             }
         }
 
-        void DrawMiddleHUD(TimeSpan localTime)
+        void DrawMiddleHUD()
         {
-            SpriteScratchpad.Clear();
-
-            Host.GetDefaultSprites(SpriteScratchpad);
-
-            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
-            {
-                if (intel.Type == IntelItemType.Friendly)
-                {
-                    Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.Small);
-                }
-                else if (intel.Type == IntelItemType.Enemy)
-                {
-                    LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
-
-                    if (TargetPriority_TargetList.Count > TargetPriority_Selection && intel == TargetPriority_TargetList[TargetPriority_Selection])
-                    {
-                        options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
-                        options |= LookingGlass.IntelSpriteOptions.ShowDist;
-                    }
-
-                    int priority = Host.IntelProvider.GetPriority(intel.ID);
-
-                    if (priority == 0) options |= LookingGlass.IntelSpriteOptions.Circle | LookingGlass.IntelSpriteOptions.Small;
-                    else if (priority == 1) options |= LookingGlass.IntelSpriteOptions.Small;
-                    else if (priority == 3) options |= LookingGlass.IntelSpriteOptions.Large;
-                    else if (priority == 4) options |= LookingGlass.IntelSpriteOptions.Large | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
-
-                    Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, priority == 0 ? Color.White : Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
-                }
-                else if (intel.Type == IntelItemType.Asteroid)
-                {
-                    Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Color.Green, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.Large);
-                }
-            }
-
-
             if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
+
+            var localTime = Host.Context.LocalTime;
 
             foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)
             {
+                SpriteScratchpad.Clear();
+
+                Host.GetDefaultSprites(SpriteScratchpad);
+
+                foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
+                {
+                    if (intel.Type == IntelItemType.Friendly)
+                    {
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.Small);
+                    }
+                    else if (intel.Type == IntelItemType.Enemy)
+                    {
+                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
+
+                        if (TargetPriority_TargetList.Count > TargetPriority_Selection && intel == TargetPriority_TargetList[TargetPriority_Selection])
+                        {
+                            options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
+                            options |= LookingGlass.IntelSpriteOptions.ShowDist;
+                        }
+
+                        int priority = Host.IntelProvider.GetPriority(intel.ID);
+
+                        if (priority == 0) options |= LookingGlass.IntelSpriteOptions.Circle | LookingGlass.IntelSpriteOptions.Small;
+                        else if (priority == 1) options |= LookingGlass.IntelSpriteOptions.Small;
+                        else if (priority == 3) options |= LookingGlass.IntelSpriteOptions.Large;
+                        else if (priority == 4) options |= LookingGlass.IntelSpriteOptions.Large | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets;
+
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, priority == 0 ? Color.White : Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
+                    }
+                    else if (intel.Type == IntelItemType.Asteroid)
+                    {
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Color.Green, ref SpriteScratchpad, LookingGlass.IntelSpriteOptions.Large);
+                    }
+                }
+
                 using (var frame = screen.DrawFrame())
                 {
                     foreach (var spr in SpriteScratchpad)
@@ -1551,11 +1850,11 @@ namespace IngameScript
     {
         #region ILookingGlassPlugin
         public LookingGlassNetworkSubsystem Host { get; set; }
-        public void Do4(TimeSpan localTime)
+        public void Do4()
         {
             if (TorpedoSubsystem != null)
             {
-                if (FireTorpedoAtCursorTarget("SM", localTime))
+                if (FireTorpedoAtCursorTarget("SM", Host.Context.LocalTime))
                 {
                     FeedbackOnTarget = true;
                     return;
@@ -1564,11 +1863,11 @@ namespace IngameScript
             FeedbackText = "NOT LOADED";
         }
 
-        public void Do5(TimeSpan localTime)
+        public void Do5()
         {
             if (TorpedoSubsystem != null)
             {
-                if (FireTorpedoAtCursorTarget("LG", localTime))
+                if (FireTorpedoAtCursorTarget("LG", Host.Context.LocalTime))
                 {
                     FeedbackOnTarget = true;
                     return;
@@ -1577,7 +1876,7 @@ namespace IngameScript
             FeedbackText = "NOT LOADED";
         }
 
-        public void Do6(TimeSpan localTime)
+        public void Do6()
         {
             if (closestEnemyToCursorID == -1)
             {
@@ -1588,6 +1887,7 @@ namespace IngameScript
 
             if (HangarSubsystem != null)
             {
+                var localTime = Host.Context.LocalTime;
                 var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
 
                 var enemyKey = MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID);
@@ -1616,12 +1916,13 @@ namespace IngameScript
 
             if (!launched) FeedbackText = "DRONES UNAVAILABLE";
         }
-        public void Do8(TimeSpan localTime)
+        public void Do8()
         {
         }
 
-        public void Do7(TimeSpan localTime)
+        public void Do7()
         {
+            var localTime = Host.Context.LocalTime;
             var intelItems = Host.IntelProvider.GetFleetIntelligences(localTime);
             var targetKey = MyTuple.Create(IntelItemType.NONE, (long)0);
             foreach (var hangar in HangarSubsystem.SortedHangarsList)
@@ -1639,12 +1940,12 @@ namespace IngameScript
             }
         }
 
-        public void Do3(TimeSpan localTime)
+        public void Do3()
         {
             if (ScannerSubsystem != null)
             {
                 var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 10000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
-                ScannerSubsystem.TryScanTarget(pos, localTime);
+                ScannerSubsystem.TryScanTarget(pos, Host.Context.LocalTime);
             }
         }
 
@@ -1652,14 +1953,14 @@ namespace IngameScript
         {
         }
 
-        public void UpdateHUD(TimeSpan localTime)
+        public void UpdateHUD()
         {
-            DrawInfoUI(localTime);
-            DrawActionsUI(localTime);
-            DrawMiddleHUD(localTime);
+            DrawInfoUI();
+            DrawActionsUI();
+            DrawMiddleHUD();
         }
 
-        public void UpdateState(TimeSpan localTime)
+        public void UpdateState()
         {
         }
         #endregion
@@ -1693,7 +1994,7 @@ namespace IngameScript
             return TorpedoSubsystem.Fire(localTime, TorpedoSubsystem.TorpedoTubeGroups[group], target, false) != null;
         }
 
-        void DrawInfoUI(TimeSpan timestamp)
+        void DrawInfoUI()
         {
             Builder.Clear();
 
@@ -1710,8 +2011,9 @@ namespace IngameScript
                 {
                     int ready = kvp.Value.NumReady;
                     int total = kvp.Value.Children.Count();
-                    // LG [||--    ] AUTO
-                    Builder.Append(kvp.Value.Name).Append(" [").Append('|', ready).Append('-', total - ready).Append(' ', Math.Max(0, 8 - total)).Append(kvp.Value.AutoFire ? "] AUTO \n" : "] MANL \n");
+                    if ( total > 0 )
+                        // LG [||--    ] AUTO
+                        Builder.Append(kvp.Value.Name).Append(" [").Append('|', ready).Append('-', total - ready).Append(' ', Math.Max(0, 8 - total)).Append(kvp.Value.AutoFire ? "] AUTO \n" : "] MANL \n");
                 }
             }
 
@@ -1727,7 +2029,7 @@ namespace IngameScript
             }
             else
             {
-                var intelItems = Host.IntelProvider.GetFleetIntelligences(timestamp);
+                var intelItems = Host.IntelProvider.GetFleetIntelligences(Host.Context.LocalTime);
                 Builder.AppendLine("     |H |P |A |ST  |");
                 foreach (var hangar in HangarSubsystem.SortedHangarsList)
                 {   //     |H |P |A |ST  |
@@ -1790,7 +2092,7 @@ namespace IngameScript
             }
         }
 
-        void DrawActionsUI(TimeSpan timestamp)
+        void DrawActionsUI()
         {
             Builder.Clear();
 
@@ -1814,75 +2116,80 @@ namespace IngameScript
             }
         }
 
-        void DrawMiddleHUD(TimeSpan localTime)
+        void DrawMiddleHUD()
         {
             if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
-            SpriteScratchpad.Clear();
 
-            Host.GetDefaultSprites(SpriteScratchpad);
 
-            float closestDistSqr = 100 * 100;
-            long newClosestIntelID = -1;
-
-            foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
-            {
-                if (intel.Type == IntelItemType.Friendly)
-                {
-                    var fsi = (FriendlyShipIntel)intel;
-
-                    if ((fsi.AgentStatus & AgentStatus.DockedAtHome) != 0) continue;
-
-                    LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small;
-                    if (fsi.AgentClass == AgentClass.None) options = LookingGlass.IntelSpriteOptions.ShowName;
-                    else if (HangarSubsystem != null && fsi.AgentClass == AgentClass.Fighter && HangarSubsystem.HangarsDict.ContainsKey(fsi.HomeID)) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
-
-                    Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
-                }
-                else if (intel.Type == IntelItemType.Enemy)
-                {
-                    LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
-
-                    if (intel.Radius < 10)
-                    {
-                        options = LookingGlass.IntelSpriteOptions.Small;
-                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
-                    }
-                    else
-                    {
-                        if (intel.ID == closestEnemyToCursorID)
-                        {
-                            options = LookingGlass.IntelSpriteOptions.ShowTruncatedName | LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithDashes | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
-                            if (FeedbackOnTarget) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
-                        }
-
-                        var distToCenterSqr = Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options).LengthSquared();
-
-                        if (distToCenterSqr < closestDistSqr)
-                        {
-                            closestDistSqr = distToCenterSqr;
-                            newClosestIntelID = intel.ID;
-                        }
-                    }
-                }
-
-            }
-            closestEnemyToCursorID = newClosestIntelID;
-
-            Builder.Clear();
-
-            if (TorpedoSubsystem != null)
-            {
-                foreach (var kvp in TorpedoSubsystem.TorpedoTubeGroups)
-                {
-                    int ready = kvp.Value.NumReady;
-                    int total = kvp.Value.Children.Count();
-                    Builder.Append("[").Append('|', ready).Append('-', total - ready).Append(']');
-                    Builder.AppendLine();
-                }
-            }
-
+            var localTime = Host.Context.LocalTime;
             foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)
             {
+                SpriteScratchpad.Clear();
+
+                Host.GetDefaultSprites(SpriteScratchpad);
+
+                float closestDistSqr = 100 * 100;
+                long newClosestIntelID = -1;
+
+                foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
+                {
+                    if (intel.Type == IntelItemType.Friendly)
+                    {
+                        var fsi = (FriendlyShipIntel)intel;
+
+                        if ((fsi.AgentStatus & AgentStatus.DockedAtHome) != 0) continue;
+
+                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small;
+                        if (fsi.AgentClass == AgentClass.None)
+                            options = LookingGlass.IntelSpriteOptions.ShowName;
+                        else if (HangarSubsystem != null && fsi.AgentClass == AgentClass.Fighter && HangarSubsystem.HangarsDict.ContainsKey(fsi.HomeID))
+                            options |= LookingGlass.IntelSpriteOptions.EmphasizeWithDashes;
+
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
+                    }
+                    else if (intel.Type == IntelItemType.Enemy)
+                    {
+                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.ShowTruncatedName;
+
+                        if (intel.Radius < 10)
+                        {
+                            options = LookingGlass.IntelSpriteOptions.Small;
+                            Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
+                        }
+                        else
+                        {
+                            if (intel.ID == closestEnemyToCursorID)
+                            {
+                                options = LookingGlass.IntelSpriteOptions.ShowTruncatedName | LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithDashes | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
+                                if (FeedbackOnTarget) options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
+                            }
+
+                            var distToCenterSqr = Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options).LengthSquared();
+
+                            if (distToCenterSqr < closestDistSqr)
+                            {
+                                closestDistSqr = distToCenterSqr;
+                                newClosestIntelID = intel.ID;
+                            }
+                        }
+                    }
+
+                }
+                closestEnemyToCursorID = newClosestIntelID;
+
+                Builder.Clear();
+
+                if (TorpedoSubsystem != null)
+                {
+                    foreach (var kvp in TorpedoSubsystem.TorpedoTubeGroups)
+                    {
+                        int ready = kvp.Value.NumReady;
+                        int total = kvp.Value.Children.Count();
+                        Builder.Append("[").Append('|', ready).Append('-', total - ready).Append(']');
+                        Builder.AppendLine();
+                    }
+                }
+
                 using (var frame = screen.DrawFrame())
                 {
                     foreach (var spr in SpriteScratchpad)

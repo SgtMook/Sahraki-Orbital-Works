@@ -746,7 +746,7 @@ namespace IngameScript
             return true;
         }
 
-        public void FromDetectedInfo(MyDetectedEntityInfo info, TimeSpan canonicalTime, bool updateSize = false)
+        public void FromDetectedInfo(MyDetectedEntityInfo info, TimeSpan canonicalTime)
         {
             if (info.Type != MyDetectedEntityType.SmallGrid && info.Type != MyDetectedEntityType.LargeGrid && info.Type != MyDetectedEntityType.Unknown) return;
             if (info.Relationship != MyRelationsBetweenPlayerAndBlock.Enemies && info.Relationship != MyRelationsBetweenPlayerAndBlock.Neutral) return;
@@ -761,36 +761,15 @@ namespace IngameScript
                 else return;
             }
 
-            if (DisplayName == null || DisplayName.StartsWith("S-") || DisplayName.StartsWith("L-"))
-            {
-                if (updateSize || DisplayName == null)
-                {
-                    if (updateSize) LastValidatedCanonicalTime = canonicalTime;
-                    Radius = (float)info.BoundingBox.Size.Length() * 0.5f;
-                    DisplayName = (info.Type == MyDetectedEntityType.SmallGrid ? "S-" : "L-") + ((int)Radius).ToString() + " " + info.EntityId.ToString();
-                }
-            }
+            LastValidatedCanonicalTime = canonicalTime;
+            Radius = (float)info.BoundingBox.Size.Length() * 0.5f;
+
+            if (DisplayName == null)
+                DisplayName = (info.Type == MyDetectedEntityType.SmallGrid ? "S-" : "L-") + ((int)Radius).ToString() + " " + info.EntityId.ToString();
 
             CurrentPosition = info.BoundingBox.Center;
             CurrentVelocity = info.Velocity;
             CurrentCanonicalTime = canonicalTime;
-        }
-
-        public void FromCubeGrid(IMyCubeGrid grid, TimeSpan canonicalTime, Vector3D velocity)
-        {
-            if (ID != grid.EntityId)
-            {
-                CubeSize = grid.GridSizeEnum;
-                ID = grid.EntityId;
-            }
-
-            DisplayName = (grid.GridSizeEnum == MyCubeSize.Small ? "S-" : "L-") + ((int)Radius).ToString() + " " + grid.EntityId.ToString();
-
-            Radius = (float)grid.WorldAABB.Size.Length() * 0.5f;
-            CurrentPosition = grid.WorldAABB.Center;
-            CurrentVelocity = velocity;
-            CurrentCanonicalTime = canonicalTime;
-            LastValidatedCanonicalTime = canonicalTime;
         }
     }
 }

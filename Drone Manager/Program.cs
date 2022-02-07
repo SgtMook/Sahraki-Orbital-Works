@@ -37,7 +37,7 @@ namespace IngameScript
         IMyRadioAntenna antenna;
 
         string tag = string.Empty;
-
+        
         #region Connect With Shared
         void MySave(StringBuilder builder)
         {

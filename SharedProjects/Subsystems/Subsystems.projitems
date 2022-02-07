@@ -10,16 +10,19 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AgentSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)AutoAimSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)AutopilotSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)CombatLoaderSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DockingSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HangarSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)HeliDriveSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HoneybeeSubsystems.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HornetSubsystems.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)HoverTorpedoSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IntelSubsystems.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)InventoryManagerSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ISubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)LandpedoSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)LookingGlassSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)MonitorSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)ScannerSubsystem.cs" />
@@ -28,5 +31,6 @@
     <Compile Include="$(MSBuildThisFileDirectory)TacMapSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TextCommandSubsystem.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)TorpedoSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TurretSubsystem.cs" />
   </ItemGroup>
 </Project>

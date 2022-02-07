@@ -60,14 +60,13 @@ namespace IngameScript
                 turretRotor.Detach();
 
                 Connector.Connect();
-                if (Host.AmmoBox != null)
+
+                var inventoryItem = Host.AmmoBox?.GetItemAt(0);
+                if (inventoryItem != null)
                 {
-                    var inventoryItem = Host.AmmoBox.GetItemAt(0);
-                    if (inventoryItem != null)
-                    {
-                        Host.AmmoBox.TransferItemTo(Connector.OtherConnector.GetInventory(0), (MyInventoryItem)inventoryItem);
-                    }
+                    Host.AmmoBox.TransferItemTo(Connector.OtherConnector.GetInventory(0), (MyInventoryItem)inventoryItem);
                 }
+
                 Connector.Disconnect();
 
                 releaseStage = 1;

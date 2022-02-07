@@ -27,7 +27,7 @@ namespace IngameScript
         public float pitch;
         public float roll;
 
-        int runs = 0;
+//        int runs = 0;
 
         // Interface variables
         public Vector3 MoveIndicators = Vector3D.Zero;

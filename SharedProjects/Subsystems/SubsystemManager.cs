@@ -60,7 +60,74 @@ namespace IngameScript
             }
         }
     }
+    /*
+    public class DrawAPI
+    {
+        public readonly bool ModDetected;
 
+        public void RemoveAll() => _removeAll(_program.Me);
+        Action<IMyProgrammableBlock> _removeAll;
+
+        public void Remove(int id) => _remove(_program.Me, id);
+        Action<IMyProgrammableBlock, int> _remove;
+
+        public int AddPoint(Vector3D origin, Color color, float radius = 0.2f, float seconds = DefaultSeconds, bool? onTop = null) => _point(_program.Me, origin, color, radius, seconds, onTop ?? _defaultOnTop);
+        Func<IMyProgrammableBlock, Vector3D, Color, float, float, bool, int> _point;
+
+        public int AddLine(Vector3D start, Vector3D end, Color color, float thickness = DefaultThickness, float seconds = DefaultSeconds, bool? onTop = null) => _line(_program.Me, start, end, color, thickness, seconds, onTop ?? _defaultOnTop);
+        Func<IMyProgrammableBlock, Vector3D, Vector3D, Color, float, float, bool, int> _line;
+
+        public int AddAABB(BoundingBoxD bb, Color color, Style style = Style.Wireframe, float thickness = DefaultThickness, float seconds = DefaultSeconds, bool? onTop = null) => _aabb(_program.Me, bb, color, (int)style, thickness, seconds, onTop ?? _defaultOnTop);
+        Func<IMyProgrammableBlock, BoundingBoxD, Color, int, float, float, bool, int> _aabb;
+
+        public int AddOBB(MyOrientedBoundingBoxD obb, Color color, Style style = Style.Wireframe, float thickness = DefaultThickness, float seconds = DefaultSeconds, bool? onTop = null) => _obb(_program.Me, obb, color, (int)style, thickness, seconds, onTop ?? _defaultOnTop);
+        Func<IMyProgrammableBlock, MyOrientedBoundingBoxD, Color, int, float, float, bool, int> _obb;
+
+        public int AddSphere(BoundingSphereD sphere, Color color, Style style = Style.Wireframe, float thickness = DefaultThickness, int lineEveryDegrees = 15, float seconds = DefaultSeconds, bool? onTop = null) => _sphere(_program.Me, sphere, color, (int)style, thickness, lineEveryDegrees, seconds, onTop ?? _defaultOnTop);
+        Func<IMyProgrammableBlock, BoundingSphereD, Color, int, float, int, float, bool, int> _sphere;
+
+        public int AddMatrix(MatrixD matrix, float length = 3f, float thickness = DefaultThickness, float seconds = DefaultSeconds, bool? onTop = null) => _matrix(_program.Me, matrix, length, thickness, seconds, onTop ?? _defaultOnTop);
+        Func<IMyProgrammableBlock, MatrixD, float, float, float, bool, int> _matrix;
+
+        public int AddHudMarker(string name, Vector3D origin, Color color, float seconds = DefaultSeconds) => _hudMarker(_program.Me, name, origin, color, seconds);
+        Func<IMyProgrammableBlock, string, Vector3D, Color, float, int> _hudMarker;
+
+        public enum Style { Solid, Wireframe, SolidAndWireframe }
+
+        const float DefaultThickness = 0.02f;
+        const float DefaultSeconds = -1;
+
+        MyGridProgram _program;
+        bool _defaultOnTop;
+
+        /// <param name="program">pass `this`.</param>
+        /// <param name="drawOnTopDefault">declare if all drawn objects are always on top by default.</param>
+        public DrawAPI(MyGridProgram program, bool drawOnTopDefault = false)
+        {
+            if (program == null)
+                throw new Exception("Pass `this` into the API, not null.");
+
+            _defaultOnTop = drawOnTopDefault;
+            _program = program;
+            var methods = program.Me.GetProperty("DebugDrawAPI")?.As<IReadOnlyDictionary<string, Delegate>>()?.GetValue(program.Me);
+            ModDetected = (methods != null);
+            if (ModDetected)
+            {
+                Assign(out _removeAll, methods["RemoveAll"]);
+                Assign(out _remove, methods["Remove"]);
+                Assign(out _point, methods["Point"]);
+                Assign(out _line, methods["Line"]);
+                Assign(out _aabb, methods["AABB"]);
+                Assign(out _obb, methods["OBB"]);
+                Assign(out _sphere, methods["Sphere"]);
+                Assign(out _matrix, methods["Matrix"]);
+                Assign(out _hudMarker, methods["HUDMarker"]);
+            }
+        }
+
+        void Assign<T>(out T field, object method) => field = (T)method;
+    }
+    */
     public struct ScriptTime
     {
 //         long ticks;
@@ -112,13 +179,15 @@ namespace IngameScript
         public IMyIntergridCommunicationSystem IGC;
         public IMyGridTerminalSystem Terminal;
         public Logger Log = new Logger();
+//        public DrawAPI Draw = null;
         public IMyTerminalBlock Reference;
         public StringBuilder StringBuilder= new StringBuilder();
         public Random Random = new Random();
         public long Frame = 0;
         public WcPbApi WCAPI = null;
-        public TimeSpan CurrentTime;
-        
+        public TimeSpan LocalTime;
+        public MyIni IniParser = new MyIni();
+
         // The Intel system uses Canonical Time, since each ship
         // can have its own time offset based on the timezone of
         // the player.
@@ -131,11 +200,15 @@ namespace IngameScript
             Terminal = program.GridTerminalSystem;
 
             Reference = (reference == null) ? program.Me : reference;
+
+//             Draw = new DrawAPI(Program);
+//             if (!Draw.ModDetected)
+//                 Draw = null;
         }
         public void UpdateTime()
         {
-            CurrentTime += Program.Runtime.TimeSinceLastRun;
-            CanonicalTime = CurrentTime + (IntelSystem != null ? IntelSystem.CanonicalTimeDiff : TimeSpan.Zero);
+            LocalTime += Program.Runtime.TimeSinceLastRun;
+            CanonicalTime = LocalTime + (IntelSystem != null ? IntelSystem.CanonicalTimeDiff : TimeSpan.Zero);
         }
 
     }
@@ -330,7 +403,7 @@ namespace IngameScript
                     ISubsystem system = subsystem.Value;
                     if ((system.UpdateFrequency & updateFrequency) != 0)
                     {
-                        system.Update(Context.CurrentTime, updateFrequency);
+                        system.Update(Context.LocalTime, updateFrequency);
                     }
                     targetFrequency |= system.UpdateFrequency;
                     if (OutputMode == OutputMode.Profile) profiler.StopSectionWatch(subsystem.Key);
@@ -402,7 +475,7 @@ namespace IngameScript
             }
             else if (Subsystems.ContainsKey(subsystem))
             {
-                Subsystems[subsystem].Command(Context.CurrentTime, command, argument);
+                Subsystems[subsystem].Command(Context.LocalTime, command, argument);
             }
         }
         public void CommandV2(CommandLine command)
@@ -426,8 +499,8 @@ namespace IngameScript
                 ISubsystem subsystem;
                 if ( Subsystems.TryGetValue(command.Subsystem, out subsystem) )
                 {
-                    subsystem.Command(Context.CurrentTime, command.Argument(0), command.Argument(1));
-                    subsystem.CommandV2(Context.CurrentTime, command);
+                    subsystem.Command(Context.LocalTime, command.Argument(0), command.Argument(1));
+                    subsystem.CommandV2(Context.LocalTime, command);
                 }
 
             }

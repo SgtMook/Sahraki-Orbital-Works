@@ -230,7 +230,7 @@ namespace IngameScript
                     if (CombatAutopilot)
                     {
                         var hadTarget = PriorityTarget != null;
-                        var intelItems = IntelSubsystem.GetFleetIntelligences(Context.CurrentTime);
+                        var intelItems = IntelSubsystem.GetFleetIntelligences(Context.LocalTime);
 
                         PriorityTarget = null;
                         float HighestEnemyPriority = 0;
@@ -288,7 +288,7 @@ namespace IngameScript
         {
             public LookingGlassNetworkSubsystem Host { get; set; }
 
-            public void Do3(TimeSpan localTime)
+            public void Do3()
             {
                 if (CAPMode == 0)
                 {
@@ -308,16 +308,16 @@ namespace IngameScript
                 }
             }
 
-            public void Do4(TimeSpan localTime)
+            public void Do4()
             {
-                HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, localTime);
+                HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, Host.Context.LocalTime);
             }
 
-            public void Do5(TimeSpan localTime)
+            public void Do5()
             {
                 if (HostProgram.TorpedoSubsystem.TorpedoTubeGroups.ContainsKey("SM"))
                 {
-                    if (FireTorpedoAtCursorTarget("SM", localTime))
+                    if (FireTorpedoAtCursorTarget("SM", Host.Context.LocalTime))
                     {
                         FeedbackOnTarget = true;
                         return;
@@ -325,11 +325,11 @@ namespace IngameScript
                 }
                 FeedbackText = "NOT LOADED";
             }
-            public void Do6(TimeSpan localTime)
+            public void Do6()
             {
                 if (HostProgram.TorpedoSubsystem.TorpedoTubeGroups.ContainsKey("LG"))
                 {
-                    if (FireTorpedoAtCursorTarget("LG", localTime))
+                    if (FireTorpedoAtCursorTarget("LG", Host.Context.LocalTime))
                     {
                         FeedbackOnTarget = true;
                         return;
@@ -338,7 +338,7 @@ namespace IngameScript
                 FeedbackText = "NOT LOADED";
             }
 
-            public void Do7(TimeSpan localTime)
+            public void Do7()
             {
                 if (closestEnemyToCursorID != -1)
                 {
@@ -347,7 +347,7 @@ namespace IngameScript
                 }
             }
 
-            public void Do8(TimeSpan localTime)
+            public void Do8()
             {
             }
 
@@ -355,14 +355,14 @@ namespace IngameScript
             {
             }
 
-            public void UpdateHUD(TimeSpan localTime)
+            public void UpdateHUD()
             {
-                DrawActionsUI(localTime);
-                DrawMiddleHUD(localTime);
-                DrawInfoUI(localTime);
+                DrawActionsUI();
+                DrawMiddleHUD();
+                DrawInfoUI();
             }
 
-            public void UpdateState(TimeSpan localTime)
+            public void UpdateState()
             {
                 if (CAPMode != 0)
                 {
@@ -371,7 +371,7 @@ namespace IngameScript
                         if (closestEnemyToCursorID != -1)
                         {
                             HostProgram.AgentSubsystem.AddTask(TaskType.Attack, MyTuple.Create(IntelItemType.Enemy, closestEnemyToCursorID), CommandType.Override, 0,
-                                localTime + HostProgram.IntelSubsystem.CanonicalTimeDiff);
+                                Host.Context.CanonicalTime);
                         }
                     }
                 }
@@ -407,7 +407,7 @@ namespace IngameScript
                 return HostProgram.TorpedoSubsystem.Fire(localTime, HostProgram.TorpedoSubsystem.TorpedoTubeGroups[group], target, false) != null;
             }
 
-            void DrawActionsUI(TimeSpan timestamp)
+            void DrawActionsUI()
             {
                 if (!HUDPromptOK)
                 {
@@ -420,10 +420,10 @@ namespace IngameScript
                     Builder.AppendLine("2 - CAMERA");
                     Builder.AppendLine("3 - COMBAT AUTOP.");
                     Builder.AppendLine("4 - RAYCAST");
-                    Builder.AppendLine("5 - FIRE MISSILE");
-                    Builder.AppendLine("6 - FIRE TORPEDO");
+                    Builder.AppendLine("5 - FIRE SMALL");
+                    Builder.AppendLine("6 - FIRE LARGE");
                     Builder.AppendLine("7 - CONFIRM KILL");
-                    Builder.AppendLine("8 - JUMP");
+                    Builder.AppendLine();
                     Builder.AppendLine();
                     Builder.AppendLine(" ===== BAR 3 ===== ");
                     Builder.AppendLine();
@@ -440,62 +440,9 @@ namespace IngameScript
                 }
             }
 
-            void DrawMiddleHUD(TimeSpan localTime)
+            void DrawMiddleHUD()
             {
                 if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
-                SpriteScratchpad.Clear();
-
-                Host.GetDefaultSprites(SpriteScratchpad);
-
-                float closestDistSqr = 200 * 200;
-                long newClosestIntelID = -1;
-
-                foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
-                {
-                    if (intel.Type == IntelItemType.Friendly)
-                    {
-                        var fsi = (FriendlyShipIntel)intel;
-
-                        if ((fsi.AgentStatus & AgentStatus.DockedAtHome) != 0) continue;
-
-                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small;
-                        if (fsi.AgentClass == AgentClass.None) options = LookingGlass.IntelSpriteOptions.ShowName;
-
-                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
-                    }
-                    else if (intel.Type == IntelItemType.Enemy)
-                    {
-                        LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.None;
-
-                        if (!EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)intel) || Host.IntelProvider.GetPriority(intel.ID) < 2)
-                        {
-                            options = LookingGlass.IntelSpriteOptions.Small;
-                            Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
-                        }
-                        else
-                        {
-                            if (intel.ID == closestEnemyToCursorID)
-                            {
-                                options |= LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
-                                if (FeedbackOnTarget)
-                                    options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
-                                options |= LookingGlass.IntelSpriteOptions.ShowTruncatedName;
-                            }
-
-                            var distToCenterSqr = Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options).LengthSquared();
-
-                            if (distToCenterSqr < closestDistSqr)
-                            {
-                                closestDistSqr = distToCenterSqr;
-                                newClosestIntelID = intel.ID;
-                            }
-                        }
-                    }
-
-                }
-                closestEnemyToCursorID = newClosestIntelID;
-
-                Builder.Clear();
 
                 if (CAPMode == 1) FeedbackText = "CAP ON - AIM MODE - 3 FULL";
                 else if (CAPMode == 3) FeedbackText = "CAP ON - FULL MODE - 3 OFF";
@@ -503,6 +450,61 @@ namespace IngameScript
 
                 foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)
                 {
+                    SpriteScratchpad.Clear();
+
+                    Host.GetDefaultSprites(SpriteScratchpad);                    
+
+                    float closestDistSqr = 200 * 200;
+                    long newClosestIntelID = -1;
+
+                    var localTime = Host.Context.LocalTime;
+                    foreach (IFleetIntelligence intel in Host.IntelProvider.GetFleetIntelligences(localTime).Values)
+                    {
+                        if (intel.Type == IntelItemType.Friendly)
+                        {
+                            var fsi = (FriendlyShipIntel)intel;
+
+                            if ((fsi.AgentStatus & AgentStatus.DockedAtHome) != 0) continue;
+
+                            LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small;
+                            if (fsi.AgentClass == AgentClass.None) options = LookingGlass.IntelSpriteOptions.ShowName;
+
+                            Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
+                        }
+                        else if (intel.Type == IntelItemType.Enemy)
+                        {
+                            LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.None;
+
+                            if (!EnemyShipIntel.PrioritizeTarget((EnemyShipIntel)intel) || Host.IntelProvider.GetPriority(intel.ID) < 2)
+                            {
+                                options = LookingGlass.IntelSpriteOptions.Small;
+                                Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
+                            }
+                            else
+                            {
+                                if (intel.ID == closestEnemyToCursorID)
+                                {
+                                    options |= LookingGlass.IntelSpriteOptions.ShowDist | LookingGlass.IntelSpriteOptions.EmphasizeWithBrackets | LookingGlass.IntelSpriteOptions.NoCenter | LookingGlass.IntelSpriteOptions.ShowLastDetected;
+                                    if (FeedbackOnTarget)
+                                        options |= LookingGlass.IntelSpriteOptions.EmphasizeWithCross;
+                                    options |= LookingGlass.IntelSpriteOptions.ShowTruncatedName;
+                                }
+
+                                var distToCenterSqr = Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options).LengthSquared();
+
+                                if (distToCenterSqr < closestDistSqr)
+                                {
+                                    closestDistSqr = distToCenterSqr;
+                                    newClosestIntelID = intel.ID;
+                                }
+                            }
+                        }
+
+                    }
+                    closestEnemyToCursorID = newClosestIntelID;
+
+                    Builder.Clear();
+
                     using (var frame = screen.DrawFrame())
                     {
                         foreach (var spr in SpriteScratchpad)
@@ -526,7 +528,7 @@ namespace IngameScript
                 FeedbackOnTarget = false;
             }
 
-            void DrawInfoUI(TimeSpan timestamp)
+            void DrawInfoUI()
             {
                 if (HostProgram.CombatLoaderSubsystem.UpdateNum > LastInventoryUpdate)
                 {

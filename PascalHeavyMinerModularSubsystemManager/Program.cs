@@ -107,16 +107,16 @@ namespace IngameScript
         {
             public LookingGlassNetworkSubsystem Host { get; set; }
 
-            public void Do4(TimeSpan localTime)
+            public void Do4()
             {
                 HostProgram.MiningSubsystem.Recalling = 2;
             }
 
-            public void Do7(TimeSpan localTime)
+            public void Do7()
             {
             }
 
-            public void Do6(TimeSpan localTime)
+            public void Do6()
             {
                 if (closestEnemyToCursorID != -1)
                 {
@@ -124,16 +124,17 @@ namespace IngameScript
                 }
             }
 
-            public void Do5(TimeSpan localTime)
+            public void Do5()
             {
 
-                HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, localTime);
+                HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, Host.Context.LocalTime);
 //                 var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 10000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
 //                 HostProgram.ScannerSubsystem.TryScanTarget(pos, localTime);
             }
 
-            public void Do3(TimeSpan localTime)
+            public void Do3()
             {
+                var localTime = Host.Context.LocalTime;
                 Host.ActiveLookingGlass.DoScan(localTime);
                 if (!Host.ActiveLookingGlass.LastDetectedInfo.IsEmpty() && Host.ActiveLookingGlass.LastDetectedInfo.Type == MyDetectedEntityType.Asteroid)
                 {
@@ -146,7 +147,7 @@ namespace IngameScript
                 }
             }
 
-            public void Do8(TimeSpan localTime)
+            public void Do8()
             {
             }
 
@@ -154,13 +155,13 @@ namespace IngameScript
             {
             }
 
-            public void UpdateHUD(TimeSpan localTime)
+            public void UpdateHUD()
             {
-                DrawActionsUI(localTime);
-                DrawMiddleHUD(localTime);
+                DrawActionsUI();
+                DrawMiddleHUD();
             }
 
-            public void UpdateState(TimeSpan localTime)
+            public void UpdateState()
             {
             }
 
@@ -180,7 +181,7 @@ namespace IngameScript
 
             Program HostProgram;
 
-            void DrawActionsUI(TimeSpan timestamp)
+            void DrawActionsUI()
             {
                 Builder.Clear();
 
@@ -202,7 +203,7 @@ namespace IngameScript
                 }
             }
 
-            void DrawMiddleHUD(TimeSpan localTime)
+            void DrawMiddleHUD()
             {
                 if (Host.ActiveLookingGlass.MiddleHUDs.Count == 0) return;
                 SpriteScratchpad.Clear();

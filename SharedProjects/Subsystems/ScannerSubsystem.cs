@@ -264,7 +264,9 @@ namespace IngameScript
 
             if (validated && (target.Type != MyDetectedEntityType.Unknown || !gotNewIntel))
             {
-                enemyIntel.FromDetectedInfo(target, canonicalTime, true);
+                enemyIntel.DisplayName = target.Name;
+                
+                enemyIntel.FromDetectedInfo(target, canonicalTime);
                 IntelProvider.ReportFleetIntelligence(enemyIntel, localTime);
             }
             else if (enemyIntel.LastValidatedCanonicalTime + TimeSpan.FromSeconds(0.5) < canonicalTime)
@@ -416,7 +418,7 @@ namespace IngameScript
                 //debugBuilder.AppendLine($"{enemy.Radius}");
             }
 
-            enemy.FromDetectedInfo(info, localTime + intelProvider.CanonicalTimeDiff, true);
+            enemy.FromDetectedInfo(info, localTime + intelProvider.CanonicalTimeDiff);
             intelProvider.ReportFleetIntelligence(enemy, localTime);
 
             return TryScanResults.Scanned;
@@ -442,7 +444,7 @@ namespace IngameScript
             var intelDict = IntelProvider.GetFleetIntelligences(localTime);
             var key = MyTuple.Create(IntelItemType.Enemy, designateInfo.EntityId);
             var TargetIntel = intelDict.ContainsKey(key) ? (EnemyShipIntel)intelDict[key] : new EnemyShipIntel();
-            TargetIntel.FromDetectedInfo(designateInfo, localTime + IntelProvider.CanonicalTimeDiff, true);
+            TargetIntel.FromDetectedInfo(designateInfo, localTime + IntelProvider.CanonicalTimeDiff);
             IntelProvider.ReportFleetIntelligence(TargetIntel, localTime);
         }
 

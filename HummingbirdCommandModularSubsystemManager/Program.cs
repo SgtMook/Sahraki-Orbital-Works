@@ -168,7 +168,7 @@ namespace IngameScript
                         LookingGlass.IntelSpriteOptions options = LookingGlass.IntelSpriteOptions.Small;
                         if (fsi.AgentClass == AgentClass.None) options = LookingGlass.IntelSpriteOptions.ShowName;
 
-                        Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
+                        Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kFriendlyBlue, ref SpriteScratchpad, options);
                     }
                     else if (intel.Type == IntelItemType.Enemy)
                     {
@@ -177,7 +177,7 @@ namespace IngameScript
                         if (intel.Radius < 10)
                         {
                             options = LookingGlass.IntelSpriteOptions.Small;
-                            Host.ActiveLookingGlass.FleetIntelItemToSprites(intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
+                            Host.ActiveLookingGlass.FleetIntelItemToSprites(screen, intel, localTime, Host.ActiveLookingGlass.kEnemyRed, ref SpriteScratchpad, options);
                         }
                         else
                         {
