@@ -11,8 +11,10 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)AtmoDrive.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)AttackHelpers.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)WeaponGroup.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)FleetIntelligence.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)GridTerminalHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)HeliUtils.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Hornet.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)MyStringReader.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)PEC.cs" />

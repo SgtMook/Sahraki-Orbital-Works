@@ -65,6 +65,10 @@ Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "LegacyShared", "SharedProje
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoaderUtility", "LoaderUtility\LoaderUtility.csproj", "{177FA318-FE0B-48B0-A018-F79472F9C224}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoverMSM", "RoverMSM\RoverMSM.csproj", "{6DE8EC5C-BA08-40B3-A394-CFA95E6B6927}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MACMSM", "MACMSM\MACMSM.csproj", "{7A2862DA-99D9-4EA9-8AD7-8553DB3B03C6}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		SharedProjects\LegacyShared\LegacyShared.projitems*{1023a8cb-5d16-499e-9d7c-3f547e160d40}*SharedItemsImports = 4
@@ -90,7 +94,13 @@ Global
 		SharedProjects\Tasks\Tasks.projitems*{53945cb3-a2bd-4c60-a076-908d62837d50}*SharedItemsImports = 4
 		SharedProjects\Utility\Utility.projitems*{53945cb3-a2bd-4c60-a076-908d62837d50}*SharedItemsImports = 4
 		SharedProjects\Subsystems\Subsystems.projitems*{61eba249-19f3-48b6-a25b-a4cee90168ba}*SharedItemsImports = 13
+		SharedProjects\Subsystems\Subsystems.projitems*{6de8ec5c-ba08-40b3-a394-cfa95e6b6927}*SharedItemsImports = 4
+		SharedProjects\Tasks\Tasks.projitems*{6de8ec5c-ba08-40b3-a394-cfa95e6b6927}*SharedItemsImports = 4
+		SharedProjects\Utility\Utility.projitems*{6de8ec5c-ba08-40b3-a394-cfa95e6b6927}*SharedItemsImports = 4
 		SharedProjects\SharedProjects.projitems*{70c361cf-0e80-4055-806d-248ef0b022db}*SharedItemsImports = 4
+		SharedProjects\Subsystems\Subsystems.projitems*{7a2862da-99d9-4ea9-8ad7-8553db3b03c6}*SharedItemsImports = 4
+		SharedProjects\Tasks\Tasks.projitems*{7a2862da-99d9-4ea9-8ad7-8553db3b03c6}*SharedItemsImports = 4
+		SharedProjects\Utility\Utility.projitems*{7a2862da-99d9-4ea9-8ad7-8553db3b03c6}*SharedItemsImports = 4
 		SharedProjects\Subsystems\Subsystems.projitems*{831f9648-398d-4cac-8937-dc4d4db51b4e}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{831f9648-398d-4cac-8937-dc4d4db51b4e}*SharedItemsImports = 4
 		SharedProjects\Utility\Utility.projitems*{831f9648-398d-4cac-8937-dc4d4db51b4e}*SharedItemsImports = 4
@@ -114,7 +124,6 @@ Global
 		SharedProjects\LegacyShared\LegacyShared.projitems*{de00c4f2-c050-4b87-84c9-2d77d1e00064}*SharedItemsImports = 13
 		SharedProjects\SharedProjects.projitems*{e18e0ede-4e3d-49cf-b1aa-2b822278f54d}*SharedItemsImports = 4
 		SharedProjects\SharedProjects.projitems*{e61d9e0f-ae0e-41a5-9c83-cc268641ca53}*SharedItemsImports = 4
-		SharedProjects\LegacyShared\LegacyShared.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
 		SharedProjects\Subsystems\Subsystems.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
 		SharedProjects\Utility\Utility.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
@@ -167,6 +176,10 @@ Global
 		{F859A0B3-ADE3-4409-9529-C2AC20CD0E51}.Debug|x64.Build.0 = Debug|x64
 		{177FA318-FE0B-48B0-A018-F79472F9C224}.Debug|x64.ActiveCfg = Debug|x64
 		{177FA318-FE0B-48B0-A018-F79472F9C224}.Debug|x64.Build.0 = Debug|x64
+		{6DE8EC5C-BA08-40B3-A394-CFA95E6B6927}.Debug|x64.ActiveCfg = Debug|x64
+		{6DE8EC5C-BA08-40B3-A394-CFA95E6B6927}.Debug|x64.Build.0 = Debug|x64
+		{7A2862DA-99D9-4EA9-8AD7-8553DB3B03C6}.Debug|x64.ActiveCfg = Debug|x64
+		{7A2862DA-99D9-4EA9-8AD7-8553DB3B03C6}.Debug|x64.Build.0 = Debug|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -195,6 +208,8 @@ Global
 		{F9259D26-1B48-4B6A-8CF3-0ECF31371884} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
 		{F859A0B3-ADE3-4409-9529-C2AC20CD0E51} = {5ED0EB74-ABB9-4505-A189-AD5B92260507}
 		{177FA318-FE0B-48B0-A018-F79472F9C224} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
+		{6DE8EC5C-BA08-40B3-A394-CFA95E6B6927} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
+		{7A2862DA-99D9-4EA9-8AD7-8553DB3B03C6} = {D74ECA4C-D1AF-498A-82C8-C13F8C9877FC}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F3FB794D-D238-4AE1-AFFE-BA7BFCD452C3}

@@ -32,11 +32,14 @@
     <Compile Include="$(MSBuildThisFileDirectory)Tasks\AutoPDCTask.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Tasks\HornetTasks.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\GridTerminalHelper.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\Hover\Hummingbird.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\Hover\HummingbirdControlSubsystem.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\Hover\TriskelionDrive.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\Raven.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\Hornet.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\LicenseHasher.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\AttackHelpers.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Utility\HoverEngineDriver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Utility\Hover\HoverEngineDriver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\PEC.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\AtmoDrive.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Utility\WCAPI.cs" />
