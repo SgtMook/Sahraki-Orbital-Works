@@ -30,6 +30,7 @@ namespace IngameScript
         private Func<long, int, MyDetectedEntityInfo> _getAiFocus;
         private Action<IMyTerminalBlock, long, int> _setWeaponTarget;
         private Func<long, bool> _hasGridAi;
+        private Func<Sandbox.ModAPI.Ingame.IMyTerminalBlock, int, bool, bool, bool> _isWeaponReadyToFire;
 
         public bool Activate(IMyTerminalBlock pbBlock)
         {
@@ -50,6 +51,7 @@ namespace IngameScript
             AssignMethod(delegates, "GetAiFocus", ref _getAiFocus);
             AssignMethod(delegates, "SetWeaponTarget", ref _setWeaponTarget);
             AssignMethod(delegates, "HasGridAi", ref _hasGridAi);
+            AssignMethod(delegates, "IsWeaponReadyToFire", ref _isWeaponReadyToFire);
 
             return true;
         }
@@ -89,5 +91,9 @@ namespace IngameScript
             _setWeaponTarget?.Invoke(weapon, target, weaponId);
 
         public bool HasGridAi(long entity) => _hasGridAi?.Invoke(entity) ?? false;
+
+        public bool IsWeaponReadyToFire(Sandbox.ModAPI.Ingame.IMyTerminalBlock weapon, int weaponId = 0, bool anyWeaponReady = true,
+            bool shootReady = false) =>
+            _isWeaponReadyToFire?.Invoke(weapon, weaponId, anyWeaponReady, shootReady) ?? false;
     }
 }
