@@ -26,8 +26,8 @@ namespace IngameScript
 
         SubsystemManager mySubsystemManager;
 
-        CombatLoaderSubsystem myCombatLoaderSubsystem;
-        MonitorSubsystem myMonitorSubsystem;
+//         CombatLoaderSubsystem myCombatLoaderSubsystem;
+//         MonitorSubsystem myMonitorSubsystem;
 
         MyCommandLine CommandLine = new MyCommandLine();
 

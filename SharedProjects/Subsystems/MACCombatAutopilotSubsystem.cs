@@ -185,7 +185,7 @@ namespace IngameScript
 
         int range;
         int maxRange;
-        int projectileSpeed;
+//        int projectileSpeed;
 
         IAutopilot Drive;
         IIntelProvider IntelProvider;
