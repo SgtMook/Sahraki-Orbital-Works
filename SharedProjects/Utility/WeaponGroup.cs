@@ -38,25 +38,27 @@ namespace IngameScript
         public void OpenFire()
         {
             fireTicks = 20;
-        }
+                }
+            }
 
         public void HoldFire()
         {
             fireTicks = -1;
-        }
+            }
+            group.GuidanceStartSeconds = (float)parser.Get(section, "GuidanceStartSeconds").ToDouble(2.0);
 
         public bool Active { get
             {
                 if (Weapons.Items.Count == 0) return false;
                 var anyWeaponOn = false;
-                
+
                 foreach (var weapon in Weapons.Items)
-                {
+            {
                     if (weapon.Enabled)
                     {
                         anyWeaponOn = true;
                         break;
-                    }
+            }
                 }
 
                 if (!anyWeaponOn) return false;
@@ -80,49 +82,55 @@ namespace IngameScript
             {
                 Weapons.Items.RemoveAtFast(0);
                 if (Weapons.Items.Count == 0) return;
-            }
+        }
 
             if (fireTicks > 0)
-            {
+        {
                 if (salvoTicks <= 0)
-                {
+            {
                     foreach (var weapon in Weapons.Items)
-                    {
-                        if (WCAPI != null)
-                            Weapons.Items.ForEach(gun => { WCAPI.ToggleWeaponFire(gun, true, true); });
-                        else
-                            Weapons.Items.ForEach(gun => { TerminalPropertiesHelper.SetValue(gun, "Shoot", true); });
-                    }
-                }
-                else
                 {
+                    Guns.Items.ForEach(gun => { gun.Enabled = true; TerminalPropertiesHelper.SetValue(gun, "Shoot", true); });
+                    if (WCAPI != null)
+                            Weapons.Items.ForEach(gun => { WCAPI.ToggleWeaponFire(gun, true, true); });
+                else
+                            Weapons.Items.ForEach(gun => { TerminalPropertiesHelper.SetValue(gun, "Shoot", true); });
+                }
+            }
+                else
+            {
                     if (salvoTickCounter < 0)
-                    {
-                        if (WCAPI != null)
-                        {
+                {
+                    gun.Enabled = true;
+                    TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
+                }
+                if (WCAPI != null)
+                {
                             var gun = Weapons.GetAndAdvance();
                             WCAPI.ToggleWeaponFire(gun, true, true);
                         }
                         else
-                        {
+                    {
                             var gun = Weapons.GetAndAdvance();
                             TerminalPropertiesHelper.SetValue(gun, "Shoot", true);
-                        }
+                    }
 
                         salvoTickCounter = salvoTicks;
-                    }
                 }
             }
+        }
             else
             {
                 foreach (var weapon in Weapons.Items)
-                {
-                    if (WCAPI != null)
+        {
+            Guns.Items.ForEach(gun => TerminalPropertiesHelper.SetValue(gun, "Shoot", false));
+            if (WCAPI != null)
                         Weapons.Items.ForEach(gun => { WCAPI.ToggleWeaponFire(gun, false, true); });
                     else
                         Weapons.Items.ForEach(gun => { TerminalPropertiesHelper.SetValue(gun, "Shoot", false); });
                 }
             }
         }
-    }
+        }
+    }*/
 }
