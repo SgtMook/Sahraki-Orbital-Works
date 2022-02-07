@@ -124,6 +124,7 @@ Global
 		SharedProjects\LegacyShared\LegacyShared.projitems*{de00c4f2-c050-4b87-84c9-2d77d1e00064}*SharedItemsImports = 13
 		SharedProjects\SharedProjects.projitems*{e18e0ede-4e3d-49cf-b1aa-2b822278f54d}*SharedItemsImports = 4
 		SharedProjects\SharedProjects.projitems*{e61d9e0f-ae0e-41a5-9c83-cc268641ca53}*SharedItemsImports = 4
+		SharedProjects\LegacyShared\LegacyShared.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
 		SharedProjects\Subsystems\Subsystems.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
 		SharedProjects\Utility\Utility.projitems*{f64ac661-a74c-40fc-85de-6b944acfe43a}*SharedItemsImports = 4
