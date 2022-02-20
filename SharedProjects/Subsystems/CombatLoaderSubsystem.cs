@@ -108,6 +108,7 @@ namespace IngameScript
         
         public string GetStatus()
         {
+            var debugBuilder = Context.SharedStringBuilder;
             debugBuilder.Clear();
 
             debugBuilder.AppendLine(CargoGroupName);
@@ -193,9 +194,6 @@ namespace IngameScript
         public bool LoadingInventory = false;
         public int QueueReload = 0;
         bool UnloadingInventory = false;
-
-        StringBuilder debugBuilder = new StringBuilder();
-        StringBuilder reportBuilder = new StringBuilder();
 
         string CargoGroupName;
         string StoreGroupName;
@@ -438,6 +436,8 @@ namespace IngameScript
                     {
                         foreach (var kvp in TextSurfaces)
                         {
+                            var reportBuilder = Context.SharedStringBuilder;
+
                             reportBuilder.Clear();
                             reportBuilder.AppendLine(kvp.Value.Header != "" ? kvp.Value.Header : "LOADER REPORT");
                             reportBuilder.AppendLine($"LOADOUT: {InventoryRequestSection}");

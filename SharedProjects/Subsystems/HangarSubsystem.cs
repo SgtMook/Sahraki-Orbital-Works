@@ -39,8 +39,6 @@ namespace IngameScript
         List<IMyDoor> gates = new List<IMyDoor>();
         List<IMyInteriorLight> lights = new List<IMyInteriorLight>();
         IMyTextPanel display;
-        StringBuilder statusBuilder = new StringBuilder();
-        StringBuilder debugBuilder = new StringBuilder();
 
         public IMyShipConnector Connector;
         public IMyInteriorLight DirectionIndicator;
@@ -307,6 +305,7 @@ namespace IngameScript
         public void UpdateDisplays()
         {
             if (display == null) return;
+            var statusBuilder = Host.Context.SharedStringBuilder;
             statusBuilder.Clear();
             statusBuilder.AppendLine("Exclusive with:");
             foreach (int i in MutexHangars)
@@ -364,7 +363,8 @@ namespace IngameScript
 
         public string SerializeSubsystem()
         {
-            StringBuilder saveBuilder = new StringBuilder();
+            var saveBuilder = Context.SharedStringBuilder;
+            saveBuilder.Clear();
             for (int i = 0; i < Hangars.Count(); i++)
             {
                 if (Hangars[i] != null)
@@ -419,15 +419,13 @@ namespace IngameScript
         }
         #endregion
 
-        ExecutionContext Context;
+        public ExecutionContext Context;
         string Tag;
         string TagPrefix;
 
         string HangarChannelTag;
         IMyBroadcastListener HangarListener;
 
-        StringBuilder StatusBuilder = new StringBuilder();
-        StringBuilder builder = new StringBuilder();
         IIntelProvider IntelProvider;
 
         IMyShipController controller;
@@ -507,6 +505,7 @@ namespace IngameScript
 
         DockIntel GetHangarIntel(Hangar hangar, TimeSpan timestamp)
         {
+            var builder = Context.SharedStringBuilder;
             builder.Clear();
             hangar.Intel.WorldMatrix = hangar.Connector.WorldMatrix;
             hangar.Intel.CurrentVelocity = controller.GetShipVelocities().LinearVelocity;

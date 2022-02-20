@@ -97,7 +97,6 @@ namespace IngameScript
 
         IMyBeacon Beacon;
 
-        StringBuilder antennaBuilder = new StringBuilder();
         IIntelProvider IntelProvider;
 
         public MonitorSubsystem(IIntelProvider intelProvider)
@@ -206,6 +205,7 @@ namespace IngameScript
         void UpdateAntenna()
         {
             if (Beacon == null) return;
+            var antennaBuilder = Context.SharedStringBuilder;
             antennaBuilder.Clear();
             antennaBuilder.Append("H:").Append((int)(hydrogenPercent * 100)).Append("|P:").Append((int)(powerPercent * 100)).Append("|C:").Append((int)(inventoryPercent * 100));
             Beacon.CustomName = antennaBuilder.ToString();

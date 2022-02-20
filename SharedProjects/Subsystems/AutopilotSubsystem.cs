@@ -44,8 +44,6 @@ namespace IngameScript
 
     public class AutopilotSubsystem : ISubsystem, IAutopilot
     {
-        StringBuilder statusbuilder = new StringBuilder();
-        // StringBuilder debugBuilder = new StringBuilder();
         int run = 0;
         int kRunEveryXUpdates = 5;
         float kInverseTimeStep;
@@ -121,11 +119,11 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            statusbuilder.Clear();
+            Context.SharedStringBuilder.Clear();
 
-            statusbuilder.AppendLine(RP.ToString());
+            Context.SharedStringBuilder.AppendLine(RP.ToString());
 
-            return statusbuilder.ToString();
+            return Context.SharedStringBuilder.ToString();
         }
 
         public UpdateFrequency UpdateFrequency { get; set; }

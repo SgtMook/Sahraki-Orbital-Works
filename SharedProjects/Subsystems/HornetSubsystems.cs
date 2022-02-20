@@ -111,8 +111,6 @@ namespace IngameScript
         RoundRobin<IMyUserControllableGun> Guns = new RoundRobin<IMyUserControllableGun>();
         List<IMyLargeTurretBase> Turrets = new List<IMyLargeTurretBase>();
 
-        StringBuilder updateBuilder = new StringBuilder();
-
         IIntelProvider IntelProvider;
 
         public EnemyShipIntel TargetIntel;

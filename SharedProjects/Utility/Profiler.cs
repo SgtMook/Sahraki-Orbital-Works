@@ -80,7 +80,7 @@ namespace IngameScript
             PeakComplexity = HistoryComplexity.Max();
         }
 
-        public void PrintPerformance(StringBuilder sb)
+        public void PrintPerformance(SRKStringBuilder sb)
         {
             sb.AppendLine($"Avg Runtime = {AverageRuntime:0.0000}ms   ({AverageRuntime * invMaxRuntimePercent:0.00}%)");
             sb.AppendLine($"Peak Runtime = {PeakRuntime:0.0000}ms\n");
@@ -122,7 +122,7 @@ namespace IngameScript
             }
         }
 
-        public void PrintSectionBreakdown(StringBuilder sb)
+        public void PrintSectionBreakdown(SRKStringBuilder sb)
         {
             foreach (KeyValuePair<string, SectionValues> entry in AverageBreakdown)
             {

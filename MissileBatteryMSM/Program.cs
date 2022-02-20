@@ -38,8 +38,10 @@ namespace IngameScript
 
             subsystemManager = new SubsystemManager(Context);
             Runtime.UpdateFrequency = UpdateFrequency.Update1;
-
+            
             IntelSubsystem = new IntelSubsystem();
+            Context.IntelSystem = IntelSubsystem;
+
             TorpedoSubsystem = new HoverTorpedoSubsystem(IntelSubsystem);
             ScannerSubsystem = new ScannerNetworkSubsystem(IntelSubsystem);
             subsystemManager.AddSubsystem("intel", IntelSubsystem);

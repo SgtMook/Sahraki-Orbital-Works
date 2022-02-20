@@ -62,6 +62,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            var debugBuilder = Context.SharedStringBuilder;
             debugBuilder.Clear();
             foreach (var kvp in HoverTorpedoTubeGroups)
                 debugBuilder.AppendLine("Grp [" + kvp.Key + "] #" + kvp.Value.Children.Count);
@@ -493,8 +494,6 @@ namespace IngameScript
         public ExecutionContext Context;
 
         public IIntelProvider IntelProvider;
-
-        StringBuilder debugBuilder = new StringBuilder();
 
         public MyIni IniParser = new MyIni();
 

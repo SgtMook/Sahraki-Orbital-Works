@@ -41,7 +41,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
-            return debugBuilder.ToString();
+            return "";//debugBuilder.ToString();
         }
 
         public string SerializeSubsystem()
@@ -86,8 +86,6 @@ namespace IngameScript
 
         Dictionary<MyDetectedEntityInfo, float> GetThreatsScratchpad = new Dictionary<MyDetectedEntityInfo, float>();
         Dictionary<long, MyTuple<MyDetectedEntityInfo, bool>> DetectedTargets = new Dictionary<long, MyTuple<MyDetectedEntityInfo, bool>>();
-
-        StringBuilder debugBuilder = new StringBuilder();
 
         double RaycastDistanceMax = 10000;
         int ScanExtent;

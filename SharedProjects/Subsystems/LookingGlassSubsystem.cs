@@ -367,7 +367,7 @@ namespace IngameScript
         #endregion
 
         #region utils
-        public void AppendPaddedLine(int TotalLength, string text, StringBuilder builder)
+        public void AppendPaddedLine(int TotalLength, string text, SRKStringBuilder builder)
         {
             int length = text.Length;
             if (length > TotalLength)
@@ -996,7 +996,7 @@ namespace IngameScript
 
             v.Y += kMonospaceConstant.Y * scale + 0.2f;
 
-            var builder = Network.Context.StringBuilder;
+            var builder = Network.Context.SharedStringBuilder;
             builder.Clear();
 
             if ((properties & IntelSpriteOptions.ShowDist) != 0)
@@ -1211,8 +1211,6 @@ namespace IngameScript
         }
         #endregion
 
-        StringBuilder Builder = new StringBuilder();
-
         enum UIMode
         {
             SelectAgent,
@@ -1227,6 +1225,7 @@ namespace IngameScript
         #region SelectAgent
         void DrawAgentSelectionUI()
         {
+            var Builder = Host.Context.SharedStringBuilder;
             Builder.Clear();
 
             int kRowLength = 19;
@@ -1348,6 +1347,7 @@ namespace IngameScript
 
         void DrawTargetSelectionUI()
         {
+            var Builder = Host.Context.SharedStringBuilder;
             Builder.Clear();
 
             foreach (var screen in Host.ActiveLookingGlass.RightHUDs)
@@ -1657,8 +1657,6 @@ namespace IngameScript
         List<EnemyShipIntel> TargetPriority_TargetList = new List<EnemyShipIntel>();
         int TargetPriority_Selection = 0;
 
-        StringBuilder Builder = new StringBuilder();
-
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
         public LookingGlassPlugin_Lidar()
@@ -1668,6 +1666,7 @@ namespace IngameScript
 
         void DrawScanUI()
         {
+            var Builder = Host.Context.SharedStringBuilder;
             Builder.Clear();
             int kRowLength = 19;
         
@@ -1732,6 +1731,7 @@ namespace IngameScript
         
         void DrawTrackingUI()
         {
+            var Builder = Host.Context.SharedStringBuilder;
             Builder.Clear();
 
             Builder.AppendLine("= TARGET PRIORITY =");
@@ -1969,8 +1969,6 @@ namespace IngameScript
         HangarSubsystem HangarSubsystem;
         ScannerNetworkSubsystem ScannerSubsystem;
 
-        StringBuilder Builder = new StringBuilder();
-
         List<MySprite> SpriteScratchpad = new List<MySprite>();
 
         long closestEnemyToCursorID = -1;
@@ -1996,6 +1994,7 @@ namespace IngameScript
 
         void DrawInfoUI()
         {
+            var Builder = Host.Context.SharedStringBuilder;
             Builder.Clear();
 
             Builder.AppendLine("== TORPEDO TUBES ==");
@@ -2094,6 +2093,7 @@ namespace IngameScript
 
         void DrawActionsUI()
         {
+            var Builder = Host.Context.SharedStringBuilder;
             Builder.Clear();
 
             Builder.AppendLine("===== CONTROL =====");
@@ -2177,6 +2177,7 @@ namespace IngameScript
                 }
                 closestEnemyToCursorID = newClosestIntelID;
 
+                var Builder = Host.Context.SharedStringBuilder;
                 Builder.Clear();
 
                 if (TorpedoSubsystem != null)

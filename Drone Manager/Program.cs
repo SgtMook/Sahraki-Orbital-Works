@@ -39,7 +39,7 @@ namespace IngameScript
         string tag = string.Empty;
         
         #region Connect With Shared
-        void MySave(StringBuilder builder)
+        void MySave(SRKStringBuilder builder)
         {
             builder.AppendLine(currentState.ToString());
 
@@ -201,8 +201,9 @@ namespace IngameScript
 
         // Setup and utility
         //        bool isSetup = false; //warning CS0414: The field 'Program.isSetup' is assigned but its value is never used
-        StringBuilder setupBuilder = new StringBuilder();
-        StringBuilder echoBuilder = new StringBuilder();
+        SRKStringBuilder setupBuilder = new SRKStringBuilder();
+        SRKStringBuilder mySerializeBuilder = new SRKStringBuilder();
+        SRKStringBuilder echoBuilder = new SRKStringBuilder();
         MyCommandLine commandLine = new MyCommandLine();
         Dictionary<string, Action> commands = new Dictionary<string, Action>(StringComparer.OrdinalIgnoreCase);
         Dictionary<ScriptState, Action> updates = new Dictionary<ScriptState, Action>();
@@ -227,29 +228,28 @@ namespace IngameScript
         string[] loadArray;
         public void Save()
         {
-            StringBuilder storageBuilder = new StringBuilder();
-
-            storageBuilder.AppendLine(displays.Count.ToString());
+            mySerializeBuilder.Clear();
+            mySerializeBuilder.AppendLine(displays.Count.ToString());
 
             for (int i = 0; i < displays.Count; i++)
-                storageBuilder.AppendLine(displays[i].EntityId.ToString());
+                mySerializeBuilder.AppendLine(displays[i].EntityId.ToString());
 
-            storageBuilder.AppendLine(surfaceProviders.Count.ToString());
+            mySerializeBuilder.AppendLine(surfaceProviders.Count.ToString());
 
             for (int i = 0; i < surfaceProviders.Count; i++)
-                storageBuilder.AppendLine($"{surfaceProviders[i].EntityId.ToString()} {surfaceIndices[i]}");
+                mySerializeBuilder.AppendLine($"{surfaceProviders[i].EntityId.ToString()} {surfaceIndices[i]}");
 
-            MySave(storageBuilder);
+            MySave(mySerializeBuilder);
 
-            Me.GetSurface(1).WriteText(storageBuilder.ToString());
+            Me.GetSurface(1).WriteText(mySerializeBuilder.ToString());
         }
 
         public void Load()
         {
             _currentLine = 0;
-            var loadBuilder = new StringBuilder();
-            Me.GetSurface(1).ReadText(loadBuilder);
-            loadArray = loadBuilder.ToString().Split(
+            mySerializeBuilder.Clear();
+            Me.GetSurface(1).ReadText(mySerializeBuilder.myStringBuilderInternal);
+            loadArray = mySerializeBuilder.ToString().Split(
                 new[] { "\r\n", "\r", "\n" },
                 StringSplitOptions.None
             );
@@ -351,7 +351,7 @@ namespace IngameScript
 
             public string Serialize()
             {
-                StringBuilder builder = new StringBuilder();
+                SRKStringBuilder builder = new SRKStringBuilder();
                 builder.Append($"{name}{{");
                 for (int i = 0; i < subMenues.Count; i++)
                 {

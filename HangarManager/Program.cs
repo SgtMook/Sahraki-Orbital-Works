@@ -41,8 +41,7 @@ namespace IngameScript
             private List<IMyAirtightHangarDoor> gates = new List<IMyAirtightHangarDoor>();
             private List<IMyInteriorLight> lights = new List<IMyInteriorLight>();
             private IMyTextPanel display;
-            StringBuilder statusBuilder = new StringBuilder();
-
+            SRKStringBuilder statusBuilder = new SRKStringBuilder();
             private const float kRotorSpeedMulti = 0.6f;
             private const double kAngleOffset = Math.PI / 2;
 

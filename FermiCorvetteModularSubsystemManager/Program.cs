@@ -226,7 +226,6 @@ namespace IngameScript
                 HostProgram = program;
             }
 
-            StringBuilder Builder = new StringBuilder();
 
             List<MySprite> SpriteScratchpad = new List<MySprite>();
 
@@ -257,6 +256,7 @@ namespace IngameScript
                 {
                     LastInventoryUpdate = HostProgram.CombatLoaderSubsystem.UpdateNum;
 
+                    var Builder = Host.Context.SharedStringBuilder;
                     Builder.Clear();
 
                     if (HostProgram.TorpedoSubsystem != null)
@@ -308,6 +308,7 @@ namespace IngameScript
             {
                 if (!HUDPromptOK)
                 {
+                    var Builder = Host.Context.SharedStringBuilder;
                     HUDPromptOK = true;
                     Builder.Clear();
 
@@ -404,8 +405,6 @@ namespace IngameScript
                     }
                     closestEnemyToCursorID = newClosestIntelID;
 
-                    Builder.Clear();
-
                     using (var frame = screen.DrawFrame())
                     {
                         foreach (var spr in SpriteScratchpad)
@@ -420,9 +419,6 @@ namespace IngameScript
                             frame.Add(prompt);
                         }
 
-                        var HUD = MySprite.CreateText(Builder.ToString(), "Monospace", Color.LightBlue, 0.3f);
-                        HUD.Position = new Vector2(0, -25) + screen.TextureSize / 2f;
-                        frame.Add(HUD);
                     }
                 }
 

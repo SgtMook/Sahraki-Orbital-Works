@@ -79,6 +79,7 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            var DebugBuilder = Context.SharedStringBuilder;
             DebugBuilder.Clear();
             DebugBuilder.AppendLine($"TASKS {TaskQueue.Count}");
 
@@ -185,8 +186,6 @@ namespace IngameScript
         Dictionary<TaskType, ITaskGenerator> TaskGenerators = new Dictionary<TaskType, ITaskGenerator>();
 
         public Queue<ITask> TaskQueue = new Queue<ITask>();
-
-        StringBuilder DebugBuilder = new StringBuilder();
 
         MyTuple<int, MyTuple<int, long>, int, int>? WaitingCommand = null;
         TimeSpan WaitingCommandTimestamp;

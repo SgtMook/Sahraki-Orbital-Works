@@ -412,6 +412,7 @@ namespace IngameScript
                 if (!HUDPromptOK)
                 {
                     HUDPromptOK = true;
+                    var Builder = Host.Context.SharedStringBuilder;
                     Builder.Clear();
 
                     Builder.AppendLine(" ===== BAR 2 ===== ");

@@ -72,6 +72,8 @@ namespace IngameScript
 
         public string GetStatus()
         {
+            var debugBuilder = Context.SharedStringBuilder;
+
             debugBuilder.Clear();
             int enemies = 0, allies = 0, other = 0;
             foreach (var intel in IntelItems)
@@ -109,7 +111,8 @@ namespace IngameScript
         {
             if (IsMaster)
             {
-                StringBuilder saveBuilder = new StringBuilder();
+                var saveBuilder = Context.SharedStringBuilder;
+                saveBuilder.Clear();
 
                 foreach (var kvp in IntelItems)
                 {
@@ -307,9 +310,7 @@ namespace IngameScript
         Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence> IntelItems = new Dictionary<MyTuple<IntelItemType, long>, IFleetIntelligence>();
         Dictionary<MyTuple<IntelItemType, long>, TimeSpan> Timestamps = new Dictionary<MyTuple<IntelItemType, long>, TimeSpan>();
         List<MyTuple<IntelItemType, long>> KeyScratchpad = new List<MyTuple<IntelItemType, long>>();
-
-        StringBuilder debugBuilder = new StringBuilder();
-
+        
         TimeSpan kIntelTimeout = TimeSpan.FromSeconds(2);
 
         long CanonicalTimeSourceID;

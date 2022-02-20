@@ -79,7 +79,7 @@ namespace IngameScript
         List<FriendlyShipIntel> FriendlyShipScratchpad = new List<FriendlyShipIntel>();
         List<DockIntel> DockIntelScratchpad = new List<DockIntel>();
 
-        StringBuilder debugBuilder = new StringBuilder();
+        SRKStringBuilder debugBuilder = new SRKStringBuilder();
 
         bool alarm;
         bool AutoScramble;

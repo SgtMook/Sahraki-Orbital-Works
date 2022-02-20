@@ -47,7 +47,7 @@ namespace IngameScript
         
         public string GetStatus()
         {
-            return debugBuilder.ToString();
+            return "";// debugBuilder.ToString();
         }
         
         public string SerializeSubsystem()
@@ -88,7 +88,6 @@ namespace IngameScript
         int LastCheckIndex = 0;
         int kMaxChecksPerRun = 1;
 
-        StringBuilder debugBuilder = new StringBuilder();
         void GetParts()
         {
             LastCheckIndex = 0;

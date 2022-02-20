@@ -55,7 +55,6 @@ namespace IngameScript
         public double restAzimuth = 0;
         public double restElevation = 0;
 
-        StringBuilder statusBuilder = new StringBuilder();
 
         public void ToggleActive()
         {
@@ -350,7 +349,7 @@ namespace IngameScript
         const string kTurretSection = "Turret";
         ExecutionContext Context;
 
-        StringBuilder statusBuilder = new StringBuilder();
+        SRKStringBuilder statusBuilder = new SRKStringBuilder();
 
         MyIni iniParser = new MyIni();
         List<MyIniKey> iniKeyScratchpad = new List<MyIniKey>();

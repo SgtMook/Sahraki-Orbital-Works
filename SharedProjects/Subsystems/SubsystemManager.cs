@@ -42,14 +42,8 @@ namespace IngameScript
             LogLines[LogIndex] = "> " + msg;
             LogIndex = (LogIndex + 1) % LineCount;
         }
-        public string GetOutput()
-        {
-            StringBuilder builder = new StringBuilder(512);
-            GetOutput(builder);
-            return builder.ToString();
-        }
 
-        public void GetOutput(StringBuilder builder)
+        public void GetOutput(SRKStringBuilder builder)
         {
             for (int i = 0; i < LogLines.Length; ++i)
             {
@@ -141,7 +135,7 @@ namespace IngameScript
         public string Subsystem;
         MyCommandLine myCommandLine = new MyCommandLine();
 
-        public string JoinArguments(StringBuilder builder, int start, int end)
+        public string JoinArguments(SRKStringBuilder builder, int start, int end)
         {
             builder.Clear();
             int termination = Math.Max(ArgumentCount-1, end);
@@ -181,7 +175,7 @@ namespace IngameScript
         public Logger Log = new Logger();
 //        public DrawAPI Draw = null;
         public IMyTerminalBlock Reference;
-        public StringBuilder StringBuilder= new StringBuilder();
+        public SRKStringBuilder SharedStringBuilder = new SRKStringBuilder(256);
         public Random Random = new Random();
         public long Frame = 0;
         public WcPbApi WCAPI = null;
@@ -219,9 +213,9 @@ namespace IngameScript
 
         public Dictionary<string, ISubsystem> Subsystems = new Dictionary<string, ISubsystem>(StringComparer.OrdinalIgnoreCase);
 
-        StringBuilder StatusBuilder = new StringBuilder();
-        StringBuilder DebugBuilder = new StringBuilder();
-        StringBuilder ExceptionBuilder = new StringBuilder();
+        SRKStringBuilder StatusBuilder = new SRKStringBuilder();
+        SRKStringBuilder DebugBuilder = new SRKStringBuilder();
+        SRKStringBuilder ExceptionBuilder = new SRKStringBuilder();
 
         const double PROFILER_NEW_VALUE_FACTOR = 0.01;
         const int PROFILER_HISTORY_COUNT = (int)(1 / PROFILER_NEW_VALUE_FACTOR);
@@ -304,7 +298,7 @@ namespace IngameScript
 
         public string SerializeManager()
         {
-            StringBuilder saveBuilder = new StringBuilder();
+            SRKStringBuilder saveBuilder = new SRKStringBuilder();
 
             // Save my settings here
 
@@ -329,7 +323,7 @@ namespace IngameScript
         {
             try
             {
-                var loadBuilder = new StringBuilder();
+                var loadBuilder = new SRKStringBuilder();
                 var reader = new MyStringReader(serialized);
 
                 loadBuilder.Clear();
@@ -491,7 +485,7 @@ namespace IngameScript
                 }
                 if (command.Argument(0) == "broadcast")
                 {
-                    Context.IGC.SendBroadcastMessage(GeneralChannel, command.JoinArguments(Context.StringBuilder, 1, command.ArgumentCount - 1));
+                    Context.IGC.SendBroadcastMessage(GeneralChannel, command.JoinArguments(Context.SharedStringBuilder, 1, command.ArgumentCount - 1));
                 }
             }
             else if( command.Subsystem != null )

@@ -369,7 +369,7 @@ namespace IngameScript
             TextMeasureBuilder.Clear();
             TextMeasureBuilder.Append(text);
             TextMeasureBuilder.Append(addition);
-            return Panels[Vector2I.Zero].MeasureStringInPixels(TextMeasureBuilder, font, fontSize);
+            return Panels[Vector2I.Zero].MeasureStringInPixels(TextMeasureBuilder.myStringBuilderInternal, font, fontSize);
         }
 
         Vector2 WallPositionToScreenPosition(Vector2I screenIndex, Vector2 wallPositionMeters)
@@ -482,8 +482,8 @@ namespace IngameScript
 
         ExecutionContext Context;
 
-        StringBuilder DebugBuilder = new StringBuilder();
-        StringBuilder TextMeasureBuilder = new StringBuilder();
+        SRKStringBuilder DebugBuilder = new SRKStringBuilder();
+        SRKStringBuilder TextMeasureBuilder = new SRKStringBuilder();
 
         List<MyTuple<IntelItemType, long>> SelectedItems = new List<MyTuple<IntelItemType, long>>();
         List<MyTuple<IntelItemType, long>> SelectionCandidates = new List<MyTuple<IntelItemType, long>>();

@@ -108,7 +108,7 @@ namespace IngameScript
         public IMyShipMergeBlock Merge = null;
         public Landpedo Landpedo;
 
-        StringBuilder statusBuilder = new StringBuilder();
+        SRKStringBuilder statusBuilder = new SRKStringBuilder();
 
         List<IMyTerminalBlock> PartScratchpad = new List<IMyTerminalBlock>();
 
@@ -458,7 +458,7 @@ namespace IngameScript
         const string kLandpedoSection = "Landpedo";
         ExecutionContext Context;
 
-        StringBuilder statusBuilder = new StringBuilder();
+        SRKStringBuilder statusBuilder = new SRKStringBuilder();
 
         MyIni iniParser = new MyIni();
         List<MyIniKey> iniKeyScratchpad = new List<MyIniKey>();

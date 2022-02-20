@@ -24,7 +24,7 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
-        ExecutionContext Context;
+        public ExecutionContext Context;
 
         public AutopilotSubsystem AutopilotSubsystem;
         public IntelSubsystem IntelSubsystem;
@@ -126,7 +126,6 @@ namespace IngameScript
 
             public void Do5()
             {
-
                 HostProgram.ScannerSubsystem.LookingGlassRaycast(Host.ActiveLookingGlass.PrimaryCamera, Host.Context.LocalTime);
 //                 var pos = Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Forward * 10000 + Host.ActiveLookingGlass.PrimaryCamera.WorldMatrix.Translation;
 //                 HostProgram.ScannerSubsystem.TryScanTarget(pos, localTime);
@@ -170,8 +169,6 @@ namespace IngameScript
                 HostProgram = program;
             }
 
-            StringBuilder Builder = new StringBuilder();
-
             List<MySprite> SpriteScratchpad = new List<MySprite>();
 
             long closestEnemyToCursorID = -1;
@@ -183,6 +180,7 @@ namespace IngameScript
 
             void DrawActionsUI()
             {
+                var Builder = Host.Context.SharedStringBuilder;
                 Builder.Clear();
 
                 Builder.AppendLine("===== CONTROL =====");
@@ -210,7 +208,7 @@ namespace IngameScript
 
                 Host.GetDefaultSprites(SpriteScratchpad);
 
-                Builder.Clear();
+//                Builder.Clear();
 
                 foreach (var screen in Host.ActiveLookingGlass.MiddleHUDs)
                 {
@@ -228,9 +226,9 @@ namespace IngameScript
                             frame.Add(prompt);
                         }
 
-                        var HUD = MySprite.CreateText(Builder.ToString(), "Monospace", Color.LightBlue, 0.3f);
-                        HUD.Position = new Vector2(0, -25) + screen.TextureSize / 2f;
-                        frame.Add(HUD);
+//                         var HUD = MySprite.CreateText(Builder.ToString(), "Monospace", Color.LightBlue, 0.3f);
+//                         HUD.Position = new Vector2(0, -25) + screen.TextureSize / 2f;
+//                         frame.Add(HUD);
                     }
                 }
 

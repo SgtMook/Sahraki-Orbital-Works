@@ -43,8 +43,6 @@ namespace IngameScript
             Vector3I otherPosition = merge.Position + Base6Directions.GetIntVector(merge.Orientation.TransformDirection(
                 merge.BlockDefinition.SubtypeName.Length == 24? Base6Directions.Direction.Up : Base6Directions.Direction.Right));
             
-//            Vector3I vec1 = Base6Directions.GetIntVector(Base6Directions.GetOppositeDirection(merge.Orientation.Left));
-//            Vector3I vec2 = merge.Position + vec1;
             IMyShipMergeBlock otherMerge = merge.CubeGrid.GetCubeBlock(otherPosition)?.FatBlock as IMyShipMergeBlock;
             if (otherMerge == merge) { return null; }
             return otherMerge;
