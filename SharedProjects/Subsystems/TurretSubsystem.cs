@@ -398,8 +398,7 @@ namespace IngameScript
                     TurretsDict[rotor].Host = this;
 
                     iniParser.Clear();
-                    MyIniParseResult result;
-                    if (iniParser.TryParse(rotor.CustomData, out result))
+                    if (iniParser.TryParse(rotor.CustomData))
                     {
                         TurretsDict[rotor].range = iniParser.Get(kTurretSettingSection, "Range").ToInt32(1000);
                         MaxEngagementDist = Math.Max(TurretsDict[rotor].range, MaxEngagementDist);

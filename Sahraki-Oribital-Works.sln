@@ -69,7 +69,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RoverMSM", "RoverMSM\RoverM
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MACMSM", "MACMSM\MACMSM.csproj", "{7A2862DA-99D9-4EA9-8AD7-8553DB3B03C6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandTurretMSM", "CarrierTurret\CommandTurretMSM.csproj", "{6F893FAC-AE9F-48D4-B780-3313A595D87E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandTurretMSM", "CommandTurretMSM\CommandTurretMSM.csproj", "{6F893FAC-AE9F-48D4-B780-3313A595D87E}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -99,6 +99,9 @@ Global
 		SharedProjects\Subsystems\Subsystems.projitems*{6de8ec5c-ba08-40b3-a394-cfa95e6b6927}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{6de8ec5c-ba08-40b3-a394-cfa95e6b6927}*SharedItemsImports = 4
 		SharedProjects\Utility\Utility.projitems*{6de8ec5c-ba08-40b3-a394-cfa95e6b6927}*SharedItemsImports = 4
+		SharedProjects\Subsystems\Subsystems.projitems*{6f893fac-ae9f-48d4-b780-3313a595d87e}*SharedItemsImports = 4
+		SharedProjects\Tasks\Tasks.projitems*{6f893fac-ae9f-48d4-b780-3313a595d87e}*SharedItemsImports = 4
+		SharedProjects\Utility\Utility.projitems*{6f893fac-ae9f-48d4-b780-3313a595d87e}*SharedItemsImports = 4
 		SharedProjects\SharedProjects.projitems*{70c361cf-0e80-4055-806d-248ef0b022db}*SharedItemsImports = 4
 		SharedProjects\Subsystems\Subsystems.projitems*{7a2862da-99d9-4ea9-8ad7-8553db3b03c6}*SharedItemsImports = 4
 		SharedProjects\Tasks\Tasks.projitems*{7a2862da-99d9-4ea9-8ad7-8553db3b03c6}*SharedItemsImports = 4
