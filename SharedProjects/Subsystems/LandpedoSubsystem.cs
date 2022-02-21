@@ -496,8 +496,7 @@ namespace IngameScript
         void ParseConfigs()
         {
             iniParser.Clear();
-            MyIniParseResult result;
-            if (!iniParser.TryParse(Context.Reference.CustomData, out result))
+            if (!iniParser.TryParse(Context.Reference.CustomData))
                 return;
 
             // MinEngagementSize = iniParser.Get(kTurretSection, "MinEngagementSize").ToInt32(1);

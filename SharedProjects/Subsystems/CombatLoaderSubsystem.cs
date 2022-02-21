@@ -303,8 +303,7 @@ namespace IngameScript
         OutputSurfaceConfig ReadConfigData(string data, string configTag)
         {
             MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(data, out result))
+            if (!Parser.TryParse(data))
                 return new OutputSurfaceConfig();
 
             var ShowLoading = Parser.Get(configTag, "ShowLoading").ToBoolean(true);
@@ -327,8 +326,7 @@ namespace IngameScript
         {
             var Parser = Context.IniParser;
 
-            MyIniParseResult result;
-            if (!Parser.TryParse(Context.Reference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData))
                 return;
 
             CargoGroupName = Parser.Get(kLoaderSection, "CargoGroupName").ToString(CargoGroupName);

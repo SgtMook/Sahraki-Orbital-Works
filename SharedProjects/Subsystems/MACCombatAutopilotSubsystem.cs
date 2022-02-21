@@ -206,8 +206,7 @@ namespace IngameScript
         void ParseConfigs()
         {
             iniParser.Clear();
-            MyIniParseResult result;
-            if (!iniParser.TryParse(Context.Reference.CustomData, out result))
+            if (!iniParser.TryParse(Context.Reference.CustomData))
                 return;
 
             range = iniParser.Get("MACCAP", "range").ToInt32(2550);

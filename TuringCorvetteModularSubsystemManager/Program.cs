@@ -123,8 +123,7 @@ namespace IngameScript
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(Me.CustomData, out result))
+            if (!Parser.TryParse(Me.CustomData))
                 return;
 
             ToolbarOutput = Parser.Get("SetUp", "ToolbarOutput").ToBoolean(false);

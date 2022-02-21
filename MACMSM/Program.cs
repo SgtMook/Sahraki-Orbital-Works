@@ -31,8 +31,7 @@ namespace IngameScript
             context = new ExecutionContext(this);
 
             iniParser.Clear();
-            MyIniParseResult result;
-            iniParser.TryParse(context.Reference.CustomData, out result);
+            iniParser.TryParse(context.Reference.CustomData);
 
 
             subsystemManager = new SubsystemManager(context);

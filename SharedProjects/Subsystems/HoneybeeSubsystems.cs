@@ -116,8 +116,7 @@ namespace IngameScript
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(Context.Reference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData))
                 return;
 
             var dist = Parser.Get("Honeybee", "CloseDist").ToInt16();

@@ -327,8 +327,7 @@ namespace IngameScript
             string AutopilotTag = "Autopilot";
 
             MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(ProgramReference.CustomData, out result))
+            if (!Parser.TryParse(ProgramReference.CustomData))
                 return;
 
             var flo = Parser.Get(AutopilotTag, "TP").ToDecimal();

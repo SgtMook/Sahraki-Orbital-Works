@@ -186,8 +186,7 @@ namespace IngameScript
         {
             var hornetSection = "Hornet";
             MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(Context.Reference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData))
                 return;
 
             FireDist = Parser.Get(hornetSection, "FireDist").ToInt32(FireDist);

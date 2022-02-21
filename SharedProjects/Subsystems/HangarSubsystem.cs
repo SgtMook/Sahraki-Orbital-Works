@@ -102,8 +102,7 @@ namespace IngameScript
         {
             MutexHangars.Clear();
 
-            MyIniParseResult result;
-            if (!Host.IniParser.TryParse(Connector.CustomData, out result))
+            if (!Host.IniParser.TryParse(Connector.CustomData))
                 return;
 
             string mutexes = Host.IniParser.Get("Hangar", "Mutex").ToString();

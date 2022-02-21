@@ -71,8 +71,7 @@ namespace IngameScript
         {
             ErrorMsg = "";
             MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(Program.Me.CustomData, out result))
+            if (!Parser.TryParse(Program.Me.CustomData))
                 return;
 
             var LicenseString = Parser.Get(LicenseHasher.GetLicenseField(), LicenseHasher.GetLicenseString()).ToString();

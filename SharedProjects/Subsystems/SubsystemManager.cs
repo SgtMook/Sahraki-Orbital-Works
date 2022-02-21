@@ -253,8 +253,7 @@ namespace IngameScript
         void ParseConfigs()
         {
             MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(Context.Reference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData))
                 return;
 
             OutputMode mode;
@@ -287,8 +286,7 @@ namespace IngameScript
             if (Subsystems.ContainsKey("docking")) Subsystems["docking"].Command(TimeSpan.Zero, "dock", null);
 
             MyIni Parser = new MyIni();
-            MyIniParseResult result;
-            if (!Parser.TryParse(Context.Reference.CustomData, out result))
+            if (!Parser.TryParse(Context.Reference.CustomData))
                 return;
 
             Parser.Delete("Manager", "StartActive");
